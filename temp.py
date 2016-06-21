@@ -14,7 +14,7 @@ def convert_day_to_angle(day):
     return np.cos(ang*np.pi/7)
 ##############################################################
 def numeric_days(vd):
-    nd = np.zeros(shape=[1,len(vd)])
+    nd = np.zeros(len(vd))
     for i in range(len(vd)):
         nd[i] = convert_day_to_angle(vd[i])
     return nd
@@ -72,13 +72,14 @@ def add_days(first_day, year):
 ##############################################################
 def dates(vd):
     dt = []
+    vd = vd.reset_index(drop=True)
     for i in range(len(vd)):
-        d = vd[i]
+        d = str(int(vd[i]))
         dt.append(d[6]+d[7]+"/"+d[4]+d[5]+"/"+d[0]+d[1]+d[2]+d[3])
     return dt
 ######################################################################
 def add_holidays(vd):
-    holiday = np.zeros(shape=[1,len(vd)])
+    holiday = np.zeros(len(vd))
     pasqua = ["04/04/2010", "24/04/2011", "08/04/2012", "31/03/2013", "20/04/2014", "05/04/2015", "27/03/2016"]
     pasquetta = ["05/04/2010", "25/04/2011", "09/04/2012", "01/04/2013", "21/04/2014", "06/04/2015", "28/03/2016"]
     for i in range(len(vd)):
@@ -115,6 +116,7 @@ def add_holidays(vd):
 ##########################################################################
 def associate_days(ora, day):
     vday = np.repeat(np.array(day), 24, axis=0)     
+    ora = ora.reset_index(drop=True)
     l = len(ora)-1
     for i in range(l):
         if ora[i] == 24 and ora[i+1] == 1:        
@@ -126,12 +128,14 @@ def associate_days(ora, day):
 def create_dataset(pun, first_day):
     # pun is a pd.DataFrame
     DF = pd.DataFrame()
+    Y = []
     names1 = ["pun-", "aust-", "cors-","fran-", "grec-", "slov-", "sviz-", "angleday-","holiday-","day-"]
     nam = []
     for n in names1:
         for i in range(24, 0, -1):
             nam.append(n+str(i))
-    for i in range(pun.shape[1] - 23):
+    for i in range(pun.shape[0] - 24):
+      #  print(i)
         p = pun["PUN"].ix[i:(i+23)]
         aus = pun["AUST"].ix[i:(i+23)]
         cors = pun["CORS"].ix[i:(i+23)]
@@ -139,23 +143,24 @@ def create_dataset(pun, first_day):
         grec = pun["GREC"].ix[i:(i+23)]
         slov = pun["SLOV"].ix[i:(i+23)]
         sviz = pun["SVIZ"].ix[i:(i+23)]
-        ora = pun["Ora\nHour"].ix[i:(i+23)]
-        dat = pun["Data/Date\n(YYYYMMDD)"].ix[i:(i+23)]
+        ora = pun["Ora"].ix[i:(i+23)]
+        dat = pun["   Data/Date"].ix[i:(i+23)]
         y = pun["PUN"].ix[i+24]
         day = 0
-        if DF.shape[1] > 0:
-            day = DF["day-1"].ix[DF.shape[1]]
+        if DF.shape[0] > 0:
+            day = DF["day-1"].ix[DF.shape[0]-1]
         else:
             day = first_day
         ds = dates(dat)
         hol = add_holidays(ds)
         vdays = associate_days(ora, day)
         aday = [convert_day_to_angle(v) for v in vdays]
-        df = pd.DataFrame([np.array(p).T, np.array(aus).T, np.array(cors).T,
+        df = pd.DataFrame(np.concatenate([np.array(p).T, np.array(aus).T, np.array(cors).T,
         np.array(fran).T, np.array(grec).T, np.array(slov).T, np.array(sviz).T,
-        np.array(aday).T, np.array(hol).T, np.array(vdays).T, y], columns = nam)
-        DF = DF.append(df, ignore_index=True, columns = nam)
-    return DF
+        np.array(aday).T, np.array(hol).T, np.array(vdays).T]).ravel().reshape((1,240)), columns = nam)
+        Y.append(y)
+        DF = DF.append(df, ignore_index=True)
+    return DF, Y
         
         
         
