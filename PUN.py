@@ -18,5 +18,8 @@ D,Y = temp.create_dataset(data, "ven")
 
 h2o.init()
 
-df = h2o.H2OFrame.from_python(D)
+Ddict = D.to_dict()
+ 
+df = h2o.H2OFrame.from_python(Ddict)
 y = h2o.H2OFrame.from_python(np.array(Y))
+
