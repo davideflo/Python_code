@@ -5,6 +5,10 @@ Created on Mon Jun 20 09:46:50 2016
 @author: d_floriello
 """
 
+## activate snakes
+## to deactivate: deactivate
+
+
 import temp
 import pandas as pd
 import numpy as np
