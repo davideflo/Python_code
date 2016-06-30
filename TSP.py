@@ -8,6 +8,7 @@ Created on Wed Jun 29 09:57:54 2016
 ## Time Series Analysis of PUN in Python
 
 import statsmodels
+import statsmodels.api as sm
 from statsmodels.tsa import stattools
 from statsmodels.graphics import tsaplots
 import pandas as pd
@@ -19,6 +20,15 @@ import statsmodels.tsa.arima_model
 data = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2010.xlsx")
 
 import temp
+
+pun = data["PUN"]
+dates = temp.dates(data[data.columns[0]])
+prova = pd.to_datetime(dates)
+df = pd.DataFrame(pun)
+df = df.set_index(prova)
+
+dec = sm.tsa.seasonal_decompose(df, freq=24)
+dec.plot()
 
 D,Y = temp.create_dataset(data, "ven")
 Y = np.array(Y)
