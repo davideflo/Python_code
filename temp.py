@@ -161,7 +161,18 @@ def create_dataset(pun, first_day):
         Y.append(y)
         DF = DF.append(df, ignore_index=True)
     return DF, Y
-        
+#####################################################################
+def generate_days(ora, first_day):
+    days = [] 
+    for i in range(24):
+        days.append(first_day)
+    for i in range(24, ora.size):
+        if ora[i] != 1:
+            days.append(days[i-1])
+        else:
+            days.append(subsequent_day(days[i-1]))
+    return np.array(days)
+####################################################################
         
         
 

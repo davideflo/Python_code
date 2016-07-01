@@ -51,3 +51,7 @@ def Signum_Process(v):
     for i in range(len(v)-1):
         sp.append(np.sign(v[i+1] - v[i]))
     return np.array(sp)
+#####################################################
+def RMSE(v):
+    return np.sqrt(np.mean(v**2))
+    
