@@ -236,3 +236,8 @@ for d in params_d:
 pun2 = pd.Series(pun_des)
 pun2.rolling(center = True, window= 24).mean()
 
+####################################################################
+############### new test ###########################################
+
+fit = statsmodels.tsa.arima_model.ARIMA(endog=pun, order=[24,2,24],exog = tot_data.as_matrix()).fit(trend = 'c', maxiter = 100)
+fit_des = statsmodels.tsa.arima_model.ARIMA(endog=pun_des, order=[24,2,24],exog = tot_data.as_matrix()).fit(trend = 'c', maxiter = 100)
