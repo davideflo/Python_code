@@ -54,4 +54,14 @@ def Signum_Process(v):
 #####################################################
 def RMSE(v):
     return np.sqrt(np.mean(v**2))
+#####################################################
+def Error_Signum_process(v1, v2):
+    p = v1*v2
+    return p[p <= 0].size/p.size    
+
+
+
+
+
+
     

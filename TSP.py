@@ -3,6 +3,9 @@
 Created on Wed Jun 29 09:57:54 2016
 
 @author: d_floriello
+
+time series website ---> weather:
+http://archivio-meteo.distile.it/tabelle-dati-archivio-meteo/
 """
 
 ## Time Series Analysis of PUN in Python
@@ -205,7 +208,7 @@ for d in params_d:
     print("model with d = ", d)
     fit = statsmodels.tsa.arima_model.ARIMA(endog=pun, order=[4,d,2],exog = tot_data.as_matrix()).fit(trend = 'c', method = 'mle', maxiter = 100)
     pred = tot_model.forecast(steps = 2903, exog = argf.as_matrix())
-    dd = pred[1] - dataf[dataf.columns[2]]
+    dd = pred[0] - dataf[dataf.columns[2]]
     print("computed RMSE:", RMSE(dd))
     spp = Functions_for_TSP.Signum_Process(pred[1])
     asp = Functions_for_TSP.Signum_Process(dataf[dataf.columns[2]])
@@ -240,4 +243,16 @@ pun2.rolling(center = True, window= 24).mean()
 ############### new test ###########################################
 
 fit = statsmodels.tsa.arima_model.ARIMA(endog=pun, order=[24,2,24],exog = tot_data.as_matrix()).fit(trend = 'c', maxiter = 100)
-fit_des = statsmodels.tsa.arima_model.ARIMA(endog=pun_des, order=[24,2,24],exog = tot_data.as_matrix()).fit(trend = 'c', maxiter = 100)
+fit_des = statsmodels.tsa.arima_model.ARIMA(endog=pun_des, order=[24,2,24],exog = tot_data.as_matrix()).fit(trend = 'c', method='css', maxiter = 1000)
+
+fit.rmse = Functions_for_TSP.RMSE(fit.resid)
+fit_des.rmse = Functions_for_TSP.RMSE(fit_des.resid)
+
+pred_fit = fit.forecast(steps = 2903, exog = argf.as_matrix())
+pred_fit_des = fit_des.forecast(steps = 2903, exog = argf.as_matrix())
+
+
+asp = Functions_for_TSP.Signum_Process(dataf[dataf.columns[2]])
+fsp = Functions_for_TSP.Signum_Process(pred_fit[0])
+fdsp = Functions_for_TSP.Signum_Process(pred_fit_des[0])
+
