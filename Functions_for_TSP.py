@@ -9,6 +9,9 @@ Created on Wed Jun 29 10:42:09 2016
 
 import numpy as np
 from numpy import fft
+import pandas as pd
+
+import temp
 
 
 def find_peaks(v,al):
@@ -58,9 +61,47 @@ def RMSE(v):
 def Error_Signum_process(v1, v2):
     p = v1*v2
     return p[p <= 0].size/p.size    
+#####################################################
+def replicate_meteo_variables(meteo, vd):
+    rtmin = []
+    rtmax = []
+    rtmed = []
+    rrain = []
+    rvm = []
+    date_meteo = np.array(meteo[meteo.columns[0]]).tolist() 
+    for i in range(0, np.array(vd).size,24):
+        ir = date_meteo.index(vd[i])
+        rtmin.append(np.repeat(meteo["Tmin"].ix[ir], 24, axis = 0))
+        rtmax.append(np.repeat(meteo["Tmax"].ix[ir], 24, axis = 0))
+        rtmed.append(np.repeat(meteo["Tmedia"].ix[ir], 24, axis = 0))
+        rrain.append(np.repeat(meteo["Pioggia"].ix[ir], 24, axis = 0))
+        rvm.append(np.repeat(meteo["Vento_media"].ix[ir], 24, axis = 0))
+    meteodict = {"Tmin": np.array(rtmin).flatten(), "Tmax": np.array(rtmax).flatten(),
+                 "Tmedia": np.array(rtmed).flatten(), "Pioggia": np.array(rrain).flatten(),
+                 "Wind": np.array(rvm).flatten()}
+    
+    return meteodict       
+#####################################################
+def generate_dataset_ARIMA(pun, first_day, meteo, varn):
+    vector_date = np.array(pun[pun.columns[0]])
+    vector_ore = np.array(pun[pun.columns[1]])
+    target = np.array(pun[varn])
+    global_dates = temp.dates(pd.Series(vector_date))
+    vac_glob = temp.add_holidays(global_dates) 
 
+    all_days = temp.generate_days(vector_ore, first_day)
 
+    MD = replicate_meteo_variables(meteo, global_dates)
 
+    aad = np.array([temp.convert_day_to_angle(v) for v in all_days]) 
+    aore = np.sin(vector_ore*np.pi/24) 
+    
+    all_dict = {'holiday' : vac_glob, 'day' : aad, 'ora' : aore}
+    all_dict.update(MD)
+    
+    FDF = pd.DataFrame(all_dict)
+    
+    return FDF, target
 
 
 

@@ -13,6 +13,9 @@ def convert_day_to_angle(day):
     ang = days.index(day)
     return np.cos(ang*np.pi/7)
 ##############################################################
+def convert_hour_to_angle(vo):
+    return np.sin(vo*np.pi/24)
+#############################################################
 def numeric_days(vd):
     nd = np.zeros(len(vd))
     for i in range(len(vd)):
@@ -125,6 +128,14 @@ def associate_days(ora, day):
                 vday[j] = subsequent_day(day)
     return vday
 ########################################################################
+def associate_meteo_ora(data, meteo, meteovar):
+    vm = []
+    dm = meteo[meteo.columns[0]].tolist()
+    for i in range(data.size):
+        ir = dm.index(data[i])
+        vm.append(meteo[meteovar].ix[ir])
+    return np.array(vm)
+########################################################################
 def create_dataset(pun, first_day):
     # pun is a pd.DataFrame
     DF = pd.DataFrame()
@@ -173,6 +184,52 @@ def generate_days(ora, first_day):
             days.append(subsequent_day(days[i-1]))
     return np.array(days)
 ####################################################################
+def create_dataset23(pun, first_day, varn, meteo):
+    # pun is a pd.DataFrame
+    DF = pd.DataFrame()
+    Y = []
+    names1 = ["pun-", "aust-", "cors-","fran-", "grec-", "slov-", "sviz-", "angleday-","holiday-",
+              "angleora-", "tmin-","tmax-","tmed-","rain-","vento-","day-"]
+    nam = []
+    for n in names1:
+        for i in range(23, 0, -1):
+            nam.append(n+str(i))
+    for i in range(pun.shape[0] - 22):
+      #  print(i)
+        p = pun[varn].ix[i:(i+22)]
+        aus = pun["AUST"].ix[i:(i+22)]
+        cors = pun["CORS"].ix[i:(i+22)]
+        fran = pun["FRAN"].ix[i:(i+22)]
+        grec = pun["GREC"].ix[i:(i+22)]
+        slov = pun["SLOV"].ix[i:(i+22)]
+        sviz = pun["SVIZ"].ix[i:(i+22)]
+        ora = pun[pun.column[1]].ix[i:(i+22)]
+        dat = pun[pun.column[0]].ix[i:(i+22)]
+        y = pun[varn].ix[i+23]
+        day = 0
+        if DF.shape[0] > 0:
+            day = DF["day-1"].ix[DF.shape[0]-1]
+        else:
+            day = first_day
+        ds = dates(dat)
+        hol = add_holidays(ds)
+        vdays = associate_days(ora, day)
+        aday = [convert_day_to_angle(v) for v in vdays]
+        ahour = convert_hour_to_angle(ora)
+        tmin = associate_meteo_ora(np.array(ds),meteo,"Tmin")
+        tmax = associate_meteo_ora(np.array(ds),meteo,"Tmax")
+        tmed = associate_meteo_ora(np.array(ds),meteo,"Tmedia")
+        rain = associate_meteo_ora(np.array(ds),meteo,"Pioggia")
+        vm = associate_meteo_ora(np.array(ds),meteo,"Vento_media") 
+        df = pd.DataFrame(np.concatenate([np.array(p).T, np.array(aus).T, np.array(cors).T,
+        np.array(fran).T, np.array(grec).T, np.array(slov).T, np.array(sviz).T,
+        np.array(aday).T, np.array(hol).T, np.array(ahour).T, np.array(tmin).T, np.array(tmax).T,
+        np.array(tmed).T, np.array(rain).T, np.array(vm).T,
+        np.array(vdays).T]).ravel().reshape((1,240)), columns = nam)
+        Y.append(y)
+        DF = DF.append(df, ignore_index=True)
+    return DF, Y
+#####################################################################
         
         
 

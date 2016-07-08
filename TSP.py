@@ -25,6 +25,7 @@ data = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2010.xlsx")
 import temp
 
 pun = data["PUN"]
+pun = data["CSUD"]
 dates = temp.dates(data[data.columns[0]])
 prova = pd.to_datetime(dates)
 df = pd.DataFrame(pun)
@@ -32,6 +33,9 @@ df = df.set_index(prova)
 
 dec = sm.tsa.seasonal_decompose(df, freq=24)
 dec.plot()
+
+min_season = np.array(dec.seasonal.ix[0:24])
+plt.plot(min_season)
 
 D,Y = temp.create_dataset(data, "ven")
 Y = np.array(Y)
@@ -255,4 +259,7 @@ pred_fit_des = fit_des.forecast(steps = 2903, exog = argf.as_matrix())
 asp = Functions_for_TSP.Signum_Process(dataf[dataf.columns[2]])
 fsp = Functions_for_TSP.Signum_Process(pred_fit[0])
 fdsp = Functions_for_TSP.Signum_Process(pred_fit_des[0])
+
+###################################################################
+########### ARIMA con meteo #######################################
 
