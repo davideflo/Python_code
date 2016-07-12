@@ -102,7 +102,93 @@ def generate_dataset_ARIMA(pun, first_day, meteo, varn):
     FDF = pd.DataFrame(all_dict)
     
     return FDF, target
-
-
+####################################################
+def finding_missing_dates(date, meteo):
+    md = []
+    date = np.unique(np.array(date))
+    npm = np.array(meteo[meteo.columns[0]])
+    for d in date:
+        if d not in npm:
+#            print(d)
+#            print(d not in npm)
+            md.append(d)
+    return md
+###################################################
+def update_meteo(meteo1, meteo2):
+    # meteo2 is supposed to be the most complete one
+    date1 = np.unique(np.array(meteo1[meteo1.columns[0]]))
+    date2 = np.unique(np.array(meteo2[meteo2.columns[0]]))
+    date2list = date2.tolist()
+    md = []
+    index = []
+    for d in date2:
+        if d not in date1:
+            md.append(d)
+            index.append(date2list.index(d))
+    upmeteo = pd.DataFrame(meteo2.ix[index])
+    met = {'Data': meteo1[meteo1.columns[0]],
+           'Tmin': meteo1[meteo1.columns[1]],
+           'Tmedia': meteo1[meteo1.columns[2]],
+           'Tmax': meteo1[meteo1.columns[3]],
+           'Pioggia': meteo1[meteo1.columns[4]],
+           'Vento_media': meteo1[meteo1.columns[8]]}
+    nmet = {'Data': upmeteo[upmeteo.columns[0]],
+           'Tmin': upmeteo[upmeteo.columns[1]],
+           'Tmedia': upmeteo[upmeteo.columns[2]],
+           'Tmax': upmeteo[upmeteo.columns[3]],
+           'Pioggia': upmeteo[upmeteo.columns[4]],
+           'Vento_media': upmeteo[upmeteo.columns[8]]}       
+           
+    meteodf = pd.DataFrame(met)
+    nmetdf = pd.DataFrame(nmet)    
+       
+    updatedmeteo = pd.concat([meteodf, nmetdf]).reset_index(drop=True)
+    return updatedmeteo
+##########################################################
+def simulate_meteo(meteo1, roma):
+    index = []
+    index2 = []
+    vd = np.array(meteo1[meteo1.columns[0]]).tolist()
+    vd2 = np.array(roma[roma.columns[0]]).tolist()
+    for d in roma[roma.columns[0]]:
+        if d in vd:
+            index.append(vd.index(d))
+            index2.append(vd2.index(d))
+        else:
+            pass
+    found = meteo1[meteo1.columns[[1,2,3,4,8]]].ix[index].reset_index(drop=True)
+    roma2 = roma[roma.columns[[1,2,3,4,8]]].ix[index2].reset_index(drop=True)
+    diffdf = found - roma2
+    return diffdf
+##########################################################
+def generate_simulated_meteo_dataset(meteo, roma):
+    diff = simulate_meteo(meteo, roma)
+    date = np.array(roma[roma.columns[0]]).tolist()
+    vd = np.array(meteo[meteo.columns[0]]).tolist()
+    tmin = []
+    tmed = []
+    tmax = []
+    rain = []
+    vm = []
+    for d in date:
+        if d in vd:
+            tmin.append(meteo['Tmin'].ix[vd.index(d)])
+            tmed.append(meteo['Tmedia'].ix[vd.index(d)])
+            tmax.append(meteo['Tmax'].ix[vd.index(d)])
+            rain.append(meteo['Pioggia'].ix[vd.index(d)])
+            vm.append(meteo['Vento_media'].ix[vd.index(d)])
+        else:
+            tmin.append(roma['Tmin'].ix[date.index(d)] + np.mean(diff['Tmin']))
+            tmed.append(roma['Tmedia'].ix[date.index(d)] + np.mean(diff['Tmedia']))
+            tmax.append(roma['Tmax'].ix[date.index(d)] + np.mean(diff['Tmax']))
+            rain.append(roma['Pioggia'].ix[date.index(d)] + np.mean(diff['Pioggia']))
+            vm.append(roma['Vento_media'].ix[date.index(d)] + np.mean(diff['Vento_media']))
+    pdf = {'Data': date, 'Tmin': np.array(tmin), 'Tmedia': np.array(tmed), 'Tmax': np.array(tmax),
+           'Pioggia': np.array(rain), 'Vento_media': np.array(vm)}
+    return pd.DataFrame(pdf).ix[:, ['Data', 'Tmin', 'Tmedia', 'Tmax', 'Pioggia', 'Vento_media']]
+    
+    
+    
+    
 
     
