@@ -230,7 +230,28 @@ def create_dataset23(pun, first_day, varn, meteo):
         DF = DF.append(df, ignore_index=True)
     return DF, Y
 #####################################################################
-        
+def sequence_days(vd, first_day):
+    res = [first_day]
+    for i in range(1,len(vd),1):
+        res.append(subsequent_day(res[i-1]))
+    return res
+#####################################################################
+def create_dataset_arima(pun,first_day,varn,meteo):
+    Y = []
+    dats = pd.to_datetime(np.unique(np.array(dates(pun[pun.columns[0]]))),dayfirst=True).sort_values()
+    dats2 = dates(pd.Series(list(set(pun[pun.columns[0]]))))
+    for dts in np.unique(np.array(pun[pun.columns[0]])):
+        Y.append(max(pun[varn].ix[pun[pun.columns[0]] == dts]))
+    hol = add_holidays(dats2)
+    vdays = sequence_days(dats2,first_day)
+    aday = [convert_day_to_angle(v) for v in vdays]
+    pdf = {'Data': dats, 'days': aday, 'holiday': hol, 
+           'Tmin':meteo['Tmin'].ix[[i for i,d in enumerate(meteo[meteo.columns[0]]) if d in dats]],
+           'Tmedia': meteo['Tmedia'].ix[[i for i,d in enumerate(meteo[meteo.columns[0]]) if d in dats]], 
+           'Tmax': meteo['Tmax'].ix[[i for i,d in enumerate(meteo[meteo.columns[0]]) if d in dats]], 
+           'Rain': meteo['Pioggia'].ix[[i for i,d in enumerate(meteo[meteo.columns[0]]) if d in dats]],
+           'Wind': meteo['Vento_media'].ix[[i for i,d in enumerate(meteo[meteo.columns[0]]) if d in dats]]}
+    return pd.DataFrame(pdf).ix[:, ['Data', 'days','holiday', 'Tmin', 'Tmedia', 'Tmax', 'Rain', 'Wind']], np.array(Y)
         
 
 

@@ -157,6 +157,9 @@ def simulate_meteo(meteo1, roma):
         else:
             pass
     found = meteo1[meteo1.columns[[1,2,3,4,8]]].ix[index].reset_index(drop=True)
+    for nc in range(found.shape[1]):
+        found[found.columns[nc]] = pd.to_numeric(found[found.columns[nc]],errors='coerce')
+    found.fillna(0)
     roma2 = roma[roma.columns[[1,2,3,4,8]]].ix[index2].reset_index(drop=True)
     diffdf = found - roma2
     return diffdf
