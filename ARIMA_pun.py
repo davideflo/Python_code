@@ -67,6 +67,17 @@ diffparo = Functions_for_TSP.simulate_meteo(pa,roma)
 diffcaro = Functions_for_TSP.simulate_meteo(ca,roma)
 diffrcro = Functions_for_TSP.simulate_meteo(rc,roma)
 
+upmilano = Functions_for_TSP.generate_simulated_meteo_dataset(milano, roma)
+upfirenze = Functions_for_TSP.generate_simulated_meteo_dataset(fi, roma)
+upcagliari = Functions_for_TSP.generate_simulated_meteo_dataset(ca, roma)
+uppalermo = Functions_for_TSP.generate_simulated_meteo_dataset(pa, roma)
+uprc = Functions_for_TSP.generate_simulated_meteo_dataset(rc, roma)
+
+upmilano.to_csv('storico_milano_aggiornato.txt', sep="\t", index = False)
+upfirenze.to_csv('storico_firenze_aggiornato.txt', sep="\t", index = False)
+upcagliari.to_csv('storico_cagliari_aggiornato.txt', sep="\t", index = False)
+uppalermo.to_csv('storico_palermo_aggiornato.txt', sep="\t", index = False)
+uprc.to_csv('storico_reggiocalabria_aggiornato.txt', sep="\t", index = False)
 ################ study and simulation meteo #####################
 
 milano_date = pd.to_datetime(milano[milano.columns[0]])
