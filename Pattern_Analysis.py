@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 import scipy as sp
 from scipy.interpolate import interp1d
 from sklearn import linear_model
+#import mpmath as mp
+from matplotlib.legend_handler import HandlerLine2D
+
 
 data = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2010.xlsx")
 data2 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2011.xlsx")
@@ -159,12 +162,122 @@ I = []
 O = []
 coefs = []   
 epsilon = 20
-adaptive_trend(pun, 0, 100, I, O, coefs, epsilon)    
+adaptive_trend(pun, 0, 2000, I, O, coefs, epsilon)    
 ### END: NOT RUN
 
+ret = []
+for i in range(0, pun.size - 1, 1):
+    ret.append((pun[i+1] - pun[i])/pun[i])
+    
+plt.subplot(2,1,1)
+plt.plot(pun)
+plt.subplot(2,1,2)
+plt.plot(ret)
 
-#print("Residual sum of squares: %.2f"
-#      % np.mean((fit.predict(x.reshape([len(x),1])) - y) ** 2))
-## Explained variance score: 1 is perfect prediction
-#print('Variance score: %.2f' % fit.score(x.reshape([len(x),1]), y))
-# 
+### does there exist a "signal" that something is going to happen? e.g.: is there anything suggesting the trend is changing?
+
+### some analyses on the whole dataset ###
+varn = "CSUD"
+
+pun = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
+                               np.array(data3[varn]),
+                         np.array(data4[varn]), np.array(data5[varn]), 
+                            np.array(data6[varn])])
+
+for x in range(1,10,1):
+   print(x)
+   print( '%.6f' % freq_greater_than(pun, x, False))
+
+sigma = freq_greater_than(pun, 4, True)
+out_hours = np.where(sigma > 0)[0] 
+
+count = 0
+for i in range(out_hours.size - 1):
+    if out_hours[i+1] - out_hours[i] == 1:
+        count += 1
+    else:
+        pass
+
+### percentage of two consecutive peaks for "normalised distances" (Mahalanobis?) greater than 4
+count/np.sum(sigma)
+
+### percentage of two consecutive peaks for all levels of norm. distances:
+def glob_perc(ts):
+    res = []
+    for x in range(1, 10, 1):
+        sigma = freq_greater_than(ts, x, True)
+        out = np.where(sigma > 0)[0]
+        if np.sum(sigma) > 0:
+            count = 0
+            for i in range(out.size - 1):
+                if out[i+1] - out[i] == 1:
+                    count += 1
+                else:
+                    pass
+            res.append(float(count/np.sum(sigma)))
+            print('at distance {}'.format(x))    
+            print('%.6f' % float(count/np.sum(sigma)))
+    return np.array(res)
+###########################################################        
+glob_perc(pun)
+    
+###########################################################
+def cumulative_glob_perc(ts, period, step):
+    perc = []
+    year = lambda y: np.ceil(y/step)
+    for j in range(0, ts.size, step):
+        start = np.choose(j-period >0, [0, j-period])
+        ts2 = ts[start:j]
+        for x in range(1, 10, 1):
+            sigma = freq_greater_than(ts2, x, True)
+            out = np.where(sigma > 0)[0]
+            if np.sum(sigma) > 0:
+                count = 0
+                for i in range(out.size - 1):
+                    if out[i+1] - out[i] == 1:
+                        count += 1
+                    else:
+                        pass
+                    #print(mp.mpf(count))
+                    #print(mp.mpf(np.sum(sigma)))
+                print('after {} year, at distance {}'.format(year(j), x)) 
+                print('%.6f' % float(count/np.sum(sigma)))
+                perc.append(float(count/np.sum(sigma)))
+    return np.array(perc)
+                    #print('%.6f' % float(mp.mpf(count)/mp.mpf(np.sum(sigma))))
+#############################################################    
+per = cumulative_glob_perc(pun, 8760, 8760)
+
+### markers for matplotlib: http://stackoverflow.com/questions/8409095/matplotlib-set-markers-for-individual-points-on-a-line
+plt.plot(per,linestyle='--', marker='o')
+
+##### manual: NB: ONLY "POSITIVE PEAKS"
+res = glob_perc(data[varn])
+res2 = glob_perc(data2[varn])
+res3 = glob_perc(data3[varn])
+res4 = glob_perc(data4[varn])
+res5 = glob_perc(data5[varn])
+res6 = glob_perc(data6[varn])
+res7 = glob_perc(data7[varn])
+
+plt.figure()
+line1, = plt.plot(np.array(range(1,res.size+1,1)), res, linewidth = 2, marker='o', label='Line 2010')
+line2, = plt.plot(np.array(range(1,res2.size+1,1)), res2, linewidth = 2, marker='o', label='Line 2011')
+line3, = plt.plot(np.array(range(1,res3.size+1,1)), res3, linewidth = 2, marker='o', label='Line 2012')
+line4, = plt.plot(np.array(range(1,res4.size+1,1)), res4, linewidth = 2, marker='o', label='Line 2013')
+line5, = plt.plot(np.array(range(1,res5.size+1,1)), res5, linewidth = 2, marker='o', label='Line 2014')
+line6, = plt.plot(np.array(range(1,res6.size+1,1)), res6, linewidth = 2, marker='o', label='Line 2015')
+line7, = plt.plot(np.array(range(1,res7.size+1,1)), res7, linewidth = 2, marker='o', label='Line 2016')
+
+plt.legend(handler_map={line1: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line2: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line3: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line4: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line5: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line6: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line7: HandlerLine2D(numpoints=2)})
+
+plt.xlabel('Normalised distance')
+plt.ylabel('Frequency (Probability)')
+plt.title(r'Percentage of 2 consecutives peaks at a given distance')
+
