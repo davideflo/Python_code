@@ -12,10 +12,11 @@ import numpy as np
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import scipy as sp
-from scipy.interpolate import interp1d
+#from scipy.interpolate import interp1d
 from sklearn import linear_model
 #import mpmath as mp
 from matplotlib.legend_handler import HandlerLine2D
+import statsmodels
 
 
 data = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2010.xlsx")
@@ -112,6 +113,16 @@ def freq_greater_than(ts, sig, flag):
     else:
         return np.sum(greater)/greater.size
 ################################################# 
+def freq_smaller_than(ts, sig, flag):
+    greater = []
+    for x in ts:
+        greater.append(int((x - np.mean(ts))/np.std(ts) < -sig))
+    greater = np.array(greater)
+    if flag:
+        return greater
+    else:
+        return np.sum(greater)/greater.size
+#################################################
 for x in range(1,7,1):
    print(x)
    print( '%.6f' % freq_greater_than(pun, x, False))
@@ -220,7 +231,23 @@ def glob_perc(ts):
     return np.array(res)
 ###########################################################        
 glob_perc(pun)
-    
+###########################################################
+def glob_perc_neg(ts):
+    res = []
+    for x in range(1, 10, 1):
+        sigma = freq_smaller_than(ts, x, True)
+        out = np.where(sigma > 0)[0]
+        if np.sum(sigma) > 0:
+            count = 0
+            for i in range(out.size - 1):
+                if out[i+1] - out[i] == 1:
+                    count += 1
+                else:
+                    pass
+            res.append(float(count/np.sum(sigma)))
+            print('at distance {}'.format(x))    
+            print('%.6f' % float(count/np.sum(sigma)))
+    return np.array(res) 
 ###########################################################
 def cumulative_glob_perc(ts, period, step):
     perc = []
@@ -251,7 +278,7 @@ per = cumulative_glob_perc(pun, 8760, 8760)
 ### markers for matplotlib: http://stackoverflow.com/questions/8409095/matplotlib-set-markers-for-individual-points-on-a-line
 plt.plot(per,linestyle='--', marker='o')
 
-##### manual: NB: ONLY "POSITIVE PEAKS"
+##### manual: 
 res = glob_perc(data[varn])
 res2 = glob_perc(data2[varn])
 res3 = glob_perc(data3[varn])
@@ -279,5 +306,117 @@ plt.legend(handler_map={line7: HandlerLine2D(numpoints=2)})
 
 plt.xlabel('Normalised distance')
 plt.ylabel('Frequency (Probability)')
-plt.title(r'Percentage of 2 consecutives peaks at a given distance')
+plt.title(r'Percentage of 2 consecutives peaks (in absolute value) at a given distance')
 
+#### negative peaks:
+res = glob_perc_neg(data[varn])
+res2 = glob_perc_neg(data2[varn])
+res3 = glob_perc_neg(data3[varn])
+res4 = glob_perc_neg(data4[varn])
+res5 = glob_perc_neg(data5[varn])
+res6 = glob_perc_neg(data6[varn])
+res7 = glob_perc_neg(data7[varn])
+
+plt.figure()
+line1, = plt.plot(np.array(range(1,res.size+1,1)), res, linewidth = 2, marker='o', label='Line 2010')
+line2, = plt.plot(np.array(range(1,res2.size+1,1)), res2, linewidth = 2, marker='o', label='Line 2011')
+line3, = plt.plot(np.array(range(1,res3.size+1,1)), res3, linewidth = 2, marker='o', label='Line 2012')
+line4, = plt.plot(np.array(range(1,res4.size+1,1)), res4, linewidth = 2, marker='o', label='Line 2013')
+line5, = plt.plot(np.array(range(1,res5.size+1,1)), res5, linewidth = 2, marker='o', label='Line 2014')
+line6, = plt.plot(np.array(range(1,res6.size+1,1)), res6, linewidth = 2, marker='o', label='Line 2015')
+line7, = plt.plot(np.array(range(1,res7.size+1,1)), res7, linewidth = 2, marker='o', label='Line 2016')
+
+plt.legend(handler_map={line1: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line2: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line3: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line4: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line5: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line6: HandlerLine2D(numpoints=2)})
+plt.legend(handler_map={line7: HandlerLine2D(numpoints=2)})
+
+plt.xlabel('Normalised distance')
+plt.ylabel('Frequency (Probability)')
+plt.title(r'Percentage of 2 consecutives negative peaks at a given distance')
+
+#### what is the average distance between peaks? 
+def compute_average_distance_between_peaks(ts, flag_s):
+    dist = []
+    for x in range(1, 10, 1):
+        sigma = freq_greater_than(ts, x, True)
+        out = np.where(sigma > 0)[0]
+        if np.sum(sigma) > 0:
+            dist_sigma = []
+            for i in range(out.size-1):
+                dist_sigma.append(out[i+1]-out[i])
+            dist.append(np.nanmean(dist_sigma))
+    if flag_s:
+        return dist_sigma
+    else:
+        return np.array(dist)
+###############################################
+dp = compute_average_distance_between_peaks(pun, False)            
+
+av = compute_average_distance_between_peaks(data[varn], False)            
+av2 = compute_average_distance_between_peaks(data2[varn], False)            
+av3 = compute_average_distance_between_peaks(data3[varn], False)            
+av4 = compute_average_distance_between_peaks(data4[varn], False)            
+av5 = compute_average_distance_between_peaks(data5[varn], False)            
+av6 = compute_average_distance_between_peaks(data6[varn], False)            
+av7 = compute_average_distance_between_peaks(data7[varn], False)            
+
+peaks_dist = {'2010': av,'2011': av2,'2012': av3,'2013': av4,'2014': av5,
+              '2015': av6,'2016': av7}
+
+dfp = pd.DataFrame.from_dict(peaks_dist, orient='index')
+
+dfp = dfp.transpose().set_index([[1,2,3,4,5,6,7,8]]).fillna(0)
+
+cols = dfp.columns.tolist()
+ord_cols = [cols[2] , cols[4] , cols[1] , cols[0] , cols[3], cols[5], cols[6]]
+dfp = dfp[ord_cols]
+
+dfp.mean(axis=0)
+dfp.mean(axis=0)/24
+dfp.mean(axis=1)
+dfp.mean(axis=1)/24
+
+dfp.plot(marker='o', title='distance in hours between consecutive peaks at a given norm. distance')
+dfp.transpose().plot(marker='o', title = 'distance in hours between consecutive peaks at given year')
+(dfp/24).plot(marker='o', title='distance in days between consecutive peaks at a given norm. distance')
+(dfp/24).transpose().plot(marker='o', title = 'distance in days between consecutive peaks at given year')
+
+tot = np.nan_to_num(np.concatenate([av,av2,av3,av4,av5,av6,av7]))/24
+
+plt.figure()
+plt.plot(tot, marker='o')
+
+plt.figure()
+plt.plot(statsmodels.tsa.stattools.periodogram(tot))
+
+################################################
+def fourierExtrapolation(x, n_predict):
+    x = np.array(x)
+    n = x.size
+    n_harm = 100                     # number of harmonics in model
+    t = np.arange(0, n)
+    p = np.polyfit(t, x, 1)         # find linear trend in x
+    x_notrend = x - p[0] * t        # detrended x
+    x_freqdom = np.fft.fft(x_notrend)  # detrended x in frequency domain
+    f = np.fft.fftfreq(n)              # frequencies
+    indexes = list(range(n))
+    # sort indexes by frequency, lower -> higher
+    indexes.sort(key = lambda i: np.absolute(f[i]))
+ 
+    t = np.arange(0, n + n_predict)
+    restored_sig = np.zeros(t.size)
+    for i in indexes[:1 + n_harm * 2]:
+        ampli = np.absolute(x_freqdom[i]) / n   # amplitude
+        phase = np.angle(x_freqdom[i])          # phase
+        restored_sig += ampli * np.cos(2 * np.pi * f[i] * t + phase)
+    return restored_sig + p[0] * t        
+################################################
+
+rec_tot = fourierExtrapolation(tot, 63)
+
+plt.figure()
+plt.plot(rec_tot)
