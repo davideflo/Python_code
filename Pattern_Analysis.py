@@ -123,6 +123,16 @@ def freq_smaller_than(ts, sig, flag):
     else:
         return np.sum(greater)/greater.size
 #################################################
+def abs_freq_greater_than(ts, sig, flag):
+    greater = []
+    for x in ts:
+        greater.append(int(abs(x - np.mean(ts))/np.std(ts) > sig))
+    greater = np.array(greater)
+    if flag:
+        return greater
+    else:
+        return np.sum(greater)/greater.size
+#################################################
 for x in range(1,7,1):
    print(x)
    print( '%.6f' % freq_greater_than(pun, x, False))
@@ -342,7 +352,8 @@ plt.title(r'Percentage of 2 consecutives negative peaks at a given distance')
 def compute_average_distance_between_peaks(ts, flag_s):
     dist = []
     for x in range(1, 10, 1):
-        sigma = freq_greater_than(ts, x, True)
+        #sigma = freq_greater_than(ts, x, True)
+        sigma = abs_freq_greater_than(ts, x, True)        
         out = np.where(sigma > 0)[0]
         if np.sum(sigma) > 0:
             dist_sigma = []
@@ -372,7 +383,8 @@ dfp = pd.DataFrame.from_dict(peaks_dist, orient='index')
 dfp = dfp.transpose().set_index([[1,2,3,4,5,6,7,8]]).fillna(0)
 
 cols = dfp.columns.tolist()
-ord_cols = [cols[2] , cols[4] , cols[1] , cols[0] , cols[3], cols[5], cols[6]]
+#ord_cols = [cols[2] , cols[4] , cols[1] , cols[0] , cols[3], cols[5], cols[6]]
+ord_cols = [cols[4] , cols[1] , cols[3] , cols[5] , cols[0], cols[6], cols[2]]
 dfp = dfp[ord_cols]
 
 dfp.mean(axis=0)
@@ -420,3 +432,103 @@ rec_tot = fourierExtrapolation(tot, 63)
 
 plt.figure()
 plt.plot(rec_tot)
+
+###################################################################
+### does the mean exhibit noticeable monthwise changes?
+varn = "CSUD"
+
+pun = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
+                               np.array(data3[varn]),
+                         np.array(data4[varn]), np.array(data5[varn]), 
+                            np.array(data6[varn])])
+
+df = pd.DataFrame(pun)
+rng = pd.date_range('01/01/2010', periods=pun.size, freq='H')
+df = df.set_index(rng)
+
+letters = 'abcdefghilmnopq'
+lets = []
+for i in range(rng.size):
+    lets.append(letters[rng[i].month])
+
+letters_dict = {'Letters': lets, 'csud': pun}
+ldf = pd.DataFrame(letters_dict).set_index(rng)
+
+
+dfbm = pd.groupby(df,by=[df.index.month,df.index.year])
+dfbm = pd.groupby(ldf,by='Letters')
+
+dfbm2 = pd.DataFrame(pun).set_index(lets)
+dfbm2.plot.box()
+
+jan = ldf.ix[ldf['Letters'] == 'b']
+
+monthwise = {}
+
+for i in range(1,13,1):
+    letter = letters[i]
+    mese = ldf.ix[ldf['Letters'] == letter]
+    yearly_mean = []
+    for j in range(2010,2016,1):
+        year = mese.ix[mese.index.year == j]
+        yearly_mean.append(np.mean(year['csud']))
+    monthwise[letter] = yearly_mean
+
+monthwise = {}
+
+for i in range(1,13,1):
+    letter = letters[i]
+    mese = ldf.ix[ldf['Letters'] == letter]
+    yearly_mean = []
+    for j in range(2010,2016,1):
+        year = mese.ix[mese.index.year == j]
+        yearly_mean.append(np.std(year['csud']))
+    monthwise[letter] = yearly_mean
+
+
+bymonth2 = pd.DataFrame(monthwise).transpose()
+bymonth2.columns = [['2010', '2011', '2012', '2013', '2014', '2015']]
+bymonth2 = bymonth2.set_index([['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov' ,'dec']])
+
+bymonth2.transpose().plot(title='average prices behaviour along years')
+
+### for bootstrap: do I sample only from the past year, same month?
+
+
+for i in range(12):
+    for j in range(5):
+        print("difference between {} and {} for month {}".format(bymonth2.columns[j+1], bymonth2.columns[j], 
+              bymonth2.index[i]))
+        #print(bymonth2.apply(lambda j: bymonth2[bymonth2.columns[j+1]].ix[i] - bymonth2[bymonth2.columns[j]].ix[i],axis=1))
+        print(bymonth2[bymonth2.columns[j+1]].ix[i] - bymonth2[bymonth2.columns[j]].ix[i])
+
+
+from pandas.tools.plotting import autocorrelation_plot
+
+for i in range(12):
+    plt.figure()
+    autocorrelation_plot(bymonth2.ix[i])
+
+### hour-by-hour
+letters = 'abcdefghijklmnopqrstuvwxyz'
+lets = []
+for i in range(rng.size):
+    lets.append(letters[rng[i].hour])
+
+letters_dict = {'Letters': lets, 'csud': pun}
+hdf = pd.DataFrame(letters_dict).set_index(rng)
+
+hourwise= {}
+
+for i in range(24):
+    letter = letters[i]
+    hour = hdf.ix[hdf['Letters'] == letter]
+    hourly_mean = []
+    for j in range(2010,2016,1):
+        year = hour.ix[hour.index.year == j]
+        hourly_mean.append(np.mean(year['csud']))
+    hourwise[letter] = hourly_mean
+
+HDF = pd.DataFrame(hourwise).transpose()
+HDF.columns =  [['2010', '2011', '2012', '2013', '2014', '2015']]
+HDF = HDF.reset_index(drop=True)
