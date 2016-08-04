@@ -532,3 +532,34 @@ for i in range(24):
 HDF = pd.DataFrame(hourwise).transpose()
 HDF.columns =  [['2010', '2011', '2012', '2013', '2014', '2015']]
 HDF = HDF.reset_index(drop=True)
+
+##########################################################################
+##### analysis of prices on daylight saving dates
+varn = "PUN"
+
+pun = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
+                               np.array(data3[varn]),
+                         np.array(data4[varn]), np.array(data5[varn]), 
+                            np.array(data6[varn]), np.array(data7[varn])])
+
+ora = data.columns[1]
+
+hours = np.concatenate([np.array(data[ora]), np.array(data2[ora]), 
+                               np.array(data3[ora]),
+                         np.array(data4[ora]), np.array(data5[ora]), 
+                            np.array(data6[ora]), np.array(data7[ora])])
+
+ph = {"hour": hours, "pun": pun}
+
+phdf = pd.DataFrame(ph)
+
+idx = []
+diff = []
+for i in range(phdf.shape[0]-1):
+    if phdf['hour'].ix[i] == 23 and phdf['hour'].ix[i+1] == 24:
+        idx.append(i)
+        #idx.append(i+1)
+        diff.append(phdf['pun'].ix[i+1] - phdf['pun'].ix[i])        
+        
+        
+        
