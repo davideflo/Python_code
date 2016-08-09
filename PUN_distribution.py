@@ -9,6 +9,9 @@ estimating a markov matrix for the monthwise conditional distributions of the PU
 
 import numpy as np
 import pandas as pd
+from pandas.tools.plotting import lag_plot
+import matplotlib.pyplot as plt
+from sklearn.neighbors.kde import KernelDensity
 
 data = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2010.xlsx", sheetname=1)
 data2 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2011.xlsx", sheetname=0)
@@ -39,6 +42,43 @@ ap2.columns = ["pun"]
 
 months = np.unique(rng.month)
 
+jan = ap2.ix[ap['ixx'].ix[ap.index.month == 1].tolist()]
+lag_plot(jan)
+
+for i in range(1,13,1):
+    print i
+    plt.figure()
+    lag_plot(ap2.ix[ap['ixx'].ix[ap.index.month == i].tolist()])
+
+##### example of kernel density estimation ####
+kde_jan = KernelDensity(kernel='gaussian', bandwidth = 4).fit(np.array(jan['pun']).reshape(-1,1))
+
+xplot = np.linspace(0,180,100)
+yplot = np.exp(kde_jan.score_samples(xplot.reshape(-1,1)))
+
+plt.figure()
+plt.plot(yplot)
+#########################################################
+def ExpectedLossInf(ell, Dx, kde):
+    xm = Dx[Dx < ell]
+    mxm = np.abs(xm[xm.size-1] - xm[0])
+    deltax = mxm/xm.size
+    Eloss = 0
+    for i in range(xm.size):
+        Eloss += ((ell - xm[i])**2) * kde[i] * deltax
+    return Eloss/mxm
+########################################################
+def ExpectedLossSup(ell, Dx, kde):
+    xm = Dx[Dx > ell]
+    mxm = np.abs(xm[xm.size-1] - xm[0])
+    deltax = mxm/xm.size
+    Eloss = 0
+    for i in range(xm.size):
+        Eloss += ((ell - xm[i])**2) * kde[i] * deltax
+    return Eloss/mxm
+#########################################################
+def ExpectedLoss(ell, Dx, kde):
+    return ExpectedLossInf(ell,Dx,kde) + ExpectedLossSup(ell,Dx,kde)
 #########################################################
 def CountCorrespondences(df, v, varn):
     ## df is already divided by month
@@ -49,6 +89,8 @@ def CountCorrespondences(df, v, varn):
     for i in iwv:
         if i < df.shape[0]-1:
             res[i] = np.sum(df[varn].ix[i+1] == uv[i])/wv.shape[0]
+        else:
+            res[i] = 1/wv.shape[0]
     return res
 ##########################################################
 def FindMarkovMatrix(df, df2, month, varn):
