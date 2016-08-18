@@ -42,3 +42,5 @@ r.run("head(ex2)")
 ex2py = pd.read_csv('C://Users//utente//Documents//PUN//fixed//trainset_step_3_dayahead_3.csv')
 sum(ex2py.isnull().sum()) ### <-- 0 missing values 
 ###########################
+r.run("ls()")
+r.run("h2o.clusterStatus()")
