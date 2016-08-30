@@ -17,6 +17,7 @@ from sklearn import linear_model
 #import mpmath as mp
 from matplotlib.legend_handler import HandlerLine2D
 import statsmodels
+from pandas.tools.plotting import lag_plot
 
 
 data = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2010.xlsx")
@@ -26,7 +27,7 @@ data4 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2013.xlsx")
 data5 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2014.xlsx")
 data6 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2015.xlsx")
 
-data7 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2016_06.xlsx")
+data7 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2016_07.xlsx", sheetname = 1)
 
 pun = data["PUN"]
 pun = data["CSUD"]
@@ -560,6 +561,50 @@ for i in range(phdf.shape[0]-1):
         idx.append(i)
         #idx.append(i+1)
         diff.append(phdf['pun'].ix[i+1] - phdf['pun'].ix[i])        
+#########################################################################
+#########################################################################
+### in the fixed models built with h2o and R, the models for 9 PM have all a low R2 ###
+#########################################################################
+def Extract_Hour(hour):
+    data = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2010.xlsx")
+    data2 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2011.xlsx")
+    data3 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2012.xlsx")
+    data4 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2013.xlsx")
+    data5 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2014.xlsx")
+    data6 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2015.xlsx")
+    
+    data7 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2016_07.xlsx", sheetname = 1)
+
+    nine1 = [data["PUN"].ix[i] for i in range(data.shape[0]) if data[data.columns[1]].ix[i] == hour]         
+    nine2 = [data2["PUN"].ix[i] for i in range(data2.shape[0]) if data2[data2.columns[1]].ix[i] == hour]         
+    nine3 = [data3["PUN"].ix[i] for i in range(data3.shape[0]) if data3[data3.columns[1]].ix[i] == hour]         
+    nine4 = [data4["PUN"].ix[i] for i in range(data4.shape[0]) if data4[data4.columns[1]].ix[i] == hour]         
+    nine5 = [data5["PUN"].ix[i] for i in range(data5.shape[0]) if data5[data5.columns[1]].ix[i] == hour]         
+    nine6 = [data6["PUN"].ix[i] for i in range(data6.shape[0]) if data6[data6.columns[1]].ix[i] == hour]         
+    nine7 = [data7["PUN"].ix[i] for i in range(data7.shape[0]) if data7[data7.columns[1]].ix[i] == hour]         
+            
+    nine = np.concatenate([np.array(nine1), np.array(nine2), np.array(nine3), np.array(nine4),
+                           np.array(nine5), np.array(nine6), np.array(nine7)])        
         
-        
-        
+    Nine = pd.DataFrame(nine)
+
+    return Nine
+##########################################################################
+
+#for i in range(19,22,1):
+#    D = Extract_Hour(i)
+#    D.plot()
+#    plt.figure()
+#    lag_plot(D)
+
+
+D = Extract_Hour(21)
+D.plot()
+lag_plot(D)
+
+
+
+
+
+
+
