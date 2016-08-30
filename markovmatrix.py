@@ -19,7 +19,7 @@ if __name__ == '__main__':
     data4 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2013.xlsx", sheetname=0)
     data5 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2014.xlsx", sheetname=0)
     data6 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2015.xlsx", sheetname=0)
-    data7 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2016_06.xlsx", sheetname=1)
+    data7 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2016_07.xlsx", sheetname=1)
     
     varn = "PUN"
     pun1 = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
