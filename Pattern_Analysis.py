@@ -436,12 +436,12 @@ plt.plot(rec_tot)
 
 ###################################################################
 ### does the mean exhibit noticeable monthwise changes?
-varn = "CSUD"
+varn = "PUN"
 
 pun = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
                                np.array(data3[varn]),
                          np.array(data4[varn]), np.array(data5[varn]), 
-                            np.array(data6[varn])])
+                            np.array(data6[varn]),np.array(data7[varn])])
 
 df = pd.DataFrame(pun)
 rng = pd.date_range('01/01/2010', periods=pun.size, freq='H')
@@ -452,7 +452,7 @@ lets = []
 for i in range(rng.size):
     lets.append(letters[rng[i].month])
 
-letters_dict = {'Letters': lets, 'csud': pun}
+letters_dict = {'Letters': lets, 'pun': pun}
 ldf = pd.DataFrame(letters_dict).set_index(rng)
 
 
@@ -472,7 +472,7 @@ for i in range(1,13,1):
     yearly_mean = []
     for j in range(2010,2016,1):
         year = mese.ix[mese.index.year == j]
-        yearly_mean.append(np.mean(year['csud']))
+        yearly_mean.append(np.mean(year['pun']))
     monthwise[letter] = yearly_mean
 
 monthwise = {}
@@ -481,14 +481,14 @@ for i in range(1,13,1):
     letter = letters[i]
     mese = ldf.ix[ldf['Letters'] == letter]
     yearly_mean = []
-    for j in range(2010,2016,1):
+    for j in range(2010,2017,1):
         year = mese.ix[mese.index.year == j]
-        yearly_mean.append(np.std(year['csud']))
+        yearly_mean.append(np.std(year['pun']))
     monthwise[letter] = yearly_mean
 
 
 bymonth2 = pd.DataFrame(monthwise).transpose()
-bymonth2.columns = [['2010', '2011', '2012', '2013', '2014', '2015']]
+bymonth2.columns = [['2010', '2011', '2012', '2013', '2014', '2015','2016']]
 bymonth2 = bymonth2.set_index([['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov' ,'dec']])
 
 bymonth2.transpose().plot(title='average prices behaviour along years')
@@ -583,6 +583,14 @@ def Extract_Hour(hour):
     nine6 = [data6["PUN"].ix[i] for i in range(data6.shape[0]) if data6[data6.columns[1]].ix[i] == hour]         
     nine7 = [data7["PUN"].ix[i] for i in range(data7.shape[0]) if data7[data7.columns[1]].ix[i] == hour]         
             
+    print(max(nine1))
+    print(max(nine2))
+    print(max(nine3))
+    print(max(nine4))
+    print(max(nine5))
+    print(max(nine6))
+    print(max(nine7))
+        
     nine = np.concatenate([np.array(nine1), np.array(nine2), np.array(nine3), np.array(nine4),
                            np.array(nine5), np.array(nine6), np.array(nine7)])        
         
@@ -602,9 +610,95 @@ D = Extract_Hour(21)
 D.plot()
 lag_plot(D)
 
+x21 = data3["PUN"].ix[data3[data3.columns[1]] == 21]
+for x,i in enumerate(x21):
+    print(x)
+    print(i)
+    if(i == max(x21)):
+        break 
+###################################################################################
+###################################################################################
+### hourwise patterns ###
+
+names = ['data','data2','data3','data4','data5','data6','data7']        
+d = {}
+d2 = {}
+
+for n in names:
+    D = locals()[n]
+    hm = []
+    hv = []
+    for h in range(1,25,1):
+        hm.append(D["PUN"].ix[D[D.columns[1]] == h].mean())
+        hv.append(D["PUN"].ix[D[D.columns[1]] == h].std())
+    d[n] = hm
+    d2[n] = hv
+
+HD = pd.DataFrame.from_dict(d)
+HD.columns = ['2010','2011','2012','2013','2014','2015','2016']
+HV = pd.DataFrame.from_dict(d2)
+HV.columns = ['2010','2011','2012','2013','2014','2015','2016']
+
+diff_mean_2016 = HD[HD.columns[:6]].mean(axis=1) - HD['2016']
+
+#####################################################################################
+#####################################################################################
+#### probability of moving upwards or downwards ####
+
+from sklearn.neighbors.kde import KernelDensity
+
+def hkde(bandwidth, hour, ln):
+    wh = []
+    if not isinstance(ln, str):
+        for n in ln:
+            D = globals()[n]
+            wh.append(D['PUN'].ix[D[D.columns[1]] == hour])
+        wh2 = [val for sublist in wh for val in sublist]    
+        wh = np.array(wh2)
+        kdew = KernelDensity(kernel='gaussian', bandwidth = bandwidth).fit(wh.reshape(-1,1))
+        return kdew
+    else:
+        D = globals()[ln]
+        wh.append(D['PUN'].ix[D[D.columns[1]] == hour])
+        wh2 = [val for sublist in wh for val in sublist]    
+        wh = np.array(wh2)
+        kdew = KernelDensity(kernel='gaussian', bandwidth = bandwidth).fit(wh.reshape(-1,1))
+        return kdew
+######################################################################################
+distr_15 = hkde(4,1,names[:6])        
+        
+xplot = np.linspace(0,200,1000)
+yplot = np.exp(distr_15.score_samples(xplot.reshape(-1,1)))        
+        
+plt.figure() 
+plt.plot(yplot)       
+        
+distr_16 = hkde(4,1,'data7')        
+        
+xplot = np.linspace(0,200,1000)
+yplot2 = np.exp(distr_16.score_samples(xplot.reshape(-1,1)))        
+        
+plt.figure() 
+plt.plot(yplot2)       
+        
+import scipy.integrate as integrate
+######################################################################################
+def compute_probability(low, up, distr):
+    x = np.linspace(start=low,stop=up,num=1000)
+    logy = distr.score_samples(x.reshape(-1,1))
+#    def distribution(distr,x):
+#        return np.exp(distr.score_samples(x.reshape(-1,1))
+#     quad wants a single value as first argument???
+#   I = integrate.quad(distribution,low,up, args = distr)  
+    I = integrate.quad(lambda x: np.exp(logy),low,up, args = x)
+    return I
+######################################################################################
+
+compute_probability(50.17, 200, distr_15)
+compute_probability(50.17, 200, distr_16)
 
 
 
 
 
-
+    
