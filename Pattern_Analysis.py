@@ -199,7 +199,7 @@ plt.plot(ret)
 ### does there exist a "signal" that something is going to happen? e.g.: is there anything suggesting the trend is changing?
 
 ### some analyses on the whole dataset ###
-varn = "CSUD"
+varn = "PUN"
 
 pun = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
                                np.array(data3[varn]),
@@ -665,40 +665,74 @@ def hkde(bandwidth, hour, ln):
         kdew = KernelDensity(kernel='gaussian', bandwidth = bandwidth).fit(wh.reshape(-1,1))
         return kdew
 ######################################################################################
-distr_15 = hkde(4,1,names[:6])        
-        
-xplot = np.linspace(0,200,1000)
+for h in range(1,50,1):
+    kd = hkde(h,1,names[:6])
+    print(kd.score(np.linspace(start=0,stop=150,num=1000).reshape(-1,1)))
+
+distr_15 = hkde(4,1,names[:6])                
+xplot = np.linspace(start=0,stop=200,num=1000)
 yplot = np.exp(distr_15.score_samples(xplot.reshape(-1,1)))        
-        
 plt.figure() 
-plt.plot(yplot)       
+plt.plot(xplot,yplot)       
+
+from scipy.stats import mode
+print(mode(pun))
+
+        
         
 distr_16 = hkde(4,1,'data7')        
         
-xplot = np.linspace(0,200,1000)
 yplot2 = np.exp(distr_16.score_samples(xplot.reshape(-1,1)))        
         
 plt.figure() 
-plt.plot(yplot2)       
+plt.plot(xplot,yplot2)       
+
+fig, ax = plt.subplots()        
+ax.plot(xplot,yplot2)
+ax.plot(xplot,yplot)        
         
 import scipy.integrate as integrate
 ######################################################################################
 def compute_probability(low, up, distr):
-    x = np.linspace(start=low,stop=up,num=1000)
-    logy = distr.score_samples(x.reshape(-1,1))
-#    def distribution(distr,x):
-#        return np.exp(distr.score_samples(x.reshape(-1,1))
+#    x = np.linspace(start=low,stop=up,num=1000)
+#    logy = distr.score_samples(x.reshape(-1,1))
+    def distribution(x,distr):
+        x = np.array(x)
+        return np.exp(distr.score_samples(x.reshape(-1,1)))
 #     quad wants a single value as first argument???
-#   I = integrate.quad(distribution,low,up, args = distr)  
-    I = integrate.quad(lambda x: np.exp(logy),low,up, args = x)
-    return I
+    J = integrate.quad(distribution,low,up, args = (distr,))  
+#    I = integrate.quad(lambda x: np.exp(logy),low,up, args = x)
+    return J
 ######################################################################################
-
+def Expected_Loss_inf(v, distr):
+    
+    def f(x,v,distr):
+        x = np.array(x)
+        return ((x - v) ** 2) * np.exp(distr.score_samples(x.reshape(-1,1)))
+        
+    J = integrate.quad(f, 0, v, args = (v,distr))
+    return J
+######################################################################################
+def Expected_Loss_sup(v, distr):
+    
+    def f(x,v,distr):
+        x = np.array(x)
+        return ((x - v) ** 2) * np.exp(distr.score_samples(x.reshape(-1,1)))
+        
+    J = integrate.quad(f, v, np.inf, args = (v,distr))
+    return J
+######################################################################################
 compute_probability(50.17, 200, distr_15)
 compute_probability(50.17, 200, distr_16)
 
+print(compute_probability(50.17, np.inf, distr_15))
+print(compute_probability(50.17, np.inf, distr_16))
 
 
+print(Expected_Loss_inf(40.00, distr_15))
+print(Expected_Loss_sup(40.00, distr_15))
 
+print(Expected_Loss_inf(40.00, distr_16))
+print(Expected_Loss_sup(40.00, distr_16))
 
     
