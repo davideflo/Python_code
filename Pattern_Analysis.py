@@ -735,4 +735,80 @@ print(Expected_Loss_sup(40.00, distr_15))
 print(Expected_Loss_inf(40.00, distr_16))
 print(Expected_Loss_sup(40.00, distr_16))
 
-    
+#########################################################################################
+############ trend and seasonality analysis in 2016 #####################################
+
+pun16 = pd.DataFrame(data7['PUN'])
+decp = sm.tsa.seasonal_decompose(pun16.values,freq=24)
+
+decp.plot()
+
+seas = decp.seasonal
+plt.figure()
+plt.plot(np.arange(1,seas[0:23].size+1,1),seas[0:23])
+
+diffs = []
+for i in range(23, seas.size-23,23):
+    #print(i)
+    diffs.append(np.sum(seas[i:i+23] - seas[i-23:i]))
+    print(np.sum(seas[i:i+23] - seas[i-23:i]))
+
+ds = pd.DataFrame(seas)
+seaslist = [x for x in seas]
+plt.figure()
+plt.plot(np.linspace(0,1,num=len(seaslist[0:23])),seaslist[0:23])
+
+jan = pun16.ix[0:24*31]
+jul = pun16.ix[4366:].reset_index(drop=True)
+
+jan_dec = sm.tsa.seasonal_decompose(jan.values,freq=24)
+jul_dec = sm.tsa.seasonal_decompose(jul.values,freq=24)
+
+jan_dec.plot()
+jul_dec.plot()
+
+jan.mean()
+jul.mean()
+
+plt.figure()
+plt.plot(jul_dec.seasonal[0:23] - jan_dec.seasonal[0:23])
+
+plt.figure()
+plt.plot(jul_dec.seasonal[0:23])
+plt.figure()
+plt.plot(jan_dec.seasonal[0:23])
+#####  #####  ##### ##### 
+jan = data7.ix[0:743]
+jul = data7.ix[4367:].reset_index(drop=True)
+
+from collections import OrderedDict
+
+dhjan = OrderedDict()
+dhjul = OrderedDict()
+
+for h in range(1,25,1):
+    print(jan["PUN"].ix[jan[jan.columns[1]] == h].size)
+    print(jul["PUN"].ix[jul[jul.columns[1]] == h].size)
+    dhjan['ora-'+str(h)] = jan["PUN"].ix[jan[jan.columns[1]] == h].reset_index(drop=True)
+    dhjul['ora-'+str(h)] = jul["PUN"].ix[jul[jul.columns[1]] == h].reset_index(drop=True)
+
+hjan = pd.DataFrame.from_dict(dhjan, orient='columns')
+hjul =pd.DataFrame.from_dict(dhjul)
+
+plt.figure()
+plt.plot(np.array(hjul.mean(axis=0)))
+
+plt.figure()
+plt.plot(np.array(hjul.mean(axis=0)) - np.mean(np.array(hjul.mean(axis=0))))
+
+hjul.std(axis=0)
+
+# # # # # # # # # # # # # # # # #
+
+plt.figure()
+plt.plot(np.array(hjan.mean(axis=0)))
+
+plt.figure()
+plt.plot(np.array(hjan.mean(axis=0)) - np.mean(np.array(hjan.mean(axis=0))))
+
+hjan.std(axis=0)
