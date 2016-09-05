@@ -812,3 +812,64 @@ plt.figure()
 plt.plot(np.array(hjan.mean(axis=0)) - np.mean(np.array(hjan.mean(axis=0))))
 
 hjan.std(axis=0)
+
+fig, ax = plt.subplots(nrows=2, ncols=2)
+
+ax[0,0].plot(np.array(hjul.mean(axis=0)))
+ax[1,0].plot(np.array(hjan.mean(axis=0)))
+ax[0,1].plot(seas[0:24])
+ax[1,1].plot( 1/2*(np.array(hjul.mean(axis=0)) + np.array(hjan.mean(axis=0))) )
+
+#############################################################################################
+
+rng = pd.date_range('01/01/2016', periods=5111, freq='H')
+pun16 = pun16.set_index(rng)
+
+for i in range(1,8,1):
+    mese = pun16.ix[pun16.index.month == i]
+    decm = sm.tsa.seasonal_decompose(mese.values,freq=24)
+    fig = plt.figure()
+    sea = decm.seasonal
+    plt.plot(sea[0:24])
+    fig.suptitle('{} month'.format(i))
+
+
+
+may = pun16.ix[pun16.index.month == 5]
+jul = pun16.ix[pun16.index.month == 7]
+
+may.mean()
+jul.mean()
+
+#### ####### ############### ########## ############# ##################
+
+varn = "PUN"
+
+pun = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
+                               np.array(data3[varn]),
+                         np.array(data4[varn]), np.array(data5[varn]), 
+                            np.array(data6[varn])])
+                            
+                            
+rng2 = pd.date_range('01/01/2010', periods=pun.size, freq='H')
+pun = pun.set_index(rng2)
+
+##### http://pselab.chem.polimi.it/pubblicazione/a-methodology-to-forecast-the-price-of-electric-energy/#
+######  ###### ##### ##### ##### 
+def Find_Differences_Month_Years(pun, pun2, month):
+    od = OrderedDict()
+    gen16 = pun2.ix[pun2.index.month == month]
+    gen10 = pun.ix[pun.index.month == month]
+    od['10-16'] = np.mean((gen16 - gen10)**2)   
+    for y in range(2011,2016,1):
+        
+        
+
+
+
+jan1 = pun.ix[pun.index.month == 1 and pun.index.year == 2010]
+for y in range(2011, 2016, 1):
+   newjan =  pun.ix[pun.index.month == 1 and pun.index.year == 2010]
+   print()   
+   
+   
