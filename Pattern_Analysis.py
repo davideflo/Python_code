@@ -821,7 +821,7 @@ ax[0,1].plot(seas[0:24])
 ax[1,1].plot( 1/2*(np.array(hjul.mean(axis=0)) + np.array(hjan.mean(axis=0))) )
 
 #############################################################################################
-
+pun16 = pd.DataFrame(data7['PUN'])
 rng = pd.date_range('01/01/2016', periods=5111, freq='H')
 pun16 = pun16.set_index(rng)
 
@@ -852,24 +852,44 @@ pun = np.concatenate([np.array(data[varn]), np.array(data2[varn]),
                             
                             
 rng2 = pd.date_range('01/01/2010', periods=pun.size, freq='H')
-pun = pun.set_index(rng2)
+pun = pd.DataFrame(pun).set_index(rng2)
 
 ##### http://pselab.chem.polimi.it/pubblicazione/a-methodology-to-forecast-the-price-of-electric-energy/#
-######  ###### ##### ##### ##### 
+############################################################################################
 def Find_Differences_Month_Years(pun, pun2, month):
     od = OrderedDict()
-    gen16 = pun2.ix[pun2.index.month == month]
-    gen10 = pun.ix[pun.index.month == month]
-    od['10-16'] = np.mean((gen16 - gen10)**2)   
-    for y in range(2011,2016,1):
+    sixteen = []
+    for h in range(24):
+        sixteen.append(np.mean(pun2.ix[(pun2.index.month == month) & (pun2.index.hour == h)].reset_index(drop=True)))
+    for y in range(2010,2016,1):
+        al = []
+        for h in range(24):
+            al.append(np.mean(pun.ix[(pun.index.year== y) & (pun.index.month == month) & (pun.index.hour == h)].reset_index(drop=True)))
+            al2 = [item for sublist in al for item in sublist]
+        od[str(y)] = np.array(al2) 
+    return pd.DataFrame.from_dict(od), pd.DataFrame.from_dict(sixteen)
+###########################################################################################
         
-        
+hc, hc16 = Find_Differences_Month_Years(pun, pun16, 1)
 
+###########################################################################################
+def L2norm_standardised_curves(hc, hc2, year):
+    yc = (hc[str(year)] - np.mean(hc[str(year)]))/np.std(hc[str(year)])
+    cc = (hc2['PUN'] - hc2['PUN'].mean())/hc2['PUN'].std()
+    return np.mean((yc - cc)**2)
+##########################################################################################
 
+for y in range(2010,2016,1):
+    print(L2norm_standardised_curves(hc,hc16,y))
 
-jan1 = pun.ix[pun.index.month == 1 and pun.index.year == 2010]
-for y in range(2011, 2016, 1):
-   newjan =  pun.ix[pun.index.month == 1 and pun.index.year == 2010]
-   print()   
-   
-   
+for month in range(1,8,1):
+    hc, hc2 = Find_Differences_Month_Years(pun, pun16, month)
+    for y in range(2010,2016,1):
+        print('differences of {} month in year {} = {}'.format(month,y,L2norm_standardised_curves(hc,hc16,y)))
+            
+######## N.B.: ######################## very interesting 
+pun16.ix[pun16.index.hour == 1].plot()
+plt.figure()
+plt.scatter(pun16.ix[pun16.index.hour == 1],pun16.ix[pun16.index.hour == 2])
+lag_plot(pun16.ix[pun16.index.hour == 1])
+#######################################   
