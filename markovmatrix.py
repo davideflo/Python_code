@@ -7,7 +7,7 @@ Created on Tue Aug 30 17:10:22 2016
 
 import os
 os.chdir('C:/Users/utente/Documents/Python Scripts')
-import PUN_distribution
+import AMM
 import pandas as pd
 import numpy as np
 
@@ -19,17 +19,19 @@ if __name__ == '__main__':
     data4 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2013.xlsx", sheetname=0)
     data5 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2014.xlsx", sheetname=0)
     data6 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2015.xlsx", sheetname=0)
-    data7 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2016_07.xlsx", sheetname=1)
+    data7 = pd.read_excel("C:/Users/utente/Documents/PUN/Anno 2016_08.xlsx", sheetname=1)
     
     varn = "PUN"
-    pun1 = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
-                                   np.array(data3[varn]),
-                             np.array(data4[varn]), np.array(data5[varn]), 
-                                np.array(data6[varn]), np.array(data7[varn])])
-                                
+#    pun1 = np.concatenate([np.array(data[varn]), np.array(data2[varn]), 
+#                                   np.array(data3[varn]),
+#                             np.array(data4[varn]), np.array(data5[varn]), 
+#                                np.array(data6[varn]), np.array(data7[varn])])
+#                                
+    pun1 = data7["PUN"]
+    
     pun = {"PUN": pun1}
-    rng2 = pd.date_range(start="01-01-2010", periods = pun1.size,freq = 'H')
-    ixx = np.arange(56951)
+    rng2 = pd.date_range(start="2016-01-01", periods = pun1.size,freq = 'H')
+    ixx = np.arange(pun1.size)
     rng = pd.DataFrame([rng2,ixx])
     rng.columns = [["rng", "ixx"]]
     rng.columns = ["rng"]
@@ -41,5 +43,5 @@ if __name__ == '__main__':
     
     months = np.unique(rng.month)
     
-    M = PUN_distribution.FindMarkovMatrix(ap,ap2,8,varn)
+    M = AMM.FindMarkovMatrix(ap,ap2,8,varn)
     print np.linalg.det(M)
