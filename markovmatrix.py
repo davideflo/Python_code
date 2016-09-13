@@ -10,6 +10,7 @@ os.chdir('C:/Users/utente/Documents/Python Scripts')
 import AMM
 import pandas as pd
 import numpy as np
+from collections import OrderedDict
 
 if __name__ == '__main__':
     
@@ -32,16 +33,16 @@ if __name__ == '__main__':
     pun = {"PUN": pun1}
     rng2 = pd.date_range(start="2016-01-01", periods = pun1.size,freq = 'H')
     ixx = np.arange(pun1.size)
-    rng = pd.DataFrame([rng2,ixx])
-    rng.columns = [["rng", "ixx"]]
-    rng.columns = ["rng"]
+    diz = OrderedDict()
+    diz['rng'] = rng2; diz['ixx'] = ixx
+    rng = pd.DataFrame.from_dict(diz)
     dd = {"ixx": ixx, "pun": pun1}
     ap = pd.DataFrame(dd).set_index(rng2)
     
     ap2 = pd.DataFrame(pun1)
     ap2.columns = ["pun"]
     
-    months = np.unique(rng.month)
+    months = np.unique(rng2.month)
     
-    M = AMM.FindMarkovMatrix(ap,ap2,8,varn)
+    M = AMM.FindMarkovMatrix(ap,ap2,8,'pun')
     print np.linalg.det(M)
