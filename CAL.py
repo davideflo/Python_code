@@ -11,6 +11,8 @@ import pandas as pd
 from collections import OrderedDict
 import numpy as np
 import matplotlib.pyplot as plt 
+from scipy.interpolate import interp1d
+from scipy.misc import derivative
 
 cal = pd.read_excel('CAL.xlsx', sheetname = 'valori CAL')
 cal = cal.fillna(0)
@@ -95,3 +97,75 @@ for y in range(10,18,1):
     dv, nc2 = find_peaks_return(varn, df, 1, False)
     print('media num contrattazioni di picco:'.format(np.nanmean(nc2)))
     means.append(np.mean(nc2))
+
+###########################################
+### how far are the max and min from the mean? and from the initial value? 
+
+stats = OrderedDict()
+
+stats['mins'] = cal.min()
+stats['maxs'] = cal.max()
+stats['means'] = cal.mean()
+stats['stds'] = cal.std()
+stats['starts'] = cal.ix[0]
+stats['ends'] = cal.ix[cal.shape[0] - 1]
+stats['skews'] = cal.skew()
+
+stats = pd.DataFrame.from_dict(stats)
+
+######################################################
+def std_distance(x, y, s):
+    print('{} is at {} sigmas from {}'.format(x, abs(x - y)/s, y))
+    return abs(x - y)/s
+#####################################################
+
+std_distance(stats['mins'].ix['AS16'], stats['maxs'].ix['AS16'], stats['stds'].ix['AS16'])
+std_distance(stats['means'].ix['AS16'], stats['maxs'].ix['AS16'], stats['stds'].ix['AS16'])
+std_distance(stats['starts'].ix['AS16'], stats['maxs'].ix['AS16'], stats['stds'].ix['AS16'])
+std_distance(stats['ends'].ix['AS16'], stats['maxs'].ix['AS16'], stats['stds'].ix['AS16'])
+
+#####################################################
+def rolling_dist(ts):
+    dist = []
+    for i,x in enumerate(ts[1:]):
+        pmean = np.mean(ts[:i])
+        psig = np.std(ts[:i])
+        dist.append(std_distance(x, pmean, psig))
+    return np.array(dist)
+######################################################
+        
+rd = rolling_dist(cal['AS16'])
+
+plt.figure()
+plt.plot(rd, marker='o')
+
+
+def plot_mean_graphs(ts):
+    #ts = cal['AS16']
+    cum_mu = []
+    for i,x in enumerate(ts):
+        cum_mu.append(np.mean(ts[:i]))
+    
+    cum_mu = np.array(cum_mu)
+    
+    plt.figure()
+    plt.plot(cum_mu, marker = 'o', color = 'magenta')
+    plt.figure()
+    plt.plot(np.diff(cum_mu), marker = 'o', color = 'lime')
+
+plot_mean_graphs(cal['AS15'])
+
+#####################################################
+
+f_mean = interp1d(np.linspace(1, cal.shape[0], 2*cal.shape[0]), cal['AS16'])
+
+der = []
+for x in np.linspace(1, cal.shape[0], 2*cal.shape[0]):
+    print(x)
+    der.append(derivative(f_mean, x))
+
+
+
+
+
+
