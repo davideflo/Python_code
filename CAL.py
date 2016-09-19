@@ -13,9 +13,11 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from scipy.interpolate import interp1d
 from scipy.misc import derivative
+import seaborn as sns
+
 
 cal = pd.read_excel('CAL.xlsx', sheetname = 'valori CAL')
-cal = cal.fillna(0)
+cal = cal.fillna(None)
 
 monthwise = OrderedDict()
 
@@ -139,30 +141,165 @@ rd = rolling_dist(cal['AS16'])
 plt.figure()
 plt.plot(rd, marker='o')
 
-
+######################################################
 def plot_mean_graphs(ts):
     #ts = cal['AS16']
     cum_mu = []
     for i,x in enumerate(ts):
         cum_mu.append(np.mean(ts[:i]))
-    
     cum_mu = np.array(cum_mu)
-    
     plt.figure()
     plt.plot(cum_mu, marker = 'o', color = 'magenta')
     plt.figure()
     plt.plot(np.diff(cum_mu), marker = 'o', color = 'lime')
-
-plot_mean_graphs(cal['AS15'])
+    return cum_mu, np.diff(cum_mu)
+######################################################
+mu,diff = plot_mean_graphs(cal['AS14'])
 
 #####################################################
 
-f_mean = interp1d(np.linspace(1, cal.shape[0], 2*cal.shape[0]), cal['AS16'])
+f_mean = interp1d(np.linspace(-1,  cal.shape[0], cal.shape[0]), cal['AS16'])
 
 der = []
-for x in np.linspace(1, cal.shape[0], 2*cal.shape[0]):
+for x in np.linspace(5, cal.shape[0], 2*cal.shape[0]):
     print(x)
     der.append(derivative(f_mean, x))
+
+plt.figure()
+plt.plot(np.array(der))
+
+####################################################
+def cumulative_diffs(ts, bVerbose = False):
+    M = np.max(ts)
+    v = [] ### dist from cumulative mean
+    curr = [] ### dist from current value
+    st = []
+    for i,x in enumerate(ts[1:]):
+        if bVerbose:
+            M = x
+        if np.isnan((M - x)/np.std(ts[:i])) or np.isinf((M - x)/np.std(ts[:i])):
+            pass
+        else:
+            curr.append((M - x)/np.std(ts[:i]))
+        if np.isnan((M - np.mean(ts[:i]))/np.std(ts[:i])) or np.isinf((M - np.mean(ts[:i]))/np.std(ts[:i])):
+            pass
+        else:
+            v.append((M - np.mean(ts[:i]))/np.std(ts[:i])) 
+        if np.isnan((M - ts[0])/np.std(ts[:i])) or np.isinf((M - ts[0])/np.std(ts[:i])):
+            pass
+        else:
+            st.append((M - ts[0])/np.std(ts[:i]))
+            
+    mark = [ts.tolist().index(np.max(ts)),ts.tolist().index(np.min(ts))] 
+        
+    plt.figure()
+    plt.plot(np.array(v), '-gD', markevery = mark)
+    plt.title('max vs cumulative mean')        
+    plt.figure()
+    plt.plot(np.array(curr), '-gD', markevery = mark)
+    plt.title('max vs current value')        
+    plt.figure()
+    plt.plot(np.array(st), '-gD', markevery = mark)
+    plt.title('max vs first value')        
+        
+    return v, curr, st
+###################################################
+dist_mu, current, dist_st = cumulative_diffs(cal['AS16'], True) 
+dist_mu, current, dist_st = cumulative_diffs(cal['AS15'], True) 
+dist_mu, current, dist_st = cumulative_diffs(cal['AS14'], True) 
+
+
+plt.figure()
+plt.plot(dist_mu[2:])
+
+plt.figure()
+plt.plot(current[2:])
+plt.figure()
+plt.plot(dist_st[2:])
+
+###################################################
+def H1_distance(ts1, ts2):
+    return np.mean((ts1 - ts2)**2) + np.mean((np.diff(ts1) - np.diff(ts2))**2)
+###################################################
+    
+sim = OrderedDict()
+    
+for cn1 in cal.columns[:7]:
+    dist = []
+    for cn2 in cal.columns[:7]:
+        print('{} with {} = {}'.format(cn1, cn2, H1_distance(cal[cn1], cal[cn2])))
+        dist.append(H1_distance(cal[cn1], cal[cn2]))
+    sim[cn1] = dist
+    
+sim = pd.DataFrame.from_dict(sim).set_index([['AS10','AS11','AS12','AS13','AS14','AS15','AS16']])
+
+sns.heatmap(sim)
+
+log_cal = OrderedDict()
+
+for cn in cal.columns[:8]:
+    log_cal[cn] = np.diff(np.log(cal[cn]))
+    
+log_cal = pd.DataFrame.from_dict(log_cal)
+
+############################################################################
+def cumulative_maxmin(ts):
+    M = []
+    m = []
+    for i in range(ts.size):
+        M.append(np.max(ts[:i]))
+        m.append(np.min(ts[:i]))
+    plt.figure()
+    plt.plot(np.array(M))
+    plt.title('cumulative max')
+    plt.figure()
+    plt.plot(np.array(m))
+    plt.title('cumulative min')
+    return M, m
+############################################################################
+def sell(x, y, hold, threshold = 0):
+    if hold: ### hold means I have something bought at a given price
+        if y - x > threshold:
+            return y - x
+        else:
+            return 0
+    else:
+        return 0
+############################################################################  
+def buy(last, y, free, threshold = 0):
+    if free:
+        if y < abs(last - threshold):
+            return -y
+        else:
+            return 0
+    else:
+        return 0
+############################################################################            
+def simulate_strategy(ts, threshold = 0):
+    x = last = ts[0]
+    hold = True
+    free = False
+    portfolio = left = 0
+    for y in ts[1:]:
+        if hold:
+            portfolio += sell(x, y, hold, threshold)
+            hold = False
+            last = y
+            free = True
+        elif free:
+            portfolio += buy(last, y, free, threshold)
+            free = False
+            x = last
+            hold = True
+        else:
+            left += 1
+    print('days with no operations: {}'.format(left))
+    return portfolio
+        
+        
+
+
+
 
 
 
