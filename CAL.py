@@ -14,10 +14,19 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from scipy.misc import derivative
 import seaborn as sns
-
+from scipy.stats import levy
+from sklearn import linear_model
 
 cal = pd.read_excel('CAL.xlsx', sheetname = 'valori CAL')
-cal = cal.fillna(None)
+#cal = cal.fillna(0)
+
+##################
+#### example with levy ####
+l = levy.fit(cal['AS16'])
+sampei = levy.rvs(loc = l[0], scale = l[1], size = 100)
+
+
+#################
 
 monthwise = OrderedDict()
 
@@ -295,14 +304,159 @@ def simulate_strategy(ts, threshold = 0):
             left += 1
     print('days with no operations: {}'.format(left))
     return portfolio
+###########################################################################
+###########################################################################
+###########################################################################
+class Portfolio:
+    
+    def __init__(self, value, hold, free, threshold_buy, threshold_sell):
+        self.value = value
+        self.hold = hold ## long position
+        self.free = free ## short position
+        self.last_held_value = 0
+        self.threshold_buy = threshold_buy
+        self.threshold_sell = threshold_sell
+        self.trading_days = 0
         
+    def get_portfolio_value(self):
+        return self.value
         
+    def get_position_long(self):
+        return self.hold
+
+    def get_position_short(self):
+        return self.free        
+        
+    def get_thr_buy(self):
+        return self.threshold_buy        
+
+    def get_thr_sell(self):
+        return self.threshold_sell        
+
+    def set_thr_buy(self, x):
+        self.threshold_buy = x
+
+    def set_thr_sell(self, x):
+        self.threshold_sell = x
+
+    def buy(self, price):
+        if self.get_position_short():
+            if price < self.get_thr_buy():
+                print('buying {}'.format(price))
+                self.value -= price
+                self.last_held_value = price
+                self.set_thr_buy(price)
+                self.set_thr_sell(price)
+                self.free = False
+                self.hold = True
+            else:
+                print('too expensive')
+        else:
+            print("I'm long already")
+            
+    def sell(self, gain):
+        if self.get_position_long():
+            if gain > self.get_thr_sell():
+                print('selling {}'.format(gain))
+                self.value += gain
+                self.hold = False
+                self.free = True
+            else:
+                print("it's not worthy selling it")
+        else:
+            print("I'm short already")
+        
+    def simulate_strategy_naive(self, process, bVerbose = False):
+        start = process[0]
+        self.last_held_value = start
+        self.set_thr_sell(start)
+        self.set_thr_buy(start)
+        self.hold = True
+        self.free = False
+        self.value -= start
+        self.trading_days += 1
+        last_portfolio_value = self.value
+        for i,x in enumerate(process[1:]):
+            if bVerbose:            
+                print('step {}'.format(i))
+                print('portfolio value BEFORE operations: {}'.format(self.get_portfolio_value()))
+            ### check if I can sell and if it's worthy:
+            self.sell(x)
+            ### check if I can buy and it's worthy:
+            self.buy(x)
+            if bVerbose:            
+                print('portfolio value AFTER operations: {}'.format(self.get_portfolio_value()))            
+            if self.value != last_portfolio_value:
+                self.trading_days += 1
+                last_portfolio_value = self.value
+        print('final portfolio value = {}'.format(self.get_portfolio_value()))
+        return self.get_portfolio_value()
 
 
+###############################################################################
+###############################################################################
+###############################################################################
+def Cuscore_Statistics(ts):
+    CS = []
+    betas = []
+    cs_incr = 0
+    epsilon = 1e-6
+    X = np.array(list(range(8))).reshape(-1, 1)
+    init = linear_model.LinearRegression(fit_intercept = True).fit(X, ts[:8])
+    beta_hat = init.coef_[0]
+    for i in range(9, ts.size - 3, 1):
+        print('step {}'.format(i))
+        Xnew = np.array(list(range(i))).reshape(-1, 1)
+        regr = linear_model.LinearRegression(fit_intercept = True).fit(Xnew, ts[:i])
+        beta_new = regr.coef_[0]
+        
+        X_last3 = np.array(list(range(i-3, i, 1))).reshape(-1, 1)
+        regr_last3 = linear_model.LinearRegression(fit_intercept = True).fit(X_last3, ts[(i-3):i])
+        beta_last3 = regr_last3.coef_[0]
+        
+        X_last = np.array(list(range(i-8, i+3, 1))).reshape(-1, 1)
+        regr_last = linear_model.LinearRegression(fit_intercept = True).fit(X_last, ts[(i-8):(i+3)])
+        beta_last = regr_last.coef_[0]
+        
+        if beta_new * beta_hat > epsilon and beta_new * beta_last > epsilon: 
+        ### trend doesn't change
+            print('trend does not change')
+            beta_hat = beta_new  
+            cs_incr += (ts[i] - beta_hat * i) * i 
+            CS.append(cs_incr)            
+        
+        elif beta_hat * beta_new < epsilon and beta_hat * beta_last > epsilon: 
+        ### it could change, but it's actually a local trend 
+            print('trend does not change')            
+            beta_hat = beta_new
+            cs_incr += (ts[i] - beta_hat * i) * i 
+            CS.append(cs_incr)
+            
+        elif beta_hat * beta_new < epsilon and beta_hat * beta_last < epsilon:
+        ### trend is changing
+            print('trend does change')
+            beta_hat = beta_last
+            cs_incr += (ts[i] - beta_hat * i) * i 
+            CS.append(cs_incr)
 
-
-
-
+        elif beta_new * beta_hat > epsilon and beta_new * beta_last < epsilon: 
+            if beta_hat * beta_last3 > epsilon:
+                beta_hat = beta_new  
+                cs_incr += (ts[i] - beta_hat * i) * i 
+                CS.append(cs_incr)
+            else:
+                beta_hat = beta_last
+                cs_incr += (ts[i] - beta_hat * i) * i 
+                CS.append(cs_incr)
+        
+        else:
+            print('case not considered')
+        betas.append(beta_hat)
+    return cs_incr, CS, betas
+###############################################################################
+###############################################################################
+ts = cal['AS17'].ix[cal['AS17'] > 0] ### to remove the nan's
+c_stat, seq, coffs = Cuscore_Statistics(ts)        
 
 
 
