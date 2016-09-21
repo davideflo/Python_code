@@ -16,6 +16,7 @@ from scipy.misc import derivative
 import seaborn as sns
 from scipy.stats import levy
 from sklearn import linear_model
+from sklearn import  neighbors
 
 cal = pd.read_excel('CAL.xlsx', sheetname = 'valori CAL')
 #cal = cal.fillna(0)
@@ -163,7 +164,7 @@ def plot_mean_graphs(ts):
     plt.plot(np.diff(cum_mu), marker = 'o', color = 'lime')
     return cum_mu, np.diff(cum_mu)
 ######################################################
-mu,diff = plot_mean_graphs(cal['AS14'])
+mu,diff = plot_mean_graphs(cal['AS17'])
 
 #####################################################
 
@@ -452,11 +453,48 @@ def Cuscore_Statistics(ts):
         else:
             print('case not considered')
         betas.append(beta_hat)
-    return cs_incr, CS, betas
+        
+    zoo = [1 if beta >= 0 else 0 for beta in betas]
+
+    indexes = []    
+    indexes.append(0)
+    for i in range(len(zoo)-1):
+        if zoo[i] == 1 and zoo[i+1] == 0:
+            indexes.append(i)
+        elif zoo[i] == 0 and zoo[i+1] == 1:
+            indexes.append(i)
+        else:
+            pass
+    
+    cs_corrected = []
+    for i in range(len(indexes)-1):
+        for j in range(indexes[i], indexes[i+1],1):
+            cs_corrected.append((ts[j] - betas[indexes[i]] * j) * j)
+        
+    return cs_incr, cs_corrected, betas, zoo    
+#    return cs_incr, cs_corrected, [betas[x] for x in indexes]#betas[indexes]
 ###############################################################################
 ###############################################################################
 ts = cal['AS17'].ix[cal['AS17'] > 0] ### to remove the nan's
-c_stat, seq, coffs = Cuscore_Statistics(ts)        
+c_stat, seq, coffs, zero = Cuscore_Statistics(ts)        
+
+c_stat, seq, coffs, zero = Cuscore_Statistics(ts.ix[ts.index.month >= 8])                
+
+for beta in coffs:
+    plt.figure()
+    plt.plot(np.array(ts.ix[ts.index.month >= 8]))
+    plt.plot(beta*np.linspace(0, 20, num = 50) + 40.5)
+
+plt.figure()
+plt.plot(np.array(seq))
+plt.figure()
+plt.plot(np.array(coffs))
 
 
 
+n_neighbors = 5
+X = np.linspace(1, ts.size, num = ts.size)[:, np.newaxis]
+knn = neighbors.KNeighborsRegressor(n_neighbors, weights='distance')
+y_ = knn.fit(X, ts.ravel()).predict(X)
+plt.figure()
+plt.plot(X, y_, c='g', label='prediction')
