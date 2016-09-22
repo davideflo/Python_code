@@ -480,10 +480,28 @@ c_stat, seq, coffs, zero = Cuscore_Statistics(ts)
 
 c_stat, seq, coffs, zero = Cuscore_Statistics(ts.ix[ts.index.month >= 8])                
 
-for beta in coffs:
+st = np.array(ts.ix[ts.index.month >= 8])
+
+X_ = np.array(list(range(st.size))).reshape(-1, 1)
+model_ransac = linear_model.RANSACRegressor(linear_model.LinearRegression())
+model_ransac.fit(X_, st)
+
+line_y_ransac = model_ransac.predict(X_)
+plt.plot(st)
+plt.plot(X_, line_y_ransac, '-b', label='RANSAC regressor')
+
+for i in range(2,st.size,1):
+    print(i)
+    X_ = np.array(list(range(st[:i].size))).reshape(-1, 1)
+    model_ransac = linear_model.RANSACRegressor(linear_model.LinearRegression())
+    model_ransac.fit(X_, st[:i])
+    line_y_ransac = model_ransac.predict(X_)
     plt.figure()
-    plt.plot(np.array(ts.ix[ts.index.month >= 8]))
-    plt.plot(beta*np.linspace(0, 20, num = 50) + 40.5)
+    plt.plot(st[:i])
+    plt.plot(X_, line_y_ransac, '-b', label='RANSAC regressor')
+#    plt.figure()
+#    plt.plot(st[:i])
+#    plt.plot(beta*np.linspace(0, 20, num = 50) + 40.5, '-gD', markevery=i)
 
 plt.figure()
 plt.plot(np.array(seq))
@@ -494,6 +512,7 @@ plt.plot(np.array(coffs))
 
 n_neighbors = 5
 X = np.linspace(1, ts.size, num = ts.size)[:, np.newaxis]
+### distance better than uniform
 knn = neighbors.KNeighborsRegressor(n_neighbors, weights='distance')
 y_ = knn.fit(X, ts.ravel()).predict(X)
 plt.figure()
