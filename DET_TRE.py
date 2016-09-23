@@ -74,7 +74,7 @@ def detect_trends(ts, lam = 1):
     else:
         for j in range(len(ic)):
             print('popping {}'.format(ic[j]))            
-            list_x.pop(ic[j])
+            list_x.pop((ic[j]-j))
             
         xnew = list_x    
         err2, beta2 = find_trends(ts, xnew, size)

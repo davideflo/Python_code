@@ -38,3 +38,35 @@ df= pd.DataFrame.from_dict(diz).set_index(rng)
 df[df.columns[0:3]].plot()
 plt.figure()
 df[df.columns[-1]].plot()
+
+################################################################
+dem = pd.read_excel('C:/Users/d_floriello/Documents/Demand.xlsx')
+
+rng = pd.date_range('2016-09-01', '2016-09-24', freq = 'D')
+
+diz = OrderedDict()
+
+sard = []
+sici = []
+sud = []
+csud = []
+cnor = []
+nord = []
+for d in rng:
+    sard.append(dem['SARD'].ix[dem.index == d].mean())
+    sici.append(dem['SICI'].ix[dem.index == d].mean())
+    sud.append(dem['SUD'].ix[dem.index == d].mean())
+    csud.append(dem['CSUD'].ix[dem.index == d].mean())
+    cnor.append(dem['CNOR'].ix[dem.index == d].mean())
+    nord.append(dem['NORD'].ix[dem.index == d].mean())
+
+    
+diz['SARD'] = np.array(sard)
+diz['SICI'] = np.array(sici)
+diz['SUD'] = np.array(sud)
+diz['CSUD'] = np.array(csud)
+diz['CNOR'] = np.array(cnor)
+diz['NORD'] = np.array(nord)
+
+de = pd.DataFrame.from_dict(diz).set_index(rng)
+de.plot()
