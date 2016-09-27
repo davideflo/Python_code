@@ -56,6 +56,8 @@ Z = data.resample('D').mean()
 
 zones = pd.DataFrame(Z[Z.columns[[6,7,10,13,15,16,18,21,22,23,24,25]]])
 
+zones2 = zones.ix[zones.index.month <= 9]
+
 zones.plot()
 zones[zones.columns[[0,4,6]]].plot()
 zones[zones.columns[[0,4]]].plot(title='PUN vs FRAN')
@@ -108,6 +110,48 @@ nnsep['nord'] = zones[zones.columns[6]].ix[zones.index.month == 9]
 
 NSep = pd.DataFrame.from_dict(nnsep)
 
+#######################################################################
+days = OrderedDict()
+days_of_week = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom']
+cols = [12,21,24,31]
+nms = ['pun','fran','nord','sviz']
+for i in cols:
+    dm = []
+    for d in days_of_week:
+        dm.append(data[data.columns[i]].ix[data['Week Day'] == d].mean())
+    days[nms[cols.index(i)]] = dm
+
+days = pd.DataFrame.from_dict(days).set_index([days_of_week])
+
+### trend in the last 2 months:
+last_trend = OrderedDict()
+last = data.ix[data.index.month >= 8]
+days_of_week = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom']
+cols = [12,21,24,31]
+nms = ['pun','fran','nord','sviz']
+for i in cols:
+    dm = []
+    for d in days_of_week:
+        dm.append(last[last.columns[i]].ix[last['Week Day'] == d].mean())
+    last_trend[nms[cols.index(i)]] = dm
+
+LT = pd.DataFrame.from_dict(last_trend).set_index([days_of_week])
+LT.plot()
+
+(LT['pun'].ix['Mer'] - LT['pun'].ix['Gio'])/LT['pun'].ix['Gio']
+
+#### pun quando ha sparato ####
+sdates = ['2016-09-01','2016-09-02','2016-09-07','2016-09-20','2016-09-23']
+
+shot = pd.DataFrame()
+for sd in sdates:
+    shot = shot.append(zones.ix[zones.index == sd])
+    
+before = ['2016-08-30','2016-08-31','2016-09-01','2016-09-05','2016-09-06','2016-09-18','2016-09-19',
+          '2016-09-21', '2016-09-22']
+for b in before:
+    print('on {} pun was lower than sviz: {}'
+    .format(b,zones[zones.columns[0]].ix[zones.index == b] < zones[zones.columns[11]].ix[zones.index == b]))
 ################################################
 def freq_greater_than(ts, sig, flag):
     greater = []
@@ -150,17 +194,17 @@ def read_XML(path):
     for i in range(len(root.getchildren())):
         child = root.getchildren()[i].getchildren()
         if child[3] == 'NORD' and child[4] == 'FRAN':
-            nord_fran.append(float(child[5]))
+            nord_fran.append(float(child[5].replace(',','.')))
         elif child[3] == 'NORD' and child[4] == 'SVIZ':
-            nord_sviz.append(float(child[5]))
+            nord_sviz.append(float(child[5].replace(',','.')))
         elif child[3] == 'FRAN' and child[4] == 'SVIZ':
-            fran_sviz.append(float(child[5]))
+            fran_sviz.append(float(child[5].replace(',','.')))
         elif child[3] == 'FRAN' and child[4] == 'NORD':
-            fran_nord.append(float(child[5]))
+            fran_nord.append(float(child[5].replace(',','.')))
         elif child[3] == 'SVIZ' and child[4] == 'NORD':
-            sviz_nord.append(float(child[5]))
+            sviz_nord.append(float(child[5].replace(',','.')))
         elif child[3] == 'SVIZ' and child[4] == 'FRAN':
-            sviz_fran.append(float(child[5]))
+            sviz_fran.append(float(child[5].replace(',','.')))
         else:
             pass
     diz['nord-fran'] = np.nanmean(nord_fran)

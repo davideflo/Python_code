@@ -22,14 +22,17 @@ diz = OrderedDict()
 CF = []
 CN = []
 F = []
+#D = []
 for d in rng:
     CF.append(flow[flow.columns[2]].ix[flow.index == d].mean())
     CN.append(flow[flow.columns[3]].ix[flow.index == d].mean())
     F.append(flow[flow.columns[4]].ix[flow.index == d].mean())
+#    D.append(np.mean(flow[flow.columns[2]].ix[flow.index == d] - flow[flow.columns[4]].ix[flow.index == d]))
     
 diz['CF'] = np.array(CF)
 diz['CN'] = np.array(CN)
 diz['F'] = np.array(F)
+#diz['diff'] = np.array(D)
 diz['anom'] = np.array(list([1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1]))
 diz['pun'] = pun[pun.columns[0]].ix[0:22]
 
