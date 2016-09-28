@@ -15,6 +15,9 @@ from collections import OrderedDict
 import h2o
 import matplotlib.pyplot as plt
 from lxml import objectify
+#from bs4 import BeautifulSoup
+path = 'C:/Users/d_floriello/Documents/MGP_Transiti_Gen/20160107MGPTransiti.xml'
+
 
 data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
 
@@ -122,6 +125,7 @@ for i in cols:
     days[nms[cols.index(i)]] = dm
 
 days = pd.DataFrame.from_dict(days).set_index([days_of_week])
+days.plot()
 
 ### trend in the last 2 months:
 last_trend = OrderedDict()
@@ -180,6 +184,22 @@ def glob_perc(ts):
             print('%.6f' % float(count/np.sum(sigma)))
     return np.array(res)
 ################################################
+def modify_XML(path):
+    file = open(path, 'r')
+    lines = file.readlines()
+    file.close()
+    file = open(path, 'w')
+    todelete = ['<xs', '</xs']
+    for line in lines:
+        if todelete[0] in line:
+            print('skip')
+        elif todelete[1] in line:
+            print('skip this too')
+        else:
+            print('write')
+            file.write(line.replace(',','.'))
+    file.close()
+################################################    
 def read_XML(path):
 #    var = ['NORD', 'FRAN', 'SVIZ']
     xml = objectify.parse(open(path))
@@ -194,17 +214,17 @@ def read_XML(path):
     for i in range(len(root.getchildren())):
         child = root.getchildren()[i].getchildren()
         if child[3] == 'NORD' and child[4] == 'FRAN':
-            nord_fran.append(float(child[5].replace(',','.')))
+            nord_fran.append(float(child[5]))
         elif child[3] == 'NORD' and child[4] == 'SVIZ':
-            nord_sviz.append(float(child[5].replace(',','.')))
+            nord_sviz.append(float(child[5]))
         elif child[3] == 'FRAN' and child[4] == 'SVIZ':
-            fran_sviz.append(float(child[5].replace(',','.')))
+            fran_sviz.append(float(child[5]))
         elif child[3] == 'FRAN' and child[4] == 'NORD':
-            fran_nord.append(float(child[5].replace(',','.')))
+            fran_nord.append(float(child[5]))
         elif child[3] == 'SVIZ' and child[4] == 'NORD':
-            sviz_nord.append(float(child[5].replace(',','.')))
+            sviz_nord.append(float(child[5]))
         elif child[3] == 'SVIZ' and child[4] == 'FRAN':
-            sviz_fran.append(float(child[5].replace(',','.')))
+            sviz_fran.append(float(child[5]))
         else:
             pass
     diz['nord-fran'] = np.nanmean(nord_fran)
@@ -215,26 +235,27 @@ def read_XML(path):
     diz['sviz-nord'] = np.nanmean(sviz_nord)
     return diz
 #################################################
-def get_flowsXML(lof):
+def get_flowsXML(prepath, lof, start, end):
     diz = OrderedDict()
     nf = []
     ns = []
     for p in lof:
-        path = 'C:/Users/d_floriello/Documents/MGP_Transiti2016091920160925/'+p
+        path = prepath+p
+        modify_XML(path)
         res = read_XML(path)
         nf.append(res['nord-fran'])        
         ns.append(res['nord-sviz'])
     diz['nord-fran'] = nf
     diz['nord-sviz'] = ns
-    df = pd.DataFrame.from_dict(diz).set_index(pd.date_range('2016-09-19', '2016-09-25',freq='D'))        
+    df = pd.DataFrame.from_dict(diz).set_index(pd.date_range(start, end,freq='D'))        
     return df
 ################################################
 
 from os import listdir
 from os.path import isfile, join
-list_of_files = [f for f in listdir('C:/Users/d_floriello/Documents/MGP_Transiti2016091920160925/') if isfile(join('C:/Users/d_floriello/Documents/MGP_Transiti2016091920160925/', f))]
+list_of_files = [f for f in listdir('C:/Users/d_floriello/Documents/MGP_Transiti_Gen') if isfile(join('C:/Users/d_floriello/Documents/MGP_Transiti_Gen', f))]
 
-df = get_flowsXML(list_of_files)
+df = get_flowsXML('C:/Users/d_floriello/Documents/MGP_Transiti_Gen/',list_of_files, '2016-01-01', '2016-01-31')
 
 plt.figure()
 plt.plot(zones[zones.columns[0]] - zones[zones.columns[11]])
