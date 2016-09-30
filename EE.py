@@ -18,4 +18,4 @@ df = EE_interp.Extract_Dataset(path)
 
 print 'dimensions of the updated dataset: {}'.format(df.shape)
 
-EE_interp.get_InterpolatedCurves(path)
+#EE_interp.get_InterpolatedCurves(path)
