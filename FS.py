@@ -303,11 +303,88 @@ plt.scatter(np.array(gas_ts), np.array(pun[:gas_ts.shape[0]]))
 
 pun_g = pun[:gas_ts.shape[0]]
 lr_g = linear_model.LinearRegression(fit_intercept = True)
-lin_model_gas = lr.fit(np.array(gas_ts).reshape(-1,1), np.array(pun_g).reshape(-1,1))
+lin_model_gas = lr_g.fit(np.array(gas_ts).reshape(-1,1), np.array(pun_g).reshape(-1,1))
 
 g_hat = lin_model_gas.predict(np.array(gas_ts).reshape(-1,1))
-lin_model_gas.coef_ #### not much impact of transits on pun
+lin_model_gas.coef_
 
 plt.figure()
 plt.scatter(np.array(gas_ts),np.array(pun_g), color = 'blue')
 plt.plot(np.array(gas_ts), g_hat, color = 'red', lw = 2)
+
+from scipy import stats
+
+result = stats.linregress(gas_ts, pun_g)
+result.slope
+
+err = pun_g - g_hat.ravel()
+plt.figure()
+plt.scatter(list(range(err.size)),err) 
+err.mean()
+err.median()
+
+stud_err = (err - err.mean())/(err.std())
+plt.figure()
+plt.scatter(list(range(stud_err.size)),stud_err) 
+
+plt.figure()
+plt.scatter(np.array(gas_ts), stud_err)
+
+plt.figure()
+plt.scatter(g_hat.ravel(), stud_err)
+
+gas_ts
+plt.figure()
+plt.plot(gas_ts)
+
+########## complete gas prices
+
+gp = pd.read_excel('C:/Users/d_floriello/Documents/Gas prices (1).xlsx', sheetname = 'Spot indices')
+gp = gp.ix[1:]
+gp = gp.set_index(gp[gp.columns[0]])
+bal = gp['Balancing market price (within day)'].dropna()
+
+bal.plot()
+
+plt.figure()
+plt.plot(np.array(bal))
+############# prezzo sbilanciamento
+
+gpb = pd.read_excel('C:/Users/d_floriello/Documents/Prezzo di bilanciamento gas.xlsx', sheetname = 'val')
+gpb = gpb.set_index(pd.to_datetime(gpb[gpb.columns[0]]))
+bil = gpb['sbil']
+
+plt.figure()
+plt.plot(np.array(bil))
+bil6 = bil.ix[306:550]
+
+pun_g.corr(bil6)
+
+pun_g.size
+bil6.size
+
+plt.figure()
+plt.scatter(np.array(bil6), pun_g, color = 'red')
+
+res6 = stats.linregress(bil6, pun_g)
+pg_hat = res6.intercept + bil6 * res6.slope
+
+plt.figure()
+plt.scatter(np.array(bil6), pun_g, color = 'red')
+plt.plot(np.array(bil6), pg_hat, color = 'blue')
+
+res = pun_g - pg_hat
+res_stud = (res - np.mean(res))/np.std(res)
+
+plt.figure()
+plt.scatter(list(range(res_stud.size)),res_stud) 
+plt.scatter(list(range(stud_err.size)),stud_err, color = 'lime') 
+
+
+np.mean(res)
+np.std(res)
+
+pun_in = pun_g.ix[np.where((pun_g - np.mean(pun_g))/np.std(pun_g) <= 3)]
+bil_in6 = bil6.ix[np.where((pun_g - np.mean(pun_g))/np.std(pun_g) <= 3)]
+
+stats.linregress(bil_in6, pun_in)
