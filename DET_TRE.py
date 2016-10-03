@@ -35,7 +35,24 @@ def find_trends(ts, list_x, size):
         
     return err, beta_start
 ###############################################################################
-def detect_trends(ts, lam = 1):
+def unify_changes(ts, list_x, beta2, size):
+    unchanged = [0]
+    change = False
+    nc = 0
+    for i in range(1,len(beta2)-1,1):
+        if beta2[i] * beta2[i+1] > 0:
+            nc = i + 1
+        else: 
+            change = True
+        if change:
+            print(list_x[nc])
+            unchanged.append(list_x[nc])
+            change = False            
+           
+    err, beta = find_trends(ts, unchanged, size)
+    return err, beta, unchanged
+###############################################################################    
+def detect_trends_man(ts, lam = 1):
 
     changes = 0       
     loss = 0
@@ -82,9 +99,12 @@ def detect_trends(ts, lam = 1):
         for i in range(len(beta2)-1):
             if beta2[i] * beta2[i+1] < 0:
                 changes2 += 1
+            
+        loss = err2 + lam * (changes2 + len(xnew))     
+        err2, beta2, xnew2 = unify_changes(ts, xnew, beta2, size)
         
-        if loss > err2 + lam * (changes2 + len(xnew)):
-            return err2, beta2, xnew
+        if loss > err2 + lam * (changes2 + len(xnew2)):
+            return err2, beta2, xnew2
         else: 
             return err, beta_start, list_x
             

@@ -476,7 +476,33 @@ def Cuscore_Statistics(ts):
 ###############################################################################
 ###############################################################################
 ts = cal['AS17'].ix[cal['AS17'] > 0] ### to remove the nan's
-c_stat, seq, coffs, zero = Cuscore_Statistics(ts)        
+err, beta, x = detect_trends_man(ts)        
+
+yt = []
+for i in range(len(x)-1):
+    intercept = 0
+    if i == 0:
+        intercept = np.mean(ts[0:x[1]])
+    else:
+        intercept = yt[-1][-1]
+    yt.append(beta[i] * range(x[i], x[i+1], 1) + intercept)
+ 
+yt.append(beta[-1] * range(x[-1], ts.size, 1) + ts.ix[x[-1]])
+
+yt = np.concatenate(yt).ravel()
+yt = pd.Series(yt)
+
+plt.figure()
+plt.plot(ts)
+plt.figure()
+plt.plot(yt)
+
+
+
+
+
+
+
 
 c_stat, seq, coffs, zero = Cuscore_Statistics(ts.ix[ts.index.month >= 8])                
 
