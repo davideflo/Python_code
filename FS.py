@@ -388,3 +388,4 @@ pun_in = pun_g.ix[np.where((pun_g - np.mean(pun_g))/np.std(pun_g) <= 3)]
 bil_in6 = bil6.ix[np.where((pun_g - np.mean(pun_g))/np.std(pun_g) <= 3)]
 
 stats.linregress(bil_in6, pun_in)
+
