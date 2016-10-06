@@ -103,15 +103,79 @@ for d in days:
     fr.append(fs['Francia (EPEX)'].ix[fs.index == d].mean())
     sv.append(fs['Svizzera (EPEX)'].ix[fs.index == d].mean())
     
+###  EPEX FR from 2016-09-30 to 2016-10-06:
+nd = [41.78, 38.19, 32.48, 36.04, 42.02,42.68 ,48.28]
+for n in nd:
+    fr.append(n)
 fsm['francia'] = fr
 fsm['svizzera'] = sv
-fsm['pun'] = pun[:273]
+fsm['pun'] = pun[:280]
 
 fsm = pd.DataFrame.from_dict(fsm)
 
 fsm.plot() ### from this I'm very doubtful that flows actually correlate wth prices... 
            ### except in the last week where something anomalous is definitely happening
 
+s_pun = (fsm['pun'] - fsm['pun'].mean())/fsm['pun'].std() 
+s_fran = (fsm['francia'] - fsm['francia'].mean())/fsm['francia'].std() 
+
+import scipy as sp
+qsp = sp.stats.mstats.mquantiles(s_pun, prob = 0.95)[0]
+qsf = sp.stats.mstats.mquantiles(s_fran, prob = 0.95)[0]
+
+out_p = fsm['pun'].ix[np.abs(s_pun) > qsp]
+out_f = fsm['francia'].ix[np.abs(s_fran) > qsf]
+
+plt.figure()
+plt.plot(np.array(fsm['pun']))
+plt.plot(np.array(fsm['francia']))
+plt.scatter(np.where(np.abs(s_pun) > qsp)[0],out_p, color = 'purple', marker = 'o')
+plt.scatter(np.where(np.abs(s_fran) > qsf)[0],out_f, color = 'black', marker = '*')
+plt.title('(global) outliers')
+
+def find_outliers_rolling(ts):
+    index = []
+    for i in range(1, ts.size, 1):
+        st_ts_i = (ts[:i] - np.mean(ts[:i]))/np.std(ts[:i])        
+        qu = sp.stats.mstats.mquantiles(st_ts_i, prob = 0.95)[0]
+        index.append(np.where(np.abs(st_ts_i) > qu)[0].tolist())
+    return index
+
+rop_i = find_outliers_rolling(np.array(fsm['pun'])) 
+
+unp = set(rop_i[-1])
+
+for i in range(len(rop_i)-1):
+    unp = unp.union(rop_i[i])
+ 
+unp = list(unp)
+
+plt.figure()
+plt.plot(np.array(fsm['pun']))
+plt.scatter(np.array(unp), np.array(fsm['pun'].ix[unp]), color = 'black', marker = 'o')
+
+rof_i = find_outliers_rolling(np.array(fsm['francia'])) 
+
+unf = set(rof_i[-1])
+
+for i in range(len(rof_i)-1):
+    unf = unf.union(rof_i[i])
+ 
+unf = list(unf)
+
+plt.figure()
+plt.plot(np.array(fsm['francia']), color = 'red')
+plt.scatter(np.array(unf), np.array(fsm['francia'].ix[unf]), color = 'purple', marker = 'o')
+
+plt.figure()
+plt.plot(np.array(fsm['pun']))
+plt.plot(np.array(fsm['francia']), color = 'red')
+plt.scatter(np.array(unp), np.array(fsm['pun'].ix[unp]), color = 'black', marker = 'o')
+plt.scatter(np.array(unf), np.array(fsm['francia'].ix[unf]), color = 'purple', marker = 'o')
+plt.title('rolling outliers')
+
+
+##########################################################################################################
 swiss_flows = pd.read_excel('C:/Users/d_floriello/Documents/EnergieUebersichtCH_2016.xlsx', sheetname = 'Zeitreihen0h15')
 sflows = pd.DataFrame((1/1000)*swiss_flows[['Verbundaustausch CH->FR\nCross Border Exchange CH->FR',
                       'Verbundaustausch FR->CH\nCross Border Exchange FR->CH',
@@ -176,6 +240,84 @@ wp = weekly_(pun)
 wf = weekly_(fran)
 ws = weekly_(sviz)    
 
+wpq = wp.quantile([0.0275, 0.975])
+wfq = wf.quantile([0.0275, 0.975])
+
+lun = []
+mar = []
+mer = []
+gio = []
+ven = []
+sab = []
+dom = []
+
+dow = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+diz = OrderedDict()
+first = datetime.date(int(str(pun.index[0])[:4]),int(str(pun.index[0])[5:7]),int(str(pun.index[0])[8:10]))
+for d in dow:
+    daily = []
+    for i in range(pun.shape[0]):
+        dt = datetime.date(int(str(pun.index[i])[:4]),int(str(pun.index[i])[5:7]),int(str(pun.index[i])[8:10]))
+        if dow[dt.weekday()] == d:
+            if pun.ix[i] <= wpq[d].ix[0.0275] or pun.ix[i] >= wpq[d].ix[0.975]:             
+                daily.append((dt - first).days)
+    diz[d] = daily
+    
+markers = ["1", "2", "3", "4", "8", "s", "p"]
+plt.figure()
+plt.plot(np.array(pun), color = 'purple')
+for k in diz.keys():
+    m = markers[dow.index(k)]
+    plt.scatter(np.array(diz[k]), np.array(fsm['pun'].ix[diz[k]]), color = 'black', marker = m)
+
+
+dow = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+diz = OrderedDict()
+first = datetime.date(int(str(fran.index[0])[:4]),int(str(fran.index[0])[5:7]),int(str(fran.index[0])[8:10]))
+for d in dow:
+    daily = []
+    for i in range(fran.shape[0]):
+        dt = datetime.date(int(str(fran.index[i])[:4]),int(str(fran.index[i])[5:7]),int(str(fran.index[i])[8:10]))
+        if dow[dt.weekday()] == d:
+            if fran.ix[i] <= wfq[d].ix[0.0275] or fran.ix[i] >= wfq[d].ix[0.975]:             
+                daily.append((dt - first).days)
+    diz[d] = daily
+    
+markers = ["1", "2", "3", "4", "8", "s", "p"]
+plt.figure()
+plt.plot(np.array(fran), color = 'grey')
+for k in diz.keys():
+    m = markers[dow.index(k)]
+    plt.scatter(np.array(diz[k]), np.array(fsm['francia'].ix[diz[k]]), color = 'blue', marker = m)
+   
+def weekly_area(df):
+    wa = []
+    for i in range(df.shape[0]):
+        area = 0        
+        week = np.array(df.ix[i])
+        dweek = np.diff(week)
+        for j in range(5):
+            area += (week[j] + week[j+1])*(1/2) + (dweek[j] + dweek[j+1])*(1/2)
+        area += (week[5] + week[6])*(1/2)
+        wa.append(area)
+    return np.array(wa)
+ 
+wap = weekly_area(wp)   
+waf = weekly_area(wf)    
+    
+    
+q_wap = sp.stats.mstats.mquantiles(wap, prob = [0.05, 0.95])
+q_waf = sp.stats.mstats.mquantiles(waf, prob = [0.05, 0.95])
+
+plt.figure()
+plt.plot(wap)  
+plt.axhline(q_wap[0], color = 'blue')
+plt.axhline(q_wap[1], color = 'blue')
+plt.plot(waf)    
+plt.axhline(q_waf[0], color = 'green')
+plt.axhline(q_waf[1], color = 'green')
+
+    
 #### are we in a volatility cluster? it doesn't seem so for pun:
 wp.T.plot(legend = False)
 plt.figure()
