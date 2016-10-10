@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sp
+import scipy.stats
 import datetime
 
 
@@ -25,7 +26,7 @@ plt.plot(np.array(bil))
 
 std_bil = (bil - np.mean(bil))/(np.std(bil))
 
-sp.stats.mstats.mquantiles(std_bil, prob = [0.90, 0.95])
+scipy.stats.mstats.mquantiles(std_bil, prob = [0.90, 0.95])
 
 q = sp.stats.mstats.mquantiles(std_bil, prob = 0.95)[0]
 
@@ -47,6 +48,21 @@ out_ix
 
 yyhat = np.polyfit(np.arange(std_bil.size), std_bil, deg = 3, full = True)[0]
 
+
+def rolling_weight(ts, i):
+    ts2 = []
+    for k,j in enumerate(np.arange(ts[:i].size-1, 0, -1)):
+        ts2.append(ts[k] * np.exp((-1/30)*(j)))
+    return np.array(ts2)
+#############################################
+def find_outliers_rolling(ts):
+    index = []
+    for i in range(1, ts.size, 1):
+        ts2 = rolling_weight(ts, i)        
+        st_ts_i = (ts2 - np.mean(ts2))/np.std(ts2)        
+        qu = sp.stats.mstats.mquantiles(st_ts_i, prob = 0.95)[0]
+        index.append(np.where(np.abs(st_ts_i) > qu)[0].tolist())
+    return index
 #############################################
 def approximating_polynomial(x, yhat):
     xx = 0
@@ -55,6 +71,18 @@ def approximating_polynomial(x, yhat):
         xx += (x**deg) * y
     return xx + yhat[-1]
 #############################################
+gi = find_outliers_rolling(np.array(bil))
+
+unp = set(gi[-1])
+
+for i in range(len(gi)-1):
+    unp = unp.union(gi[i])
+ 
+unp = list(unp)
+
+plt.figure()
+plt.plot(np.array(bil))
+plt.scatter(np.array(unp), np.array(bil.ix[unp]), color = 'black', marker = 'o')
     
 phat = approximating_polynomial(np.arange(std_bil.size), yyhat) 
 
@@ -62,13 +90,20 @@ plt.figure()
 plt.plot(np.array(std_bil))
 plt.plot(phat)
 
-#### how often there is a spike? ####
+#### how often is there a spike? ####
 
 residuals = std_bil - phat
 
 np.mean(residuals)
 np.std(residuals)
 qp = sp.stats.mstats.mquantiles(residuals, prob = 0.95)[0]
+
+ixix = np.where(np.abs(residuals) > qp)[0]
+
+plt.figure()
+plt.plot(np.array(std_bil))
+plt.plot(phat)
+plt.scatter(ixix, std_bil.ix[ixix.tolist()], color = 'black', marker = 'o')
 
 plt.figure()
 plt.plot(residuals)

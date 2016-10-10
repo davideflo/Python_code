@@ -12,6 +12,7 @@ import numpy as np
 #from collections import OrderedDict
 import matplotlib.pyplot as plt
 from sklearn import linear_model
+import scipy.stats
 
 fs = pd.read_excel('C:/Users/d_floriello/Documents/Prezzi Francia e Svizzera (2015 -2016).xlsx', sheetname = '2015')
 fs = fs[fs.columns[[2,3]]].set_index(fs['Data'])
@@ -62,3 +63,84 @@ print(np.mean(fran))
 print(np.std(fran))
 print(np.max(fran))
 print(np.min(fran))
+
+###### fabbisogno 
+
+fabb = pd.read_excel('C:/Users/d_floriello/Documents/fabb_2016_fran.xlsx')
+
+fabb = fabb.set_index(fabb[fabb.columns[0]])
+fabb.columns = [['data', 'ore', 'jp', 'j']]
+
+fabb = (1/1000)*fabb[['jp', 'j']]
+fabb.plot()
+
+fp = pd.DataFrame(fabb.resample('D').mean(),fran)
+fp.plot()
+
+fabb.resample('D').mean().plot()
+plt.figure()
+plt.plot(fran, color = 'black', lw = 2)
+
+Jfab = pd.Series(fabb['j'], dtype = 'float64')
+Fpun = pd.Series(fran, dtype = 'float64')
+
+Jfab.corr(Fpun)
+
+plt.figure()
+plt.scatter(np.array(Jfab.resample('D').mean()), np.array(Fpun))
+
+log_model = linear_model.LinearRegression(fit_intercept = True).fit(np.log(np.array(Jfab.resample('D').mean())).reshape(-1,1),np.array(Fpun))
+Lyhat = log_model.predict(np.log(np.array(Jfab.resample('D').mean())).reshape(-1,1))
+
+R2_log = 1 - np.sum((np.array(Fpun) - Lyhat)**2)/(np.sum((np.array(Fpun) - np.mean(Fpun))**2))
+
+plt.figure()
+plt.plot(np.array(Jfab.resample('D').mean()), Lyhat, color = 'red')
+plt.scatter(np.array(Jfab.resample('D').mean()), np.array(Fpun))
+
+sqr_model = linear_model.LinearRegression(fit_intercept = True).fit(np.sqrt(np.array(Jfab.resample('D').mean())).reshape(-1,1),np.array(Fpun))
+Syhat = sqr_model.predict(np.sqrt(np.array(Jfab.resample('D').mean())).reshape(-1,1))
+
+R2_sqr = 1 - np.sum((np.array(Fpun) - Syhat)**2)/(np.sum((np.array(Fpun) - np.mean(Fpun))**2))
+
+plt.figure()
+plt.plot(np.array(Jfab.resample('D').mean()), Syhat, color = 'grey')
+plt.scatter(np.array(Jfab.resample('D').mean()), np.array(Fpun))
+
+cub_model = linear_model.LinearRegression(fit_intercept = True).fit(np.power(np.array(Jfab.resample('D').mean()),1/3).reshape(-1,1),np.array(Fpun))
+Cyhat = cub_model.predict(np.power(np.array(Jfab.resample('D').mean()),1/3).reshape(-1,1))
+
+R2_cub = 1 - np.sum((np.array(Fpun) - Cyhat)**2)/(np.sum((np.array(Fpun) - np.mean(Fpun))**2))
+
+plt.figure()
+plt.plot(np.array(Jfab.resample('D').mean()), Cyhat, color = 'green')
+plt.scatter(np.array(Jfab.resample('D').mean()), np.array(Fpun))
+
+dfab = np.diff(Jfab.resample('D').mean())
+dfpun = np.diff(Fpun)
+
+plt.figure()
+plt.plot(dfab)
+plt.figure()
+plt.plot(dfpun, color = 'red')
+
+coh = np.sign(dfab) * np.sign(dfpun)
+np.where(coh < 0)[0].size/365
+
+qfab = scipy.stats.mstats.mquantiles(Jfab.resample('D').mean(), prob = [0.025, 0.975])
+qfpun = scipy.stats.mstats.mquantiles(Fpun, prob = [0.025, 0.975])
+
+fab_down = np.where(Jfab.resample('D').mean() < qfab[0])
+fab_up = np.where(Jfab.resample('D').mean() > qfab[1])
+fpun_down = np.where(Fpun < qfpun[0])
+fpun_up = np.where(Fpun > qfpun[1])
+
+plt.figure()
+plt.plot(np.array(Jfab.resample('D').mean()))
+plt.scatter(fab_down[0], np.array(Jfab.resample('D').mean())[fab_down[0]], color = 'black')
+plt.scatter(fab_up[0], np.array(Jfab.resample('D').mean())[fab_up[0]], color = 'black')
+
+plt.figure()
+plt.plot(np.array(Fpun), color = 'red')
+plt.scatter(fpun_down[0], np.array(Fpun)[fpun_down[0]], color = 'black')
+plt.scatter(fpun_up[0], np.array(Fpun)[fpun_up[0]], color = 'black')
