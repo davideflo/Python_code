@@ -11,6 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas.tools import plotting
+import statsmodels.api
 
 spark = pd.read_excel('C:/Users/d_floriello/Documents/CSS_2015.xlsx')
 
@@ -35,11 +36,13 @@ plt.figure()
 plt.plot(data['PUN [€/MWH]'], color = 'brown')
 plt.plot(spark['spread'])
 
-
 Diff = pun - spark['spread'].resample('D').mean()
 
 plt.figure()
 plt.plot(np.array(Diff))
+
+plt.figure()
+plt.plot(statsmodels.api.tsa.periodogram((Diff - Diff.mean())/Diff.std()))
 
 plt.figure()
 plt.plot(np.array(Diff/pun))
@@ -59,7 +62,6 @@ DS.corr(pun_ts)
 plt.figure()
 plotting.lag_plot(DS)
 
-import statsmodels.api
 
 plt.figure()
 plt.plot(statsmodels.api.tsa.acf(np.array(DS)))
@@ -92,6 +94,13 @@ def fourierExtrapolation(x, n_predict, n_harmonics = 0):
         restored_sig += ampli * np.cos(2 * np.pi * f[i] * t + phase)
     return restored_sig + p[0] * t        
 ###############################################################################
+plt.figure()
+plt.plot(np.array(Diff))
+plt.plot(fourierExtrapolation(np.array(Diff), 0, 7), color = 'red')    
+plt.figure()
+plt.plot(np.array(Diff), color = 'grey')
+plt.plot(fourierExtrapolation(np.array(Diff), 0, 52), color = 'purple')    
+
 
 plt.figure()
 plt.plot(np.array(DS))
