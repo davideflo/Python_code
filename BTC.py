@@ -12,6 +12,7 @@ from pandas.tools import plotting
 import statsmodels.api
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 btc = pd.read_csv('C:/Users/d_floriello/Documents/bitcoin (2).csv')
 
@@ -150,14 +151,15 @@ plt.show()
 ###############################################################################
 def conditional_distribution(df, xs, xe):
     edf1 = df.ix[xs <= df[df.columns[0]].values]
-    edf = edf1.ix[edf1[edf1.columns[0]].values <= xe]
+    edf = edf1.ix[edf1[edf1.columns[0]].values < xe]
     #plt.figure()
     #edf.hist()
     return edf
 ###############################################################################
 def simple_MarkovMatrix(df, xs, xe):
     # http://stats.stackexchange.com/questions/14360/estimating-markov-chain-probabilities
-# http://stats.stackexchange.com/questions/41145/simple-way-to-algorithmically-identify-a-spike-in-recorded-errors
+# http://stats.stackexchange.com/questions/41145/simple-way-to-algorithmically-identify-a-spike-in-recorded-errors    
+    diz = OrderedDict()
     edf = conditional_distribution(df, xs, xe)
     m0 = edf[0].min()
     M0 = edf[0].max()
@@ -171,14 +173,30 @@ def simple_MarkovMatrix(df, xs, xe):
     lin1 = np.linspace(m1, M1, 10)
     for i in range(lin0.size - 1):
         cedf = conditional_distribution(edf, lin0[i], lin0[i+1])
-        
-        
-        
-    
+        sizer = cedf.shape[0]
+        vec = []
+        for j in range(lin1.size - 1):
+            cedf1 = cedf.ix[lin1[j] <= cedf[cedf.columns[1]].values]
+            cedf2 = cedf1.ix[cedf1[cedf1.columns[1]].values < lin1[j + 1]]
+            vec.append(cedf2.shape[0]/sizer)
+        diz[str(lin0[i])] = vec
+    df = pd.DataFrame.from_dict(diz, orient = 'index')
+    df.columns = [[str(lin1[j]) for j in range(lin1.size-1)]]
+    return df
 ###############################################################################
+
+tsbtc = pd.Series(btc['Close'])
+
+data_bit = []
+for i in range(tsbtc.size-1):
+    xy = np.array([tsbtc.ix[i],tsbtc.ix[i+1]])
+    data_bit.append(xy)
+
+dataset = np.array(data_bit)
 
 
 df = pd.DataFrame(dataset)
 
-t1 = conditional_distribution(pd.DataFrame(dataset), 200, 500)
-    
+t1 = conditional_distribution(df, 200, 500)
+df1 = simple_MarkovMatrix(df, 200, 500)
+df2 = simple_MarkovMatrix(df, df[0].min(), df[0].max())
