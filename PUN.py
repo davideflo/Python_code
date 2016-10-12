@@ -23,6 +23,8 @@ data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/
 
 data = data.set_index(data['Date'])
 data = data[data.columns[0:32]]
+data = data.dropna()
+
 
 rng = pd.date_range(start = '2016-01-01', end = '2016-09-26', freq = 'D')
 #####
@@ -41,7 +43,7 @@ for d in rng:
     sud.append(data['MGP SUD [€/MWh]'].ix[data.index.date == d].mean())
     csud.append(data['MGP CSUD [€/MWh]'].ix[data.index.date == d].mean())
     cnor.append(data['MGP CNOR [€/MWh]'].ix[data.index.date == d].mean())
-    nord.append(data['MGP NORD [€/MWh]'].ix[data.index.date == d].mean())
+    nord.append(data['MGP NORD [€/MWh]'].ix[data.index.date == d].dropna().mean())
 
 zones['PUN'] = np.array(pun)    
 zones['SARD'] = np.array(sard)
@@ -129,7 +131,7 @@ days.plot()
 
 ### trend in the last 2 months:
 last_trend = OrderedDict()
-last = data.ix[data.index.month >= 8]
+last = data.ix[data.index.month >= 9]
 days_of_week = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom']
 cols = [12,21,24,31]
 nms = ['pun','fran','nord','sviz']
@@ -302,3 +304,45 @@ for i in range(0,4):
     row_s.name = i
     df = df.append(row_s) 
 
+######################################################################
+dpun = np.diff(np.array(data[data.columns[12]].dropna().resample('D').mean()))
+
+import statsmodels.api
+
+plt.figure()
+plt.plot(statsmodels.api.tsa.periodogram(dpun))
+
+per = statsmodels.api.tsa.periodogram(dpun)
+np.where(per > 50)[0]
+per[per > 50]
+
+import Fourier
+
+reconstructed = Fourier.fourierExtrapolation(dpun, 0, 16)
+
+plt.figure()
+plt.plot(dpun)
+plt.plot(reconstructed, color = 'red')
+
+np.mean(dpun - reconstructed)
+np.std(dpun - reconstructed)
+
+from pandas.tools import plotting
+
+plt.figure()
+plotting.lag_plot(pd.DataFrame(dpun))
+
+plt.figure()
+plt.plot(statsmodels.api.tsa.acf(dpun))
+
+lags = []
+for i in range(dpun.size - 1):
+    lags.append(np.array([dpun[i], dpun[i+1]]))
+    
+lags = pd.DataFrame(lags)
+lags.corr()
+
+plt.figure()
+plotting.lag_plot(pd.DataFrame(dpun), lag = 7)
+plt.figure()
+plotting.autocorrelation_plot(pd.DataFrame(dpun))
