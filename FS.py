@@ -16,6 +16,7 @@ from lxml import objectify
 from os import listdir
 from os.path import join, isdir
 from sklearn import linear_model
+import scipy.stats
 
 ##########################################################################################################
 def modify_XML(path):
@@ -91,7 +92,7 @@ fs.plot()
 
 data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
 data = data.set_index(data['Date'])
-pun = data['PUN [€/MWH]'].resample('D').mean()
+pun = data['PUN [€/MWH]'].dropna().resample('D').mean()
 
 days = np.unique(fs.index) 
 
@@ -103,19 +104,50 @@ for d in days:
     fr.append(fs['Francia (EPEX)'].ix[fs.index == d].mean())
     sv.append(fs['Svizzera (EPEX)'].ix[fs.index == d].mean())
     
-###  EPEX FR from 2016-09-30 to 2016-10-06:
-nd = [41.78, 38.19, 32.48, 36.04, 42.02,42.68 ,48.28]
+###  EPEX FR from 2016-09-30 to 2016-10-13:
+nd = [41.78, 38.19, 32.48, 36.04, 42.02,42.68 ,48.28,
+      57.29208333	, 44.35375,	36.705,56.70208333, 71.21208333, 62.81041667, 64.25]
 for n in nd:
     fr.append(n)
 fsm['francia'] = fr
 fsm['svizzera'] = sv
-fsm['pun'] = pun[:280]
+fsm['pun'] = pun[:287]
 
 fsm = pd.DataFrame.from_dict(fsm)
 
 fsm.plot() ### from this I'm very doubtful that flows actually correlate wth prices... 
            ### except in the last week where something anomalous is definitely happening
 
+plt.figure()
+plt.plot(fsm['pun'])
+plt.plot(fsm['francia'])
+plt.plot(fsm['pun']-fsm['francia'])
+plt.axhline(y=0)
+
+qd = scipy.stats.mstats.mquantiles(np.array(fsm['pun']-fsm['francia']), prob = [0.025, 0.975])
+qp = scipy.stats.mstats.mquantiles(np.array(fsm['pun']), prob = 0.95)
+qf = scipy.stats.mstats.mquantiles(np.array(fsm['francia']), prob = 0.95)
+
+plt.figure()
+plt.plot(np.array(fsm['pun']))
+plt.scatter(np.where(np.array(fsm['pun']) > qp)[0], np.array(fsm['pun'])[np.where(np.array(fsm['pun']) > qp)[0]], color = 'black', marker = 'o')
+plt.plot(np.array(fsm['francia']))
+plt.scatter(np.where(np.array(fsm['francia']) > qf)[0], np.array(fsm['francia'])[np.where(np.array(fsm['francia']) > qf)[0]], color = 'black', marker = '*')
+plt.plot(np.array(fsm['pun']-fsm['francia']))
+plt.scatter(np.where(np.array(fsm['pun']-fsm['francia']) > qd[1])[0], np.array(fsm['pun']-fsm['francia'])[np.where(np.array(fsm['pun']-fsm['francia']) > qd[1])[0]], color = 'black', marker = 'o')
+plt.scatter(np.where(np.array(fsm['pun']-fsm['francia']) < qd[0])[0], np.array(fsm['pun']-fsm['francia'])[np.where(np.array(fsm['pun']-fsm['francia']) < qd[0])[0]], color = 'magenta', marker = 'o')
+plt.grid()
+plt.axhline(y=0)
+
+rel_diff = (fsm['pun']-fsm['francia'])/fsm['pun']
+fsm['francia'].ix[rel_diff <= 0].corr(fsm['pun'].ix[rel_diff <= 0])
+
+np.diff(np.array(fsm['francia'].ix[rel_diff <= 0]))
+np.diff(np.array(fsm['pun'].ix[rel_diff <= 0]))
+
+plt.figure()
+plt.scatter(np.array(fsm['pun']-fsm['francia']),np.array(fsm['pun']))
+################
 s_pun = (fsm['pun'] - fsm['pun'].mean())/fsm['pun'].std() 
 s_fran = (fsm['francia'] - fsm['francia'].mean())/fsm['francia'].std() 
 
@@ -531,3 +563,21 @@ bil_in6 = bil6.ix[np.where((pun_g - np.mean(pun_g))/np.std(pun_g) <= 3)]
 
 stats.linregress(bil_in6, pun_in)
 
+#########################
+diff_pf = fsm['pun'] - fsm['francia']
+
+plt.figure()
+plt.plot(diff_pf)
+plt.plot(pun)
+
+from pandas.tools import plotting
+
+plt.figure()
+plotting.lag_plot(fsm['pun'])
+plt.figure()
+plotting.lag_plot(diff_pf)
+
+diff_pf.corr(pun)
+
+plt.figure()
+plt.scatter(np.array(diff_pf), np.array(pun[1:281]))
