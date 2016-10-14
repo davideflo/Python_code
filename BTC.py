@@ -13,6 +13,7 @@ import statsmodels.api
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
+import scipy.stats
 
 btc = pd.read_csv('C:/Users/d_floriello/Documents/bitcoin (2).csv')
 
@@ -200,3 +201,233 @@ df = pd.DataFrame(dataset)
 t1 = conditional_distribution(df, 200, 500)
 df1 = simple_MarkovMatrix(df, 200, 500)
 df2 = simple_MarkovMatrix(df, df[0].min(), df[0].max())
+
+###############################################################################
+
+close = btc['Close']
+dclose = np.diff(close)
+
+plt.figure()
+plt.plot(dclose)
+
+ret = []
+for i in range(close.size - 1):
+    ret.append((close.ix[i+1] - close.ix[i])/close.ix[i])
+    
+returns = np.array(ret)
+
+plt.figure()
+plt.plot(returns)
+plt.axhline(y = scipy.stats.mstats.mquantiles(np.array(returns), prob = 0.975))
+plt.axhline(y = scipy.stats.mstats.mquantiles(np.array(returns), prob = 0.025))
+
+plt.figure()
+plt.plot(statsmodels.api.tsa.acf(returns))
+
+returns = pd.Series(returns)
+plt.figure()
+plotting.autocorrelation_plot(returns)
+plt.figure()
+plotting.lag_plot(returns)
+
+plt.figure()
+returns.hist()
+
+plt.figure()
+plt.plot(statsmodels.api.tsa.periodogram(np.array(returns)))
+
+per = statsmodels.api.tsa.periodogram(np.array(returns))
+per[per > 0.01].size
+
+plt.figure()
+plt.plot(np.array(returns), color = 'red')
+plt.plot(fourierExtrapolation(np.array(returns), 0, 154))
+
+plt.figure()
+plt.plot(np.array(close))
+
+### zoom
+plt.figure()
+plt.plot(np.array(close)[1240:1300], color = 'magenta')
+plt.figure()
+plt.plot(np.array(returns)[1600:1700], color = 'magenta', marker = 'o')
+
+###############################################################################
+def get_ROI(ts):
+    rets = []
+    for i in range(ts.size - 1):
+        rets.append((ts.ix[i+1] - ts.ix[i])/ts.ix[i])
+    return np.array(rets)
+###############################################################################
+def detect_trend_at_t(ts, start, end):
+    rets = get_ROI(ts)
+    rets= rets[start:end]
+    trend = []
+    for t in range(1, rets.size, 1):
+        rets2 = rets[:t]
+        trend.append((rets2[rets2 >= 0].size)/rets2.size)
+    return trend
+###############################################################################
+
+trend = detect_trend_at_t(close, 1600, 1700)    
+
+###############################################################################
+def trend_is_changing(ts, window):
+    rets = get_ROI(ts)
+    diffs = np.diff(ts)
+    ct = []
+    for i in range(2*window, diffs.size - window, 1):
+        jump = diffs[i]
+        q = scipy.stats.mstats.mquantiles(diffs[(i-window):i], prob = [0.025, 0.975])
+        if jump < q[0] or jump > q[1]:
+            bef_rets = rets[(i-window):i]
+            aft_rets = rets[i:(i+window)]
+            num_pos = bef_rets[bef_rets > 0].size/bef_rets.size
+            num_pos_ = aft_rets[aft_rets > 0].size/aft_rets.size
+            if num_pos > 0.5 and num_pos_ < 0.5:
+                ct.append((i, 'negative change'))
+            elif num_pos < 0.5 and num_pos_ > 0.5:
+                ct.append((i, 'positive change'))
+            else:
+                pass
+    return ct
+###############################################################################
+
+E = trend_is_changing(close, 50)    
+
+points = []
+for i in E:
+    points.append(i[0])
+
+plt.figure()
+plt.plot(np.array(close))
+plt.scatter(np.array(points), np.array(close.ix[points]), color = 'black', marker = 'o')
+
+qnts = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+for q in qnts:
+    print(scipy.stats.mstats.mquantiles(dclose, prob = q))
+
+ixs = []
+for i in range(close.size - 1):
+    if close.ix[i+1] - close.ix[i] >   16.74506:
+        ixs.append(i)
+
+plt.figure()
+plt.plot(np.array(close))
+plt.scatter(np.array(ixs), np.array(close.ix[ixs]), color = 'black', marker = 'o')
+        
+plt.figure()
+plt.plot(np.linspace(0,2280,2280), np.repeat(0, 2280))
+plt.scatter(np.array(ixs), np.repeat(0, len(ixs)), color = 'black', marker = 'o')
+
+#### on returns:
+qnts = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+for q in qnts:
+    print(scipy.stats.mstats.mquantiles(returns, prob = q))
+
+ixs = []
+for i in range(close.size - 1):
+    if abs(close.ix[i+1] - close.ix[i])/(close.ix[i]) > 0.09451776:
+        ixs.append(i)
+
+plt.figure()
+plt.plot(np.array(close), color = 'grey')
+plt.scatter(np.array(ixs), np.array(close.ix[ixs]), color = 'black', marker = 'o')
+        
+plt.figure()
+plt.plot(np.linspace(0,2280,2280), np.repeat(0, 2280))
+plt.scatter(np.array(ixs), np.repeat(0, len(ixs)), color = 'black', marker = 'o')
+
+
+###############################################################################
+def template_pattern(ts, start, end):
+    vec = ts[start:end]
+    vec_st = (vec - np.mean(vec))/np.std(vec)
+    app = np.polyfit(np.linspace(0, vec_st.size, vec_st.size), vec_st, 3)
+    return app
+###############################################################################
+def find_pattern(ts, tmp, window):
+    deriv = np.array([3*tmp[0], 2*tmp[1], tmp[2]])
+    dpoly = np.poly1d(deriv)
+    fp = []
+    errs = []
+    for i in range(ts.size - window):
+        loc = ts[i:(i+window)]
+        loc_st = (loc - np.mean(loc))/np.std(loc)
+        loctmp = np.polyfit(np.linspace(0,loc_st.size,loc_st.size),loc_st,3)
+        dloctmp = np.array([3*loctmp[0], 2*loctmp[1], loctmp[2]])
+        locpoly = np.poly1d(dloctmp)
+        errs.append(np.sqrt(np.mean((locpoly - dpoly)**2)))
+        if np.sqrt(np.mean((locpoly - dpoly)**2)) <= 1e-2:
+            print('pattern found')            
+            fp.append(i)
+    print('{} patterns found'.format(len(fp)))
+    return fp, errs
+###############################################################################
+def approximating_polynomial(x, yhat):
+    xx = 0
+    for y in yhat[:(yhat.size-1)]:
+        deg = yhat.size - (yhat.tolist().index(y) + 1)
+        xx += (x**deg) * y
+    return xx + yhat[-1]
+############################################################################### 
+
+tmp = template_pattern(close, 1240, 1300)    
+Ps, Es = find_pattern(close, tmp, 100)    
+
+plt.figure()
+plt.plot(np.array(close), color = 'purple')
+plt.scatter(np.array(Ps), np.array(close.ix[Ps]), color = 'black', marker = 'o')
+
+gr = np.array(close)[1240:1300]
+stgr = (gr - np.mean(gr))/(np.std(gr))
+plt.figure()
+plt.plot(stgr, color = 'magenta')
+plt.plot(np.linspace(0, 60, 60), approximating_polynomial(np.linspace(0, 60, 60),tmp))
+
+plt.figure()
+plt.hist(np.array(Es))
+
+ws = [20,40,60,80,100,200]
+for w in ws:
+    tmp = template_pattern(close, 1240, 1300)    
+    Ps, Es = find_pattern(close, tmp, w)    
+    print(scipy.stats.skew(np.array(Es)))
+    print(scipy.stats.kurtosis(np.array(Es)))
+    print('#################################################################')
+    
+##############################
+mc = []
+vc = []
+for i in range(1, close.size, 1):
+    mc.append(np.mean(close.ix[:i]))    
+    vc.append(np.var(close.ix[:i]))    
+    
+plt.figure()
+plt.plot(np.array(mc))    
+plt.figure()
+plt.plot(np.sqrt(np.array(vc)))
+
+#############################
+
+statsmodels.api.tsa.stattools.arma_order_select_ic(np.array(returns),max_ar=5, max_ma=5, ic=['aic', 'bic'], trend='nc')
+
+#method = [‘css-mle’,’mle’,’css’]
+mod = statsmodels.api.tsa.ARMA(np.array(returns), order=(4,2)).fit(merthod = 'css',full_output = True)
+mod.forecast(steps = 8)
+print(mod.params)
+print(mod.resid)
+phat = mod.predict(0, 2276)
+
+plt.figure()
+plt.plot(returns[:500])
+plt.plot(phat[:500], color = 'red')
+
+res = returns - phat
+np.mean(res)
+np.std(res)
+
+sam = statsmodels.api.tsa.arma_generate_sample(ar = 1, ma = 3, nsample = 250)
+
+statsmodels.api.tsa.adfuller(returns) ### rejects the null hypothesis that there is a unit root (i.e. proces is 
+                                      ### NON stationary) => returns are stationary.
