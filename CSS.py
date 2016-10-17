@@ -121,4 +121,17 @@ plt.figure()
 plt.plot(np.array(spark['spread'].resample('D').mean()))
 plt.plot(fourierExtrapolation(np.array(spark['spread'].resample('D').mean()), 0, 9), color = 'red')        
     
-    
+####################################################################
+
+spark15 = spark.ix[spark.index.month >= 3]    
+spark15 = spark15['spread'].resample('D').mean()
+
+bil15 = bil.ix[bil.index.year == 2015]
+
+bil15.size
+spark15.size
+
+bil15.corr(spark15)
+
+plt.figure()
+plt.scatter(np.array(bil15), np.array(spark15))
