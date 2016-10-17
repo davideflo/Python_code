@@ -104,9 +104,9 @@ for d in days:
     fr.append(fs['Francia (EPEX)'].ix[fs.index == d].mean())
     sv.append(fs['Svizzera (EPEX)'].ix[fs.index == d].mean())
     
-###  EPEX FR from 2016-09-30 to 2016-10-13:
+###  EPEX FR from 2016-09-30 to 2016-10-17:
 nd = [41.78, 38.19, 32.48, 36.04, 42.02,42.68 ,48.28,
-      57.29208333	, 44.35375,	36.705,56.70208333, 71.21208333, 62.81041667, 64.25]
+      57.29208333	, 44.35375,	36.705,56.70208333, 71.21208333, 62.81041667, 64.25, 64.10, 44.28, 40.02, 56.41,66.94]
 for n in nd:
     fr.append(n)
 fsm['francia'] = fr
@@ -581,3 +581,136 @@ diff_pf.corr(pun)
 
 plt.figure()
 plt.scatter(np.array(diff_pf), np.array(pun[1:281]))
+
+##################################
+
+plt.figure()
+plt.scatter(np.array(fsm['francia']), np.array(fsm['pun']))
+
+
+fplm = linear_model.LinearRegression(fit_intercept = True).fit(np.array(fsm['francia']).reshape(-1,1),np.array(fsm['pun']))
+
+yhat = fplm.predict(np.array(fsm['francia']).reshape(-1,1))
+
+plt.figure()
+plt.scatter(np.array(fsm['francia']), np.array(fsm['pun']))
+plt.plot(np.array(fsm['francia']).reshape(-1,1), yhat)
+
+R2 = 1 - np.sum((fsm['pun'] - yhat)**2)/np.sum((fsm['pun'] - fsm['pun'].mean())**2)
+
+np.mean(fsm['pun'] - yhat)
+np.std(fsm['pun'] - yhat)
+
+###############################################################################
+
+fpspread = np.array(pun) - fsm['francia']
+
+plt.figure()
+plt.plot(fpspread)
+
+cm = []
+for i in range(1, fpspread.size, 1):
+    cm.append(np.mean(fpspread[:i]))
+
+plt.figure()
+plt.plot(np.array(cm), color = 'black')
+plt.figure()
+plt.hist(np.array(cm))
+
+CM = pd.DataFrame(cm)
+from pandas.tools import plotting
+
+plt.figure()
+plotting.lag_plot(CM)
+
+cmpun = []
+cvpun = []
+for i in range(1, pun.size, 1):
+    cmpun.append(np.mean(pun.ix[:i]))
+    cvpun.append(np.std(pun.ix[:i]))
+
+plt.figure()
+plt.plot(np.array(cmpun))
+plt.plot(np.array(cmpun) + np.array(cvpun), color = 'black')
+plt.plot(np.array(cmpun) - np.array(cvpun), color = 'black')
+
+
+CMP = pd.DataFrame(cmpun)
+plt.figure()
+plotting.lag_plot(CMP)
+
+lmcmp = linear_model.LinearRegression(fit_intercept = True).fit(np.array(CMP.ix[0:289]).reshape(-1,1), np.array(CMP[1:291]))
+lmcmp.coef_
+
+yhat = lmcmp.predict(np.array(CMP.ix[0:289]).reshape(-1,1))
+
+R2 = 1- np.sum((np.array(CMP[1:291]) - yhat)**2)/np.sum((np.array(CMP[1:291]) - np.mean(np.array(CMP[1:291])))**2)
+
+plt.figure()
+plotting.lag_plot(CMP)
+plt.plot(np.array(CMP.ix[0:289]), yhat, color = 'red')
+
+################## tuning ##########################
+for d in range(1,6,1):
+    mean_trend = np.polyfit(np.linspace(0, 291, 291), CMP, d)
+    pol = np.poly1d(mean_trend.ravel())
+    plt.figure()
+    plt.plot(np.array(CMP))
+    plt.plot(np.linspace(0, 291, 1000), pol(np.linspace(0, 291, 1000)), color = 'grey')
+    plt.title('polynomial of degree{}'.format(d))
+#################################################### d = 5
+    
+diff_spread = np.diff(fpspread)
+
+plt.figure()
+plt.plot(diff_spread)
+
+plt.figure()
+plt.hist(np.array(CMP))
+plt.axvline(x = 38.963584, color = 'black', lw = 2)
+
+np.median(CMP)
+np.mean(CMP)
+scipy.stats.skew(CMP)
+scipy.stats.kurtosis(CMP)
+
+from sklearn.neighbors.kde import KernelDensity
+
+bws = [0.1,0.2,0.5,0.8,1,2,3,4]
+for h in bws:
+    kde = KernelDensity(kernel='gaussian', bandwidth=h).fit(CMP)
+    ss = np.exp(kde.score_samples(CMP))
+    plt.figure()
+    plt.plot(np.array(CMP),ss)
+    plt.title('kde with bandwidth = {}'.format(h))
+##### take  h = 2
+#### candidate distributions: 
+#### translated gamma, exponential, chi2    
+fit_alpha, fit_loc, fit_beta=scipy.stats.gamma.fit(np.array(CMP)) 
+
+sampled = scipy.stats.gamma.rvs(fit_alpha, loc = fit_loc, scale = fit_beta, size = CMP.size)
+   
+plt.figure()
+plt.hist(np.array(CMP))
+plt.hist(sampled)
+
+diz = {'cmp': np.array(CMP).ravel(), 'sam': sampled}
+plt.figure()
+pd.DataFrame.from_dict(diz).hist()    
+
+scipy.stats.gamma.cdf(np.inf, a = fit_alpha, loc = fit_loc, scale = fit_beta) 
+1 - scipy.stats.gamma.cdf(38.963584, a = fit_alpha, loc = fit_loc, scale = fit_beta)
+
+###############################################################################
+def get_prob_mu(x, emp_sigma):
+    sup = scipy.stats.gamma.cdf(x + emp_sigma, a = fit_alpha, loc = fit_loc, scale = fit_beta)    
+    inf = scipy.stats.gamma.cdf(x, a = fit_alpha, loc = fit_loc, scale = fit_beta)
+    return sup - inf
+###############################################################################
+###### test for 2016-10-19
+
+mean_trend = np.polyfit(np.linspace(0, 291, 291), CMP, 5)
+pol = np.poly1d(mean_trend.ravel())
+
+get_prob_mu(pol(292), cvpun[-1])
+
