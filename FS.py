@@ -714,3 +714,245 @@ pol = np.poly1d(mean_trend.ravel())
 
 get_prob_mu(pol(292), cvpun[-1])
 
+###############################################################################
+def divide_in_days(CMP):
+    
+    day = OrderedDict()
+    
+    lun = [] ## 0
+    mar = []
+    mer = []
+    gio = []
+    ven = []
+    sab = []
+    dom = [] ## 6
+    
+    for i in range(CMP.shape[0]):    
+        dt = datetime.date(int(str(CMP.index[i])[:4]),int(str(CMP.index[i])[5:7]),int(str(CMP.index[i])[8:10]))
+        if dt.weekday() == 0:
+            lun.append(CMP.ix[i].values[0])
+        elif dt.weekday() == 1:
+            mar.append(CMP.ix[i].values[0])
+        elif dt.weekday() == 2:
+            mer.append(CMP.ix[i].values[0])
+        elif dt.weekday() == 3:
+            gio.append(CMP.ix[i].values[0])
+        elif dt.weekday() == 4:
+            ven.append(CMP.ix[i].values[0])
+        elif dt.weekday() == 5:
+            sab.append(CMP.ix[i].values[0])
+        else:
+            dom.append(CMP.ix[i].values[0])
+    
+    szs = [len(lun), len(mar), len(mer), len(gio), len(ven), len(sab), len(dom)]
+    M = max(szs)
+    
+    if len(lun) < M:
+        lun.append(np.nan)
+    if len(mar) < M:
+        mar.append(np.nan)
+    if len(mer) < M:
+        mer.append(np.nan)
+    if len(gio) < M:
+        gio.append(np.nan)
+    if len(ven) < M:
+        ven.append(np.nan)
+    if len(sab) < M:
+        sab.append(np.nan)
+    if len(dom) < M:
+        dom.append(np.nan)
+            
+    day['lun'] = lun        
+    day['mar'] = mar        
+    day['mer'] = mer        
+    day['gio'] = gio        
+    day['ven'] = ven        
+    day['sab'] = sab        
+    day['dom'] = dom        
+    
+    DBD = pd.DataFrame.from_dict(day)
+
+    return DBD
+###############################################################################
+rng = pd.date_range('2016-01-02', '2016-10-18', freq = 'D')
+CMP = CMP.set_index(rng)
+
+day = OrderedDict()
+
+lun = [] ## 0
+mar = []
+mer = []
+gio = []
+ven = []
+sab = []
+dom = [] ## 6
+
+for i in range(CMP.shape[0]):    
+    dt = datetime.date(int(str(CMP.index[i])[:4]),int(str(CMP.index[i])[5:7]),int(str(CMP.index[i])[8:10]))
+    if dt.weekday() == 0:
+        lun.append(CMP.ix[i].values[0])
+    elif dt.weekday() == 1:
+        mar.append(CMP.ix[i].values[0])
+    elif dt.weekday() == 2:
+        mer.append(CMP.ix[i].values[0])
+    elif dt.weekday() == 3:
+        gio.append(CMP.ix[i].values[0])
+    elif dt.weekday() == 4:
+        ven.append(CMP.ix[i].values[0])
+    elif dt.weekday() == 5:
+        sab.append(CMP.ix[i].values[0])
+    else:
+        dom.append(CMP.ix[i].values[0])
+
+mer.append(np.nan)
+gio.append(np.nan)
+ven.append(np.nan)
+        
+day['lun'] = lun        
+day['mar'] = mar        
+day['mer'] = mer        
+day['gio'] = gio        
+day['ven'] = ven        
+day['sab'] = sab        
+day['dom'] = dom        
+
+DBD = pd.DataFrame.from_dict(day)
+DBD.plot.box()
+
+DP = divide_in_days(pd.DataFrame(pun))
+DP.plot.box()
+
+import seaborn as sns
+
+plt.figure()
+sns.pairplot(DP.fillna(0), vars = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'], kind = 'reg')
+DP.corr()
+
+
+mp = pun.resample('M').mean()
+plt.figure()
+mp.plot()
+
+fitted_trend = np.polyfit(np.linspace(0,10,10), np.array(mp), 5)
+yh = np.poly1d(fitted_trend)
+
+plt.figure()
+plt.plot(np.array(mp))
+plt.plot(np.linspace(0,10, 1000), yh(np.linspace(0,10, 1000)), color = 'black')
+
+err_4 = np.array(mp) - yh(np.linspace(0,10,10))
+err5 = np.array(mp) - yh(np.linspace(0,10,10))
+
+np.mean(err_4)
+np.mean(err5)
+np.std(err_4)
+np.std(err5)
+
+plt.figure()
+pd.DataFrame([err_4,err5]).T.hist()
+
+###############################################################################
+def de_trend(df, trend):
+    dt = []
+    yh = trend(np.linspace(0,df.shape[0],df.shape[0]))
+    for i in range(df.shape[0]):
+        mon = yh[(df.index.month[i] - 1)]
+        print('month {} and correction {}'.format(df.index.month[i],mon))
+        dt.append(df.ix[i] - mon)
+    return pd.DataFrame(dt)
+###############################################################################
+det = de_trend(pun, yh)
+
+plt.fgure()
+det.plot()
+
+###############################################################################
+def remainderizer(df):
+    ### comupe trend in months:
+    diz = OrderedDict()
+    dow = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'] 
+    mp = np.array(df.resample('M').mean())
+    dt = []
+    for i in range(df.shape[0]):
+        mon = mp[(df.index.month[i] - 1)]
+        print('month {} and correction {}'.format(df.index.month[i],mon))
+        dt.append(df.ix[i] - mon)
+    dt = pd.DataFrame(dt).set_index(df.index)
+    ### remove monthly seasonality:
+    MONTHS = np.unique(dt.index.month)
+    des = []
+    for m in MONTHS:
+        lm = []
+        loc_dt = dt.ix[dt.index.month == m]
+        dd = divide_in_days(loc_dt)
+        diz[str(m)+'_mean'] = dd.mean()
+        diz[str(m)+'_std'] = dd.std()
+        for j in range(loc_dt.shape[0]):
+            die = datetime.date(int(str(loc_dt.index[j])[:4]),int(str(loc_dt.index[j])[5:7]),int(str(loc_dt.index[j])[8:10]))
+            giorno = die.weekday()
+            x = (loc_dt.ix[j] - dd[dow[giorno]].mean())/dd[dow[giorno]].std()
+            lm.append(x)
+        des.append(lm)
+    flattened_des = [item for sublist in des for item in sublist]
+    rem = pd.DataFrame(flattened_des)
+    seas = pd.DataFrame.from_dict(diz).set_index([dow])
+    return mp, seas, rem
+###############################################################################
+
+mm, sea, remn = remainderizer(pun)
+remn.plot()
+sea.plot()
+
+plt.figure()
+plotting.lag_plot(remn)
+
+plt.figure()
+sns.lmplot(x = 'x', y = 'y',data = pd.DataFrame({'x': np.array(remn.ix[0:(remn.shape[0]-1)].values.ravel()), 'y': np.array(remn.ix[1:(remn.shape[0])].values.ravel())}))
+
+import statsmodels.api
+rem_per = statsmodels.api.tsa.periodogram(remn.values.ravel()).ravel()
+scipy.stats.mstats.mquantiles(rem_per, prob = 0.95)
+### is remn stationary?
+statsmodels.api.tsa.adfuller(remn.values.ravel()) ## looks like it
+
+plt.figure()
+plt.plot(rem_per)
+np.random.seed(123)
+plt.figure()
+plt.plot(np.random.normal(size = remn.shape[0]))
+plt.plot(statsmodels.api.tsa.periodogram(np.random.normal(size = remn.shape[0])))
+
+import scipy.integrate as integrate
+###############################################################################
+def FourierCoefficients(freq, f):
+    xc = lambda x, freq, f: f * np.cos(freq * x)
+    xs = lambda x, freq, f: f * np.sin(freq * x)
+    return (1/np.pi) * integrate.quad(xc, 0, f.size, args = (f, freq)), (1/np.pi) * integrate.quad(xs, 0, f.size, args = (f, freq)) 
+################################################################################
+def cn(y, n, time, period):
+   c = y[time]*np.exp(-1j*2*time[n]*np.pi*time/period)
+   return c.sum()/c.size
+
+def f(x, y, time, period):
+   f = np.array([2*cn(y, i, time , period)*np.exp(1j*2*i*np.pi*x/period) for i in range(time.size)]) #range(1,Nh+1)])
+   return f.sum()
+
+###y2 = np.array([f(t,50, time, period).real for t in time])
+###############################################################################
+surv = np.where(rem_per > 2)[0]
+Ccos = []
+Csin = []
+coeffs = []
+cn(remn.values, 1, surv[:2], 1)
+for x in np.linspace(0, remn.values.ravel().size, remn.values.ravel().size):
+    #xc, xs = FourierCoefficients(surv[i], remn.values.ravel())
+    #Ccos.append(xc)
+    #Csin.append(xs)
+    fc = f(x,  remn.values.ravel(), surv,1) 
+    coeffs.append(fc)
+    
+plt.figure()
+plt.plot(np.array(coeffs))    
+    
+for s in range(surv.size):
+    print(cn(remn.values.ravel(),s,surv,1))
