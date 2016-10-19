@@ -81,7 +81,7 @@ plt.figure()
 plt.plot(d)
 
 rng = pd.date_range(btc.index[0], btc.index[-1], freq = 'D')
-ts = pd.DataFrame(btc['Close']).set_index()
+ts = pd.DataFrame(btc['Close']).set_index(rng)
 
 missing = []
 for dti in btc.index:
@@ -91,6 +91,11 @@ for dti in btc.index:
 
 set(rng).difference(set(missing))
 ## missing dates from 24-06-2016 to 23-07-2016
+
+present = []
+for ud in np.unique(btc.index):
+    if btc.ix[btc.index == ud].shape[0] > 1:
+        present.append(ud)
 
 dec = statsmodels.api.tsa.seasonal_decompose(pd.Series(btc['Close']), freq = 28)
 
@@ -124,6 +129,7 @@ tsbtc.corr(tsc)
 plt.figure()
 plotting.lag_plot(tsbtc) ### surprising!!! I think the reticular squared structure puts in evidence the 
                          ### particular pattern tat I've noticed.
+                         ### N.B.: dates from 2013
 
 data_bit = []
 for i in range(tsbtc.size-1):
@@ -141,6 +147,21 @@ XX = np.array([X.ravel(), Y.ravel()]).T
 Z = -model.score_samples(XX)[0]
 Z = Z.reshape(X.shape)
 
+#### Tuning GMM model:
+covs = [ 'spherical', 'tied', 'diag', 'full']
+nc = [4,9,12]
+for c in covs:
+    for n in nc:
+        mGMM = mixture.GMM(n_components = n, covariance_type = c).fit(dataset)
+        print("""GMM model with {} covariance,
+              and {} components:
+              aic = {}
+              bic = {}
+              likelihood = {}""".format(c, n, mGMM.aic(dataset), mGMM.bic(dataset),
+                mGMM.score_samples(dataset)[0].sum()))        
+############## best: 12 components and full covariance
+
+                
 plt.figure()
 CS = plt.contour(X, Y, Z, levels=np.logspace(0, 100, 10))
 CB = plt.colorbar(CS, shrink=0.8, extend='both')
