@@ -898,6 +898,9 @@ def remainderizer(df):
     seas = pd.DataFrame.from_dict(diz).set_index([dow])
     return mp, seas, rem
 ###############################################################################
+### for modelling process, look at:
+# 1) http://www.turingfinance.com/random-walks-down-wall-street-stochastic-processes-in-python/#cox-ingersoll-ross
+# 2) https://www.quantstart.com/articles/Basics-of-Statistical-Mean-Reversion-Testing
 
 mm, sea, remn = remainderizer(pun)
 remn.plot()
@@ -912,6 +915,7 @@ sns.lmplot(x = 'x', y = 'y',data = pd.DataFrame({'x': np.array(remn.ix[0:(remn.s
 import statsmodels.api
 rem_per = statsmodels.api.tsa.periodogram(remn.values.ravel()).ravel()
 scipy.stats.mstats.mquantiles(rem_per, prob = 0.95)
+scipy.stats.mstats.mquantiles(remn, prob = 0.95)
 ### is remn stationary?
 statsmodels.api.tsa.adfuller(remn.values.ravel()) ## looks like it
 
