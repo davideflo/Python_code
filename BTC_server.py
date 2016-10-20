@@ -7,6 +7,7 @@ Created on Wed Oct 19 12:01:50 2016
 bitcoin server
 """
 
+from __future__ import division
 import pandas as pd
 from pandas.tools import plotting
 import statsmodels.api
@@ -18,7 +19,6 @@ import scipy.stats
 btc = pd.read_csv('C:/Users/utente/Documents/bitcoin (2).csv')
 
 btc = btc.set_index(pd.DatetimeIndex(btc['Date']))
-btc.head()
 btc = btc[['Open', 'High', 'Low', 'Close']]
 
 plt.figure()
@@ -80,7 +80,7 @@ for ud in np.unique(btc.index):
     if btc.ix[btc.index == ud].shape[0] > 1:
         present.append(ud)
 
-dec = statsmodels.api.tsa.seasonal_decompose(pd.Series(btc['Close']), freq = 28)
+dec = statsmodels.api.tsa.seasonal_decompose(pd.Series(btc['Close']))
 
 plt.figure()
 dec.plot()
@@ -99,6 +99,9 @@ ibtc = set(btc.index).intersection(cd)
 
 tsbtc = pd.Series(btc['Close'].ix[list(ibtc)])
 tsc = pd.Series(change.ix[list(cd)])
+
+dec = statsmodels.api.tsa.seasonal_decompose(tsbtc, freq = 52)
+dec.plot()
 
 plt.figure()
 tsbtc.plot()
@@ -120,6 +123,127 @@ for i in range(tsbtc.size-1):
     data_bit.append(xy)
 
 dataset = np.array(data_bit)
+
+H, xedges, yedges = np.histogram2d(dataset[:,0], dataset[:,1], bins = 20, normed = True)
+
+plt.figure()
+im = plt.imshow(H, interpolation='nearest', origin='low',extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
+
+plt.figure()
+plt.plot(statsmodels.api.tsa.acf(tsbtc))
+plt.figure()
+plotting.autocorrelation_plot(tsbtc.ix[1340:])
+
+reversed_arr = np.fliplr([np.array(tsbtc)])[0]
+plt.figure()
+plotting.autocorrelation_plot(reversed_arr)
+####################################################################################################
+def get_dataset(ts):
+    data_bit = []
+    for i in range(ts.size-1):
+        xy = np.array([ts.ix[i],ts.ix[i+1]])
+        data_bit.append(xy)
+    dataset = np.array(data_bit)
+    return dataset
+####################################################################################################
+def find_closest_index(edges, x):
+    diffs = np.abs(edges - x)
+    closest = diffs.tolist().index(np.min(diffs))
+    return closest
+####################################################################################################
+def reassign_indeces(edges, x, a, b):
+    if x == 0:
+        return 0, 1
+    elif x == edges.size - 1:
+        return edges.size - 2, edges.size - 1
+    else:
+        ia = find_closest_index(edges, a)
+        ib = find_closest_index(edges, b)
+        da = abs(a - edges[ia])
+        db = abs(b - edges[ib])
+        ## if da > db => ia == ib == sup dell'intervallo
+        if da > db:
+            return ia - 1, ib
+        else:
+            return ia, ib + 1
+####################################################################################################    
+def get_sqProbability(dataset, xs, xe, ys, ye, n_bins = 20):
+    if not isinstance(dataset, np.ndarray):
+        dataset = get_dataset(dataset)
+    if int(dataset.shape[0]) <= n_bins:
+        raise ValueError("number of bins must be less than number of data points.")
+    H, xedges, yedges = np.histogram2d(dataset[:,0], dataset[:,1], bins = n_bins, normed = True)
+    H = H/H.sum()
+    prob = 0
+    mX = xe - xs
+    mY = ye - ys
+    if mX == 0 and mY == 0:
+        prob += 0
+    elif mX > 1 and mY > 1:
+        ixs = find_closest_index(xedges, xs)
+        ixe = find_closest_index(xedges, xe)
+        if ixs == ixe:
+            ixs, ixe = reassign_indeces(xedges, ixs, xs, xe)
+        area_x = xedges[ixe] - xedges[ixs]
+        iys = find_closest_index(yedges, ys)
+        iye = find_closest_index(yedges, ye)
+        if iys == iye:
+            iys, iye = reassign_indeces(yedges, iys, ys, ye)
+        area_y = yedges[iye] - yedges[iys]        
+        H_sub = H[ixs:ixe, iys:iye]
+        prob = H_sub.sum() * min(mX/area_x, 1) * min(mY/area_y, 1)
+        
+    elif mX == 0 and mY > 0:
+        Hx, xxedges = np.histogram(dataset[:,0], n_bins)
+        Hx = Hx/Hx.sum()
+        ixx = find_closest_index(xxedges, xs)
+        iys = find_closest_index(yedges, ys)
+        iye = find_closest_index(yedges, ye)
+        if iys == iye:
+            iys, iye = reassign_indeces(yedges, iys, ys, ye)
+        area_y = yedges[iye] - yedges[iys]        
+        H_sub = H[ixx, iys:iye]
+        prob = (H_sub.sum()/Hx[ixx]) * min(mY/area_y, 1)
+        
+    else:
+        Hy, yyedges = np.histogram(dataset[:,1], n_bins)
+        Hy = Hy/Hy.sum()
+        iyy = find_closest_index(yyedges, ys)
+        ixs = find_closest_index(xedges, xs)
+        ixe = find_closest_index(xedges, xe)
+        if ixs == ixe:
+            ixs, ixe = reassign_indeces(xedges, ixs, xs, xe)
+        area_x = xedges[ixe] - xedges[ixs]        
+        H_sub = H[ixs:ixe, iyy]
+        prob = (H_sub.sum()/Hy[iyy]) * min(mX/area_x, 1)
+    return prob
+####################################################################################################
+def get_sqProbabilityTrend(dataset, xs, xe, ys, ye, n_bins = 20, T = 0):
+    if T == 0:
+        return get_sqProbability(dataset, xs, xe, ys, ye, n_bins)
+    elif T > 0:
+        nrows = int(dataset.shape[0]) - T
+        return get_sqProbability(dataset[nrows:int(dataset.shape[0])], xs, xe, ys, ye, n_bins)
+    else:
+        raise ValueError("value for T not admissible")
+####################################################################################################
+## TEST:
+xs = xe = 629.26
+ys = 620
+ye = 640
+get_sqProbability(tsbtc, xs, xe, ys, ye, n_bins = 20)
+get_sqProbabilityTrend(tsbtc, xs, xe, ys, ye, n_bins = 20, T = 60)
+
+Y = np.linspace(0, 1500, num = 3000)
+for y in Y:
+    prob_y = get_sqProbability(dataset, xs, xe, max(xs-y, 0), min(xs + y, np.max(dataset)))
+    if prob_y >= 0.5:
+        print 'found set [{},{}] with probability equal to {} and measure {}'.format(max(xs-y, 0),min(xs + y, np.max(dataset)), prob_y, min(xs + y, np.max(dataset)) -  max(xs-y, 0))
+        break
+
+
+plt.figure()
+plt.hist(dataset[1365-60:1365])
 
 from sklearn import mixture
 
@@ -170,7 +294,7 @@ print "Log likelihood (how well the data fits the model) = ", logL
 
 for i in range(len(cen_lst)):
     x1,x2 = gmm.gauss_ellipse_2d(cen_lst[i], cov_lst[i])
-    plt.plot(x1, x2, 'k', linewidth=4)
+    plt.plot(x1, x2, 'k', linewidth=2)
 plt.title(""); plt.xlabel(r'$x_1$'); plt.ylabel(r'$x_2$')
                 
 plt.figure()
