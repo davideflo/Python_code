@@ -904,6 +904,7 @@ def remainderizer(df):
 
 mm, sea, remn = remainderizer(pun)
 remn.plot()
+plt.figure()
 sea.plot()
 
 plt.figure()
@@ -932,22 +933,51 @@ def FourierCoefficients(freq, f):
     xc = lambda x, freq, f: f * np.cos(freq * x)
     xs = lambda x, freq, f: f * np.sin(freq * x)
     return (1/np.pi) * integrate.quad(xc, 0, f.size, args = (f, freq)), (1/np.pi) * integrate.quad(xs, 0, f.size, args = (f, freq)) 
-################################################################################
+###############################################################################
 def cn(y, n, time, period):
    c = y[time]*np.exp(-1j*2*time[n]*np.pi*time/period)
    return c.sum()/c.size
-
+###############################################################################
+def cn2(y, omega, period):
+   c = y*np.exp(-1j*omega*np.pi*np.arange(y.size)/period)
+   return c.sum()/np.sqrt(c.size)
+###############################################################################
 def f(x, y, time, period):
    f = np.array([2*cn(y, i, time , period)*np.exp(1j*2*i*np.pi*x/period) for i in range(time.size)]) #range(1,Nh+1)])
    return f.sum()
-
-###y2 = np.array([f(t,50, time, period).real for t in time])
 ###############################################################################
-surv = np.where(rem_per > 2)[0]
+def DFT(y, freq):
+    N = y.size
+    c = y * np.exp((-1j)*(2*np.pi)*freq*np.arange(y.size)/N)
+    return c.sum()
+###############################################################################   
+def IDFT(Y, freq):
+    N = Y.size
+    y = Y * np.exp((2*np.pi*1j)*freq*np.arange(Y.size)/N)
+    return y.sum()/N
+###############################################################################
+def hurst(ts):
+	"""Returns the Hurst Exponent of the time series vector ts"""
+	# Create the range of lag values
+	lags = range(2, 100)
+
+	# Calculate the array of the variances of the lagged differences
+	tau = [np.sqrt(np.std(np.subtract(ts[lag:], ts[:-lag]))) for lag in lags]
+
+	# Use a linear fit to estimate the Hurst Exponent
+	poly = np.polyfit(np.log(lags), np.log(tau), 1)
+
+	# Return the Hurst exponent from the polyfit output
+	return poly[0]*2.0
+###############################################################################
+print("Hurst(remainderized PUN): {}".format(hurst(remn))) ### mean reverting ###
+
+surv = np.where(rem_per > 1)[0]
 Ccos = []
 Csin = []
 coeffs = []
 cn(remn.values, 1, surv[:2], 1)
+cn2(remn.values, surv[0], 1)
 for x in np.linspace(0, remn.values.ravel().size, remn.values.ravel().size):
     #xc, xs = FourierCoefficients(surv[i], remn.values.ravel())
     #Ccos.append(xc)
@@ -955,8 +985,83 @@ for x in np.linspace(0, remn.values.ravel().size, remn.values.ravel().size):
     fc = f(x,  remn.values.ravel(), surv,1) 
     coeffs.append(fc)
     
+for i in range(1, surv.size, 1):
+    print(cn2(remn.values, surv[i], 1))    
+    coeffs.append(cn2(remn.values, surv[i], 1)) 
+    
 plt.figure()
 plt.plot(np.array(coeffs))    
+
+#### test DFT - IDFT ####    
+y = np.array(remn).ravel()
+res = [] 
+for s in rem_per:
+    res.append(DFT(y, s))
+plt.figure()
+plt.plot(np.array(res))
+rec = []
+for s in rem_per:
+    rec.append(IDFT(np.array(res), s))
+       
+plt.figure()
+plt.plot(np.array(remn.values.ravel()).ravel())
+plt.plot(np.array(rec), color = 'red')    
     
-for s in range(surv.size):
-    print(cn(remn.values.ravel(),s,surv,1))
+rec_error = np.array(remn.values.ravel()).ravel() - np.array(rec).real
+ 
+np.mean(rec_error)   
+np.std(rec_error)
+
+### forecasted value for 25/10/2016 with this un-tuned method:
+P_new = mm[-1] + 2.590220 + rec[0].real
+sigma_sum = np.std(pun.ix[pun.index.month == 10] - mm[-1]) + 8.104067 + np.std(rec_error)
+lu =(P_new.real - sigma_sum, P_new.real + sigma_sum)
+
+rngr = pd.date_range('2016-01-01', '2016-10-24', freq='D')
+rem = pd.DataFrame(remn.values.ravel()).set_index(rngr)
+drem = divide_in_days(rem)
+
+plt.figure()
+drem.plot()
+drem.T.plot()
+
+###############################################################################
+def remainderizer2(df):
+    ### comupe trend in months:
+    diz = OrderedDict()
+    dow = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'] 
+    mp = np.array(df.resample('M').mean())
+    dt = []
+    for i in range(df.shape[0]):
+        mon = mp[(df.index.month[i] - 1)]
+        print('month {} and correction {}'.format(df.index.month[i],mon))
+        dt.append(df.ix[i] - mon)
+    dt = pd.DataFrame(dt).set_index(df.index)
+    ### remove global seasonality:
+    dd = divide_in_days(dt)
+    diz['mean'] = dd.mean()
+    diz['std'] = dd.std()
+    des= []
+    for j in range(dt.shape[0]):
+        die = datetime.date(int(str(dt.index[j])[:4]),int(str(dt.index[j])[5:7]),int(str(dt.index[j])[8:10]))
+        giorno = die.weekday()
+        x = (dt.ix[j] - dd[dow[giorno]].mean())/dd[dow[giorno]].std()
+        des.append(x)
+    rem = pd.DataFrame(des)
+    seas = pd.DataFrame.from_dict(diz).set_index([dow])
+    return mp, seas, rem
+###############################################################################
+
+mm, seas2, rem2 = remainderizer2(pun)    
+    
+plt.figure()
+rem2.plot()    
+    
+plt.figure()    
+plotting.lag_plot(rem2)
+
+per2 = statsmodels.api.tsa.periodogram(np.array(rem2.values.ravel()).ravel())    
+plt.figure()
+plt.plot(per2)
+hurst(np.array(rem2.values.ravel()).ravel())
+hurst(pun)
