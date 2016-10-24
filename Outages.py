@@ -11,10 +11,11 @@ import pandas as pd
 import datetime
 import numpy as np
 from collections import OrderedDict
+import matplotlib.pyplot as plt
 
 out = pd.read_excel('C:/Users/d_floriello/Documents/ourages_fran_2016-10-12.xlsx')
 
-today = datetime.datetime(2016, 10, 13)
+today = datetime.datetime(2016, 10, 24)
 
 out = out.ix[out['Fin Indispo'] >= today]
 
@@ -72,6 +73,17 @@ def get_statistics_all(out):
             print(P)
             print('##################################')
 ###############################################################################
+def get_simple_count(out, month, var):
+    today = datetime.datetime(2016, month, 1)
+    out2 = update_outages(out, today)
+    print('num outages totali nel mese {}= {}'.format(month, out2.shape[0]))
+    vn = set(list(out2[var]))
+    cts = []
+    for v in vn:
+        print('percentage of {} outages = {}'.format(v, out2[var].ix[out2[var] == v].count()/out2.shape[0]))
+        cts.append(out2[var].ix[out2[var] == v].count()/out2.shape[0])
+    return cts
+###############################################################################
 out2 = update_outages(out, today)    
  
 varnames = ['ID Indisponibilité de production', "Type d'indisponibilité", 'Filière',
@@ -79,8 +91,8 @@ varnames = ['ID Indisponibilité de production', "Type d'indisponibilité", 'Fil
        'Puissance nominale', 'Puissance disponible restante', 'Cause',
        'Statut'] 
  
-S, P = get_statistics(out2, varnames[2], varnames[5])   
-
+S, P = get_statistics(out2, varnames[2], varnames[6])   
+P.sum(axis = 1)
 
 ###############################################################################
 ##################################### 2015 ####################################
@@ -129,7 +141,7 @@ prod = [i for i in prod if isinstance(i, str)]
 cause = [i for i in cause if isinstance(i, str)]
 for m in mon:
     vec = []
-    out2 = out.set_index(out['Fin Indispo'])
+    #out2 = out.set_index(out['Fin Indispo'])
     atm = out.ix[out2.index.month > m]
     ids = list(set(atm['ID Indisponibilité de production']))
     ind = tot = 0
@@ -192,3 +204,42 @@ DF = pd.DataFrame.from_dict(diz, orient = 'index')
 DF.columns = [nmn]
 DF.shape
 
+fs = pd.read_excel('C:/Users/d_floriello/Documents/Prezzi Francia e Svizzera (2015 -2016).xlsx', sheetname = '2015')
+fs = fs[fs.columns[[2,3]]].set_index(fs['Data'])
+plt.figure()
+plt.plot(fs[fs.columns[0]].resample('D').mean())
+plt.figure()
+DF[DF.columns[3:13]].plot()
+
+from pandas.tools import plotting
+
+plt.figure()
+plotting.parallel_coordinates(DF[DF.columns[3:13]])
+
+for i in range(1,13,1):
+    print(sorted(DF[DF.columns[3:13]].ix[DF.index == str(i)]))
+
+nuc = []
+hydro = []
+gas = []
+coal = []
+for i in range(1,13,1):
+    nuc.append(get_simple_count(out, i, 'Filière')[3])
+    hydro.append(get_simple_count(out, i, 'Filière')[2] + get_simple_count(out, i, 'Filière')[5])
+    gas.append(get_simple_count(out, i, 'Filière')[1])
+    coal.append(get_simple_count(out, i, 'Filière')[0])
+
+diz2 = OrderedDict()
+diz2['nucleare'] = nuc    
+diz2['hydro'] = hydro    
+diz2['gas'] = gas    
+diz2['carbone'] = coal    
+
+D2 = pd.DataFrame.from_dict(diz2)
+    
+plt.figure()
+plt.plot(np.array(nuc))
+plt.figure()
+plt.plot(np.array(fs[fs.columns[0]].resample('M').mean()))
+plt.figure()
+D2.plot()
