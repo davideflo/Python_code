@@ -84,6 +84,17 @@ def get_simple_count(out, month, var):
         cts.append(out2[var].ix[out2[var] == v].count()/out2.shape[0])
     return cts
 ###############################################################################
+def get_remaining_power(out, month):
+    today = datetime.datetime(2016, month, 1)
+    out2 = update_outages(out, today)
+    out2 = out2.reset_index(drop = True)
+    print('num outages totali nel mese {}= {}'.format(month, out2.shape[0]))
+    remaining = perc = 0
+    for r in range(out2.shape[0]):
+        remaining += out2['Puissance nominale'].ix[r] - out2['Puissance disponible restante'].ix[r]
+    perc = remaining/out2['Puissance nominale'].sum()
+    return remaining, perc
+###############################################################################
 out2 = update_outages(out, today)    
  
 varnames = ['ID Indisponibilité de production', "Type d'indisponibilité", 'Filière',
@@ -141,8 +152,8 @@ prod = [i for i in prod if isinstance(i, str)]
 cause = [i for i in cause if isinstance(i, str)]
 for m in mon:
     vec = []
-    #out2 = out.set_index(out['Fin Indispo'])
-    atm = out.ix[out2.index.month > m]
+    out2 = out.set_index(out['Fin Indispo'])
+    atm = out2.ix[out2.index.month > m]
     ids = list(set(atm['ID Indisponibilité de production']))
     ind = tot = 0
     nfil = np.repeat(0, len(filiera)).tolist()
@@ -223,11 +234,15 @@ nuc = []
 hydro = []
 gas = []
 coal = []
+rim = []
+perc = []
 for i in range(1,13,1):
     nuc.append(get_simple_count(out, i, 'Filière')[3])
     hydro.append(get_simple_count(out, i, 'Filière')[2] + get_simple_count(out, i, 'Filière')[5])
     gas.append(get_simple_count(out, i, 'Filière')[1])
     coal.append(get_simple_count(out, i, 'Filière')[0])
+    rim.append(get_remaining_power(out, i)[0])
+    perc.append(get_remaining_power(out, i)[1])
 
 diz2 = OrderedDict()
 diz2['nucleare'] = nuc    
@@ -235,11 +250,19 @@ diz2['hydro'] = hydro
 diz2['gas'] = gas    
 diz2['carbone'] = coal    
 
+diz3 = OrderedDict()
+diz3['remaining power'] = rim
+diz3['%remaining power'] = perc
+
 D2 = pd.DataFrame.from_dict(diz2)
+D3 = pd.DataFrame.from_dict(diz3)
     
 plt.figure()
 plt.plot(np.array(nuc))
 plt.figure()
 plt.plot(np.array(fs[fs.columns[0]].resample('M').mean()))
 plt.figure()
-D2.plot()
+D3['%remaining power'].plot()
+
+plt.figure()
+plt.scatter(np.array(D3['remaining power']), np.array(fs[fs.columns[0]].resample('M').mean()))
