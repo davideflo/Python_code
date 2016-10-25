@@ -104,9 +104,12 @@ for d in days:
     fr.append(fs['Francia (EPEX)'].ix[fs.index == d].mean())
     sv.append(fs['Svizzera (EPEX)'].ix[fs.index == d].mean())
     
-###  EPEX FR from 2016-09-30 to 2016-10-17:
+###  EPEX FR from 2016-09-30 to 2016-10-26:
 nd = [41.78, 38.19, 32.48, 36.04, 42.02,42.68 ,48.28,
-      57.29208333	, 44.35375,	36.705,56.70208333, 71.21208333, 62.81041667, 64.25, 64.10, 44.28, 40.02, 56.41,66.94]
+      57.29208333	, 44.35375,	36.705,56.70208333, 71.21208333, 62.81041667, 64.25, 64.10, 44.28, 40.02, 56.41,66.94,
+      67.69,	76.30,	72.95,	55.72,	44.57,	72.63,
+      79.92, 70.53]
+      
 for n in nd:
     fr.append(n)
 fsm['francia'] = fr
@@ -117,6 +120,28 @@ fsm = pd.DataFrame.from_dict(fsm)
 
 fsm.plot() ### from this I'm very doubtful that flows actually correlate wth prices... 
            ### except in the last week where something anomalous is definitely happening
+
+###########
+cors = []
+for i in range(pun.shape[0]):
+    cors.append(np.corrcoef(np.array(pun)[:i],fsm.values[:i].ravel())[1,0])
+
+compl_cors = []
+for i in range(pun.shape[0]):
+    compl_cors.append(np.corrcoef(np.array(pun)[pun.shape[0] - i:],fsm.values[pun.shape[0] - i:].ravel())[1,0])
+    
+plt.figure()
+plt.plot(np.array(cors))
+plt.figure()
+plt.plot(np.array(compl_cors))
+
+dcors = []
+for i in range(pun.shape[0]-1):
+    dcors.append(np.corrcoef(np.diff(pun)[pun.shape[0] - i:],np.diff(np.array(fsm).ravel())[pun.shape[0] - i:])[1,0])
+    
+plt.figure()
+plt.plot(np.array(dcors))    
+###########
 
 plt.figure()
 plt.plot(fsm['pun'])
@@ -909,6 +934,8 @@ sea.plot()
 
 plt.figure()
 plotting.lag_plot(remn)
+plt.figure()
+plotting.autocorrelation_plot(remn)
 
 plt.figure()
 sns.lmplot(x = 'x', y = 'y',data = pd.DataFrame({'x': np.array(remn.ix[0:(remn.shape[0]-1)].values.ravel()), 'y': np.array(remn.ix[1:(remn.shape[0])].values.ravel())}))
@@ -919,6 +946,47 @@ scipy.stats.mstats.mquantiles(rem_per, prob = 0.95)
 scipy.stats.mstats.mquantiles(remn, prob = 0.95)
 ### is remn stationary?
 statsmodels.api.tsa.adfuller(remn.values.ravel()) ## looks like it
+
+### fit an autoregressive model
+remn = remn.values.ravel()
+plt.figure()
+#### trying different ARMA models
+arma_remn = statsmodels.api.tsa.ARMA(remn, (1,0)).fit()
+arma_remn.summary()
+print(arma_remn.params)
+arma_pred = arma_remn.predict()
+
+R22 = 1 - np.sum((remn - arma_pred)**2)/np.sum((remn - np.mean(remn))**2)
+
+plt.figure()
+plt.plot(remn)
+plt.plot(arma_pred, color = 'red')
+
+resid = remn - arma_pred
+np.mean(resid)
+np.std(resid)
+
+###############################################################################
+def Forecast(dataset, steps_ahead):
+    forecasted = []
+    arma1 = statsmodels.api.tsa.ARMA(dataset, (1,0)).fit()
+    forecasted.append(arma1.params[0] + arma1.params[1] * dataset[-1])
+    dataset = np.concatenate((dataset, np.array(forecasted)))
+    for j in range(1, steps_ahead, 1):    
+        print(j)
+        arma2 = statsmodels.api.tsa.ARMA(dataset, (1,0)).fit()
+        forecasted.append(arma2.params[0] + arma2.params[1] * dataset[-1])
+        dataset = np.hstack((dataset, np.array(forecasted[-1])))
+    return dataset
+###############################################################################
+forecasted = Forecast(remn, 60)
+
+rf = np.concatenate((remn, forecasted))
+
+plt.figure()
+#plt.plot(rf)
+plt.plot(forecasted, color = 'black', lw = 2)
+plt.plot(arma_pred, color = 'red')
 
 plt.figure()
 plt.plot(rem_per)
@@ -1065,3 +1133,56 @@ plt.figure()
 plt.plot(per2)
 hurst(np.array(rem2.values.ravel()).ravel())
 hurst(pun)
+
+###############################################################################
+def Forecast_(pun, year, month, day):
+    ts = np.array(pun)
+    dow = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'] 
+    dt = datetime.datetime(year, month, day)
+    mm, sea, remn = remainderizer(pun)
+    arma = statsmodels.api.tsa.ARMA(remn.values.ravel(), (1,0)).fit()
+    resid = remn.values.ravel() - arma.predict()
+    pred = arma.predict(start = ts.size, end = ts.size)
+    forecasted = mm[-1] + sea[str(month)+'_mean'].ix[dow[dt.weekday()]] + pred
+    #### sampled sigma is a bit overestimated
+    sigma_hat = np.std(pun.ix[pun.index.month == 10] - mm[-1]) + sea[str(month)+'_std'].ix[dow[dt.weekday()]] + np.std(resid)
+    return (forecasted - 2*sigma_hat, forecasted - sigma_hat, forecasted, forecasted + sigma_hat, forecasted + 2*sigma_hat)
+###############################################################################
+
+Forecast_(pun, 2016, 10, 26)
+Forecast_(pun, 2016, 10, 27)
+ 
+import arch
+
+arch_model = arch.arch_model(remn, mean = 'AR', vol='garch', p=1, q=1).fit()
+arch_model.summary()
+
+plt.figure()
+arch_model.plot()
+arch_model.params
+arch_model.rsquared
+np.mean(arch_model.resid)
+arch_model.conditional_volatility
+arch_model.hedgehog_plot(horizon = 40, step = 40)
+arch_model.forecast()
+
+fitted = remn + arch_model.resid
+
+plt.figure()
+plt.plot(fitted, color = 'black')
+plt.plot(remn)
+
+R2 = 1 - np.sum((remn - fitted)**2)/np.sum((remn)**2)
+
+cv = arch_model.conditional_volatility
+np.mean(cv)
+
+ccv = np.cumsum(cv)/np.arange(1,cv.size+1,1)
+
+plt.figure()
+plt.plot(ccv)
+
+cremn = np.cumsum(remn)/np.arange(1, remn.size + 1, 1)
+
+plt.figure()
+plt.plot(cremn)
