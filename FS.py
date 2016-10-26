@@ -104,11 +104,11 @@ for d in days:
     fr.append(fs['Francia (EPEX)'].ix[fs.index == d].mean())
     sv.append(fs['Svizzera (EPEX)'].ix[fs.index == d].mean())
     
-###  EPEX FR from 2016-09-30 to 2016-10-26:
+###  EPEX FR from 2016-09-30 to 2016-10-27:
 nd = [41.78, 38.19, 32.48, 36.04, 42.02,42.68 ,48.28,
       57.29208333	, 44.35375,	36.705,56.70208333, 71.21208333, 62.81041667, 64.25, 64.10, 44.28, 40.02, 56.41,66.94,
       67.69,	76.30,	72.95,	55.72,	44.57,	72.63,
-      79.92, 70.53]
+      79.92, 70.53, 61.49]
       
 for n in nd:
     fr.append(n)
@@ -121,27 +121,77 @@ fsm = pd.DataFrame.from_dict(fsm)
 fsm.plot() ### from this I'm very doubtful that flows actually correlate wth prices... 
            ### except in the last week where something anomalous is definitely happening
 
-###########
+############## analysis of correlations ###############
+fsm = fsm.set_index(pun.index)
 cors = []
-for i in range(pun.shape[0]):
-    cors.append(np.corrcoef(np.array(pun)[:i],fsm.values[:i].ravel())[1,0])
+for i in range(2,pun.shape[0],1):
+    cors.append(np.corrcoef(np.array(pun)[:i],np.array(fsm).ravel()[:i])[1,0])
 
 compl_cors = []
-for i in range(pun.shape[0]):
-    compl_cors.append(np.corrcoef(np.array(pun)[pun.shape[0] - i:],fsm.values[pun.shape[0] - i:].ravel())[1,0])
+for i in range(2,pun.shape[0],1):
+    compl_cors.append(np.corrcoef(np.array(pun)[pun.shape[0] - i:],np.array(fsm).ravel()[pun.shape[0] - i:])[1,0])
     
 plt.figure()
 plt.plot(np.array(cors))
 plt.figure()
 plt.plot(np.array(compl_cors))
 
-dcors = []
-for i in range(pun.shape[0]-1):
-    dcors.append(np.corrcoef(np.diff(pun)[pun.shape[0] - i:],np.diff(np.array(fsm).ravel())[pun.shape[0] - i:])[1,0])
+ottp = pun.ix[pun.index.month == 10]
+ottf = fsm.ix[fsm.index.month == 10]
+nottp = pun.ix[pun.index.month < 10]
+nottf = fsm.ix[fsm.index.month < 10]
+
+corr_ottobre = ottp.corr(ottf['francia'])
+corr_else = []
+corr_upto = []
+for i in range(1, 10, 1):
+    corr_else.append(nottp.ix[nottp.index.month == i].corr(nottf['francia'].ix[nottf.index.month == i]))
+    corr_upto.append(nottp.ix[nottp.index.month <= i].corr(nottf['francia'].ix[nottf.index.month <= i]))
+
+corr_else = []
+corr_upto = []
+for i in range(1, 11, 1):
+    corr_else.append(pun.ix[pun.index.month == i].corr(fsm['francia'].ix[fsm.index.month == i]))
+    corr_upto.append(pun.ix[pun.index.month <= i].corr(fsm['francia'].ix[fsm.index.month <= i]))
+
+plt.figure()
+plt.plot(np.array(corr_else), marker = 'o')
+plt.plot(np.array(corr_upto), marker = '*')
+plt.scatter(np.array([9]), np.array([corr_ottobre]), color = 'black', marker = 'D')
+
+dpun = pd.Series(np.diff(pun), index = pd.date_range('2016-01-02', '2016-10-26', freq = 'D'))
+dfran = pd.Series(np.diff(fsm['francia']), index = pd.date_range('2016-01-02', '2016-10-26', freq = 'D'))
+   
+dcorr_else = []
+dcorr_upto = []
+for i in range(1, 11, 1):
+    dcorr_else.append(dpun.ix[dpun.index.month == i].corr(dfran.ix[dfran.index.month == i]))
+    dcorr_upto.append(dpun.ix[dpun.index.month <= i].corr(dfran.ix[dfran.index.month <= i]))
+
+plt.figure()
+plt.plot(np.array(dcorr_else), marker = 'o', color = 'grey')
+plt.plot(np.array(dcorr_upto), marker = '*', color = 'magenta')   
+################# monthwise volatility and percentage increment ###############
+volp = pun.resample('M').std()
+volf = fsm['francia'].resample('M').std()
+
+plt.figure()
+plt.plot(volp, marker = 'o')
+plt.plot(volf, marker = '*')
+
+meanp = pun.resample('M').mean()
+meanf = fsm['francia'].resample('M').mean()
+
+percp = []
+percf = []
+for i in range(meanp.size - 1):
+    percp.append((meanp[i+1] - meanp[i])/meanp[i])
+    percf.append((meanf[i+1] - meanf[i])/meanf[i])
     
 plt.figure()
-plt.plot(np.array(dcors))    
-###########
+plt.plot(np.array(percp), marker = 'o')
+plt.plot(np.array(percf), marker = '*')
+###################################
 
 plt.figure()
 plt.plot(fsm['pun'])
