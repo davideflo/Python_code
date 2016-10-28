@@ -105,6 +105,7 @@ for year in years:
         franw = fran.resample('W').mean()        
         pun = pd.read_excel('C:/Users/d_floriello/Documents/PUN/Anno '+str(year)+'.xlsx', sheetname = 'Prezzi-Prices')
         pun = pun.set_index(pd.date_range(start = str(year)+'-01-01', end = str(year+1)+'-01-01', freq = 'H')[:pun.shape[0]])
+        dvp.append(np.array(pun['PUN'].dropna().resample('D').std()).tolist())        
         pun = pun['PUN'].resample('D').mean()
         punw = pun.resample('W').mean()
     elif year == 2015:
@@ -116,6 +117,7 @@ for year in years:
         data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2015/06. MI/DB_Borse_Elettriche.xlsx", sheetname = 'DB_Dati')
         data = data.set_index(data['Date'])
         pun = data['PUN [€/MWH]'].resample('D').mean()
+        dvp.append(np.array(data['PUN [€/MWH]'].dropna().resample('D').std()).tolist())      
         punw = pun.resample('W').mean()
     elif year == 2016:
         fran = pd.read_excel('C:/Users/d_floriello/Documents/Prezzi Francia e Svizzera (2015 -2016).xlsx', sheetname = '2016')
@@ -137,9 +139,9 @@ for year in years:
         data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
         data = data.set_index(data['Date'])
         pun = data['PUN [€/MWH]'].dropna().resample('D').mean()
+        dvp.append(np.array(data['PUN [€/MWH]'].dropna().resample('D').std()).tolist())      
         punw = pun.resample('W').mean()
    
-    dvp.append(np.array(data['PUN [€/MWH]'].dropna().resample('D').std()).tolist())      
     volpc.append(np.array(pun.resample('M').std()).tolist())
     volfc.append(np.array(fran.resample('M').std()).ravel().tolist())
     yvp.append(pun.std())
@@ -177,9 +179,16 @@ dv_f2[770] = 100
 plt.figure()
 plt.plot(np.array(dv_p)) ##### daily volatility very regular!!!
 plt.figure()
-plt.plot(np.array(dv_f2)[:2177], color = 'green')
+plt.plot(np.array(dv_f2), color = 'green')
 
 dv_f = np.array(dv_f)
+np.min(dv_p)
+np.min(dv_f)
+np.mean(dv_p)
+np.std(dv_p)
+np.mean(dv_f)
+np.std(dv_f)
+np.max(dv_f)
 
 plt.figure()
 plt.plot(np.array(vol_f), color = 'green')
