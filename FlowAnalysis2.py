@@ -91,7 +91,7 @@ list_of_dirs = [f for f in listdir('C:/Users/d_floriello/Documents/MGP_Transiti_
 
 DF = pd.DataFrame()
 list_of_files = listdir('C:/Users/d_floriello/Documents/MGP_Transiti_Gen')
-df = get_flowsXML('C:/Users/d_floriello/Documents/MGP_Transiti_Gen/',list_of_files, '2016-01-01', '2016-10-14')
+df = get_flowsXML('C:/Users/d_floriello/Documents/MGP_Transiti_Gen/',list_of_files, '2016-01-01', '2016-10-28')
 DF = DF.append(df)
 
 plt.figure()
@@ -103,11 +103,15 @@ DF.corr()
 data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
 data = data.set_index(data['Date'])
 pun = data['PUN [€/MWH]'].dropna().resample('D').mean()
+nord = data['MGP NORD [€/MWh]'].dropna().resample('D').mean()
 
 plt.figure()
 plt.scatter(np.array(DF[DF.columns[0]]), np.array(pun))
+plt.figure()
+plt.scatter(np.array(DF[DF.columns[1]]), np.array(pun), color = 'black')
 
 np.corrcoef(np.array(DF[DF.columns[0]]), np.array(pun))
+np.corrcoef(np.array(DF[DF.columns[1]]), np.array(pun))
 
 from pandas.tools import plotting
 
@@ -124,3 +128,49 @@ for i in range(DF['nord-fran'].size - 1):
 plt.figure()
 plt.plot(np.array(signed_perc))    
     
+#################### NORD ######################
+plt.figure()
+plt.scatter(np.array(DF[DF.columns[0]]), np.array(nord))
+plt.figure()
+plt.scatter(np.array(DF[DF.columns[1]]), np.array(nord), color = 'black')
+
+np.corrcoef(np.array(DF[DF.columns[0]]), np.array(nord))
+np.corrcoef(np.array(DF[DF.columns[1]]), np.array(nord))
+    
+fsm.ix[fsm['francia'] >= 60]    
+g60 = [284,285,286,287,291,292,293,294,297,298,299,300]
+
+fr60 = fsm['francia'].ix[g60]
+DF.ix[g60]
+
+X = np.vstack(([np.array(fr60).tolist()], [np.array(DF[DF.columns[0]].ix[g60]).tolist()])).reshape((12,2))
+
+modfr = linear_model.LinearRegression(fit_intercept = True).fit(X, nord.ix[g60])
+
+modfr.coef_
+nhat = modfr.predict(X)
+n0 = modfr.predict([0,0])
+
+R2 = 1 - np.sum((nord.ix[g60] - nhat)**2)/np.sum((nord.ix[g60] - nord.ix[g60].mean())**2)
+
+resid = nord.ix[g60] - nhat
+np.mean(resid)
+np.std(resid)
+
+###### complete dataset ######
+X = np.vstack(([np.array(fsm['francia']).tolist()], [np.array(DF[DF.columns[0]]).tolist()])).reshape((DF.shape[0],2))
+
+modfr = linear_model.LinearRegression(fit_intercept = True).fit(X, nord)
+
+modfr.coef_
+nhat = modfr.predict(X)
+n0 = modfr.predict([0,0])
+
+R2 = 1 - np.sum((nord - nhat)**2)/np.sum((nord - nord.mean())**2)
+
+resid = nord - nhat
+np.mean(resid)
+np.std(resid)
+
+
+
