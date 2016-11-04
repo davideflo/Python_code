@@ -94,6 +94,10 @@ data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/
 data = data.set_index(data['Date'])
 pun = data['PUN [€/MWH]'].dropna().resample('D').mean()
 
+### for R
+data.to_excel('pun_copy2.xlsx', sheet_name = 'DB_Dati')
+###
+
 days = np.unique(fs.index) 
 
 fsm = OrderedDict()
@@ -104,11 +108,11 @@ for d in days:
     fr.append(fs['Francia (EPEX)'].ix[fs.index == d].mean())
     sv.append(fs['Svizzera (EPEX)'].ix[fs.index == d].mean())
     
-###  EPEX FR from 2016-09-30 to 2016-10-27:
+###  EPEX FR from 2016-09-30 to 2016-11-03:
 nd = [41.78, 38.19, 32.48, 36.04, 42.02,42.68 ,48.28,
       57.29208333	, 44.35375,	36.705,56.70208333, 71.21208333, 62.81041667, 64.25, 64.10, 44.28, 40.02, 56.41,66.94,
       67.69,	76.30,	72.95,	55.72,	44.57,	72.63,
-      79.92, 70.53, 61.49]
+      79.92, 70.53, 61.49,58.38,52.12,40.95,48.95,47.63,64.01,68.82,74.08,50.90]
       
 for n in nd:
     fr.append(n)
