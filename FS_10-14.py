@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 from collections import OrderedDict
+import Fourier
 
 ### 2011 - 2012 a bit anomalous
 year = 2014
@@ -131,10 +132,10 @@ for year in years:
         nd = [41.78, 38.19, 32.48, 36.04, 42.02,42.68 ,48.28,
               57.29208333	, 44.35375,	36.705,56.70208333, 71.21208333, 62.81041667, 64.25, 64.10, 44.28, 40.02, 56.41,66.94,
               67.69,	76.30,	72.95,	55.72,	44.57,	72.63,
-              79.92, 70.53, 61.49]      
+              79.92, 70.53, 61.49,58.38,52.12,40.95,48.95,47.63,64.01,68.82,74.08,50.90,43.47,125.67]    
         for n in nd:
             fr.append(n)            
-        fran = pd.DataFrame.from_dict(fr).set_index(pd.date_range('2016-01-01', '2016-10-27', freq = 'D'))
+        fran = pd.DataFrame.from_dict(fr).set_index(pd.date_range('2016-01-01', '2016-11-07', freq = 'D'))
         franw = fran.resample('W').mean()
         data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
         data = data.set_index(data['Date'])
@@ -178,6 +179,8 @@ dv_f2[770] = 100
 
 plt.figure()
 plt.plot(np.array(dv_p)) ##### daily volatility very regular!!!
+plt.figure()
+plt.plot(np.array(dv_f), color = 'red')
 plt.figure()
 plt.plot(np.array(dv_f2), color = 'green')
 
@@ -272,4 +275,36 @@ plt.scatter(np.repeat(0.2,len(wf)),np.array(wf), color = 'black')
 plt.scatter(np.repeat(1.2,len(sf)),np.array(sf), color = 'orange') 
 plt.scatter(np.repeat(0.4,len(vol_p)),np.array(vol_p), color = 'green') 
 plt.scatter(np.repeat(0.6,len(vol_f)),np.array(vol_f), color = 'purple') 
-        
+
+
+scipy.stats.mstats.mquantiles(dv_p, prob = [0.025, 0.975])
+scipy.stats.mstats.mquantiles(dv_f, prob = [0.025, 0.975])
+
+
+###############
+
+divp = np.diff(vol_p)
+divf = np.diff(vol_f)
+
+plt.figure()
+plt.plot(divp)
+plt.plot(np.array(vol_p))
+plt.figure()
+plt.plot(divf, color = 'magenta')
+plt.plot(np.array(vol_f), color = 'black')
+
+
+ddvp = np.diff(dv_p)
+ddvf = np.diff(dv_f)
+
+plt.figure()
+plt.plot(ddvp)
+plt.plot(np.array(dv_p))
+plt.figure()
+plt.plot(ddvf, color = 'magenta')
+plt.plot(np.array(dv_f), color = 'black')
+
+fdvp = Fourier.fourierExtrapolation(dv_p,0, 25) ### best one to see the 'right' process for the volatility
+plt.figure()
+plt.plot(np.array(dv_p))
+plt.plot(fdvp, color = 'black', lw = 2)
