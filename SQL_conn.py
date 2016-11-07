@@ -9,9 +9,14 @@ sql connections
 ####################################################################################################
 #import os
 from __future__ import division
+from __future__ import unicode_literals
 import cx_Oracle
 import csv
 from collections import OrderedDict
+import sys
+
+reload(sys)  
+sys.setdefaultencoding('utf8')
  
 SQL="SELECT * FROM SOME_TABLE"
  
@@ -76,11 +81,25 @@ for key in order:
         i += 1
 
 workbook.close()
-
-
-cursor.close()
-connection.close()
-FILE.close()
+####################################################################################################
+def dict_writer(name, diz):
+    import xlsxwriter    
+    workbook = xlsxwriter.Workbook(name + '.xlsx')
+    worksheet = workbook.add_worksheet()
+    row = 0
+    col = 0
+    
+    order=diz.keys()
+    for key in order:
+        row += 1
+        worksheet.write(row, col,     key)
+        i =1
+        for item in diz[key]:
+            worksheet.write(row, col + i, item)
+            i += 1
+    
+    workbook.close()
+####################################################################################################
 
 #data = cursor.fetchall()
 #col_names = []
@@ -88,7 +107,6 @@ FILE.close()
 #    col_names.append(cursor.description[i][0])
 
 ##### Bag of Words model #######
-cols_per_own = OrderedDict()
 
 own.pop('SYS', None)
 own.pop('EXFSYS', None)
@@ -98,6 +116,7 @@ for k in own.keys():
     if 'MNH' not in k:
         own.pop(k, None)
 
+cols_per_own = OrderedDict()
 for k in own.keys():
     av_counter = 0
     un_counter = 0
@@ -108,17 +127,29 @@ for k in own.keys():
         if t == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA':
             pass
         else:
-            query = 'SELECT column_name FROM ' + k + '.' + t
+            query = 'SELECT * FROM ' + k + '.' + t + ' where 1=0'
             print query
-            cursor.execute(query)
-            data = cursor.fetchall()
-            for i in range(0, len(cursor.description)):
-                col_names.append(cursor.description[i][0])
-                av_counter += len(cursor.description)
+            try:
+                cursor.execute(query)
+                cur_descr = cursor.description
+            except:
+                #print 'Error, but column names:'                
+                pass            
+            print cursor.description
+            cur_descr = cursor.description                
+            #data = cursor.fetchall()
+            for i in range(0, len(cur_descr)):
+                col_names.append(cur_descr[i][0])
+                av_counter += len(cur_descr)
             un_counter += len(list(set(col_names)))
     av_counter = float(av_counter/num)
     print 'number unique and average number of columns in {} : {} and {}'.format(k, un_counter, av_counter)
-    cols_per_own[k] = (un_counter, av_counter, list(set(col_names)))
+    cpo = list(set(col_names))
+    cpo.insert(0, av_counter)
+    cpo.insert(0, un_counter)
+    cols_per_own[k] = cpo
+
+dict_writer('colonne', cols_per_own)
 
 sql2 = 'select column_name from all_tab_columns'
 cursor.execute(sql2)
@@ -134,3 +165,49 @@ cursor.execute(sql4)
 
 for row in cursor:
     print row
+
+sql5 = 'select * from MNH_BILLING.T_MIS_EE_HH where 1=0' 
+try:
+    cursor.execute(sql5)
+except:
+    pass
+cd2 = cursor.description
+print cd2
+
+mb = cols_per_own['MNH_BILLING']
+'OBJ_SERIE' in mb[2]
+
+SQL = 'SELECT * FROM MNH_LOGISTICA.T_MISURE_EE_FF'
+cursor.execute(SQL)
+data = cursor.fetchall()
+
+#### cerca 'F009996-Canale indiretto' nel database ##########
+
+lf = 'F009996-Canale indiretto'
+list_of_tables = []
+for k in own.keys():
+    lot = own[k]
+    for t in lot:
+        loc_cols = []
+        if t == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA':
+            pass
+        else:
+            query = 'SELECT * FROM ' + k + '.' + t + ' where 1=0'
+            print query
+            try:
+                cursor.execute(query)
+                cur_descr = cursor.description
+            except:
+                #print 'Error, but column names:'                
+                pass            
+            print cursor.description
+            cur_descr = cursor.description                
+            #data = cursor.fetchall()
+            for i in range(0, len(cur_descr)):
+                col_type = str(cur_descr[i][1])
+                if col_type == "<type 'cx_Oracle.STRING'>" or col_type == "<type 'cx_Oracle.CHAR'>":
+                    sql_loc = 'select ' + cur_descr[i][0] + ' from ' + k + '.' + t
+                    cursor.execute(sql_loc)
+                    data = cursor.fetchall()
+                    if lf in data:
+                        list_of_tables.append(k + '.' + t)
