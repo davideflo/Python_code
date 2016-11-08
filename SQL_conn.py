@@ -14,6 +14,7 @@ import cx_Oracle
 import csv
 from collections import OrderedDict
 import sys
+import time
 
 reload(sys)  
 sys.setdefaultencoding('utf8')
@@ -182,13 +183,13 @@ cursor.execute(SQL)
 data = cursor.fetchall()
 
 #### cerca 'F009996-Canale indiretto' nel database ##########
-
+start = time.time()
 lf = 'F009996-Canale indiretto'
 list_of_tables = []
+list_of_cols = []
 for k in own.keys():
     lot = own[k]
     for t in lot:
-        loc_cols = []
         if t == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA':
             pass
         else:
@@ -206,8 +207,24 @@ for k in own.keys():
             for i in range(0, len(cur_descr)):
                 col_type = str(cur_descr[i][1])
                 if col_type == "<type 'cx_Oracle.STRING'>" or col_type == "<type 'cx_Oracle.CHAR'>":
-                    sql_loc = 'select ' + cur_descr[i][0] + ' from ' + k + '.' + t
+                    col_name = cur_descr[i][0]
+                    sql_loc = 'select ' + col_name + ' from ' + k + '.' + t
                     cursor.execute(sql_loc)
                     data = cursor.fetchall()
-                    if lf in data:
+                    ldata = [d[0] for d in data]
+                    if lf in ldata:
                         list_of_tables.append(k + '.' + t)
+                        list_of_cols.append(col_name)
+end = time.time()
+print end - start                       
+                        
+                        
+                        
+                        
+                        
+                        
+cursor.execute('select S_DENOMINAZIONE from MNH_COMMON.T_AGENZIE')                       
+data = cursor.fetchall()
+ldata = [d[0] for d in data]
+lf in ldata
+
