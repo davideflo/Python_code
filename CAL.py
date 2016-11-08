@@ -17,6 +17,7 @@ import seaborn as sns
 from scipy.stats import levy
 from sklearn import linear_model
 from sklearn import  neighbors
+import scipy
 
 cal = pd.read_excel('CAL.xlsx', sheetname = 'valori CAL')
 #cal = cal.fillna(0)
@@ -543,3 +544,87 @@ knn = neighbors.KNeighborsRegressor(n_neighbors, weights='distance')
 y_ = knn.fit(X, ts.ravel()).predict(X)
 plt.figure()
 plt.plot(X, y_, c='g', label='prediction')
+
+
+###############################################################################
+cal = pd.read_excel('cal_17.xlsx')
+cal = cal.set_index(cal['Date'])
+cal = cal['CAL17']
+
+plt.figure()
+cal.plot()
+cal.hist(bins = 20)
+
+mmin = []
+mmax = []
+for i in range(cal.shape[0]):
+    mmin.append(cal.ix[:i].min())
+    mmax.append(cal.ix[:i].max())
+
+plt.figure()
+plt.plot(np.array(cal))
+plt.plot(np.array(mmin))
+plt.plot(np.array(mmax))
+
+dcal = np.diff(cal)
+plt.figure()
+plt.plot(dcal)
+plt.axhline(scipy.stats.mstats.mquantiles(dcal, prob = 0.025))
+plt.axhline(scipy.stats.mstats.mquantiles(dcal, prob = 0.975))
+plt.plot(np.diff(mmin))
+plt.plot(np.diff(mmax))
+
+###############################################################################
+def cumulative_quantiles(ts):
+    cqu = []
+    cql = []
+    for i in range(10, ts.size, 1):
+        cqu.append(scipy.stats.mstats.mquantiles(ts[:i], prob = 0.975)[0])
+        cql.append(scipy.stats.mstats.mquantiles(ts[:i], prob = 0.025)[0])
+    return np.array(cqu), np.array(cql)
+###############################################################################
+
+cq1, cq2 = cumulative_quantiles(dcal)
+        
+plt.figure()
+plt.figure()
+plt.plot(dcal)
+plt.axhline(scipy.stats.mstats.mquantiles(dcal, prob = 0.025))
+plt.axhline(scipy.stats.mstats.mquantiles(dcal, prob = 0.975))
+plt.plot(cq1)
+plt.plot(cq2)
+
+np.where(dcal <= scipy.stats.mstats.mquantiles(dcal, prob = 0.025)[0])[0].size
+np.where(dcal >= scipy.stats.mstats.mquantiles(dcal, prob = 0.975)[0])[0].size
+
+roi = []
+lambda_t = []
+for i in range(cal.shape[0] - 1):
+    r_o_i = (cal.ix[i+1] - cal.ix[i])/cal.ix[i]
+    roi.append(r_o_i)
+    lambda_t.append(cal.ix[i+1]/cal.ix[i])
+
+roi = np.array(roi)
+cqr1, cqr2 = cumulative_quantiles(roi)
+
+lambda_t = np.array(lambda_t)
+
+plt.figure()
+plt.plot(roi)
+plt.plot(cqr1)
+plt.plot(cqr2)
+
+plt.figure()
+plt.plot(lambda_t)
+
+qrl = scipy.stats.mstats.mquantiles(roi, prob = 0.025)[0]
+qru = scipy.stats.mstats.mquantiles(roi, prob = 0.975)[0]
+
+np.sum(roi[roi >= qru] - roi[roi <= qrl])
+
+np.where(roi[10:] >= cqr1)[0].size
+np.where(roi[10:] <= cqr2)[0].size
+
+roi10 = roi[10:]
+np.sum(roi10[roi10 >= cqr1][:22] - roi10[roi10 <= cqr2]) 
+
