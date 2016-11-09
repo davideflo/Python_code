@@ -256,16 +256,64 @@ for k in own.keys():
                 if col_type == "<type 'cx_Oracle.STRING'>" or col_type == "<type 'cx_Oracle.CHAR'>":
                     col_name = cur_descr[i][0]
                     sql_loc = 'select ' + col_name + ' from ' + k + '.' + t
+                    print sql_loc                    
                     cursor.execute(sql_loc)
                     data = cursor.fetchall()
                     ldata = [d[0] for d in data]
                     if pod in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
                         list_of_tables2.append(k + '.' + t)
                         list_of_cols2.append(col_name)
+
 end = time.time()
 print (end - start)/3600                       
 
 
+### S_PRESA, S_POD, S_PDR --> in (llok in vectorized2.xlsx)
+cursor.execute('select S_POD from MNH_COMMON.T_CRM_ORD_DETT')                       
+data = cursor.fetchall()
+ldata = [d[0] for d in data]
+pod in ldata
+
+
+energia = '15941,6'
+energia_float = float(energia.replace(",", "."))
+list_of_tables3 = []
+list_of_cols3 = []
+for k in own.keys():
+    lot = own[k]
+    for t in lot:
+        if t == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA':
+            pass
+        else:
+            query = 'SELECT * FROM ' + k + '.' + t + ' where 1=0'
+            #print query
+            try:
+                cursor.execute(query)
+                cur_descr = cursor.description
+            except:
+                #print 'Error, but column names:'                
+                pass            
+            #print cursor.description
+            cur_descr = cursor.description                
+            #data = cursor.fetchall()
+            for i in range(0, len(cur_descr)):
+                col_type = str(cur_descr[i][1])
+                col_name = cur_descr[i][0]
+                sql_loc = 'select ' + col_name + ' from ' + k + '.' + t
+                print sql_loc                    
+                cursor.execute(sql_loc)
+                data = cursor.fetchall()
+                ldata = [d[0] for d in data]
+                if energia in ldata or energia_float in ldata:
+                    print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                    list_of_tables3.append(k + '.' + t)
+                    list_of_cols3.append(col_name)
+
+cursor.execute('select S_PDR_POD from MNH_LOGISTICA.STGN_STIME_CONSUMO')                       
+data = cursor.fetchall()
+ldata = [d[0] for d in data]
+pod in ldata
 
 ################## BoW model #########################
 
