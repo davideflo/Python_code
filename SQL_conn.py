@@ -15,6 +15,7 @@ import csv
 from collections import OrderedDict
 import sys
 import time
+import pandas as pd
 
 reload(sys)  
 sys.setdefaultencoding('utf8')
@@ -194,14 +195,14 @@ for k in own.keys():
             pass
         else:
             query = 'SELECT * FROM ' + k + '.' + t + ' where 1=0'
-            print query
+            #print query
             try:
                 cursor.execute(query)
                 cur_descr = cursor.description
             except:
                 #print 'Error, but column names:'                
                 pass            
-            print cursor.description
+            #print cursor.description
             cur_descr = cursor.description                
             #data = cursor.fetchall()
             for i in range(0, len(cur_descr)):
@@ -228,3 +229,98 @@ data = cursor.fetchall()
 ldata = [d[0] for d in data]
 lf in ldata
 
+#### cerca POD nel database ##########
+start = time.time()
+pod = 'IT001E00001065'
+list_of_tables2 = []
+list_of_cols2 = []
+for k in own.keys():
+    lot = own[k]
+    for t in lot:
+        if t == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA':
+            pass
+        else:
+            query = 'SELECT * FROM ' + k + '.' + t + ' where 1=0'
+            #print query
+            try:
+                cursor.execute(query)
+                cur_descr = cursor.description
+            except:
+                #print 'Error, but column names:'                
+                pass            
+            #print cursor.description
+            cur_descr = cursor.description                
+            #data = cursor.fetchall()
+            for i in range(0, len(cur_descr)):
+                col_type = str(cur_descr[i][1])
+                if col_type == "<type 'cx_Oracle.STRING'>" or col_type == "<type 'cx_Oracle.CHAR'>":
+                    col_name = cur_descr[i][0]
+                    sql_loc = 'select ' + col_name + ' from ' + k + '.' + t
+                    cursor.execute(sql_loc)
+                    data = cursor.fetchall()
+                    ldata = [d[0] for d in data]
+                    if pod in ldata:
+                        list_of_tables2.append(k + '.' + t)
+                        list_of_cols2.append(col_name)
+end = time.time()
+print (end - start)/3600                       
+
+
+
+################## BoW model #########################
+
+from sklearn.feature_extraction.text import CountVectorizer
+
+lod = []
+for k in own.keys():
+    lot = own[k]
+    for t in lot:
+        if t == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA':
+            pass
+        else:
+            query = 'select * from ' + k + '.' + t + ' where 1=0'
+            try:
+                cursor.execute(query)
+                cur_descr = cursor.description
+            except:
+                pass
+            cur_descr = cursor.description
+            string = k + '.' + t
+            for i in range(len(cur_descr)):
+                string += ' ' + cur_descr[i][0] 
+            lod.append(string)
+            
+vectorizer = CountVectorizer(min_df = 1)
+X = vectorizer.fit_transform(lod)
+            
+features = vectorizer.get_feature_names()
+
+vectorizer.vocabulary_.get('cons_mese')
+vectorizer.vocabulary_.get('access_predicates')
+
+vectorizer.transform([string]).toarray().size
+
+
+#### exporting in excel
+list_of_tables = []
+for k in own.keys():
+    lot = own[k]
+    for t in lot:
+        if t == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA':
+            pass
+        else:
+            string = k + '.' + t
+            list_of_tables.append(string.lower())
+
+
+diz = OrderedDict()
+for i in range(len(list_of_tables)):
+    lot = list_of_tables[i]
+    pres = [lot.upper() in j for j in lod]
+    index = pres.index(True)
+    diz[lot] = X[index].toarray()[0]
+    
+df = pd.DataFrame.from_dict(diz, orient = 'index')
+df.columns = [features]
+
+df.to_excel('vectorized.xlsx')
