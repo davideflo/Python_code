@@ -16,6 +16,7 @@ from collections import OrderedDict
 import sys
 import time
 import pandas as pd
+import datetime
 
 reload(sys)  
 sys.setdefaultencoding('utf8')
@@ -275,7 +276,8 @@ data = cursor.fetchall()
 ldata = [d[0] for d in data]
 pod in ldata
 
-
+########################################################
+start = time.time()
 energia = '15941,6'
 energia_float = float(energia.replace(",", "."))
 list_of_tables3 = []
@@ -301,7 +303,7 @@ for k in own.keys():
                 col_type = str(cur_descr[i][1])
                 col_name = cur_descr[i][0]
                 sql_loc = 'select ' + col_name + ' from ' + k + '.' + t
-                print sql_loc                    
+                #print sql_loc                    
                 cursor.execute(sql_loc)
                 data = cursor.fetchall()
                 ldata = [d[0] for d in data]
@@ -309,11 +311,212 @@ for k in own.keys():
                     print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
                     list_of_tables3.append(k + '.' + t)
                     list_of_cols3.append(col_name)
+end = time.time()
+print (end - start)/3600  
+
 
 cursor.execute('select S_PDR_POD from MNH_LOGISTICA.STGN_STIME_CONSUMO')                       
 data = cursor.fetchall()
 ldata = [d[0] for d in data]
 pod in ldata
+
+#############################################################
+################### COMPLETE SEARCH #########################
+#############################################################
+start = time.time()
+consorzio = 'Axopower s.r.l. - vecchio layout fattura'
+dif = datetime.date(2015, 6, 1)
+dff = datetime.date(2016, 9, 30)
+cod_prod = 'LED-3F-1501'
+energia = '23383,38'
+energia_float = float(energia.replace(",", "."))
+margine_u = '3,21735479045883'
+margine_ufloat = float(margine_u.replace(",", "."))
+margine_listino = '75,2326296601192'
+margine_lfloat = float(margine_listino.replace(",", "."))
+gettone = '100'
+gettone_float = float(gettone.replace(",", "."))
+ric_listino = '0,5'
+ric_lfloat = float(ric_listino.replace(",", "."))
+ric_tot = '11,69169'
+ric_tfloat = float(ric_tot.replace(",", "."))
+pereq = '0,004'
+pereq_float = float(pereq.replace(",", "."))
+PCV = '9,66'
+PCV_float = float(PCV.replace(",", "."))
+stato = 'NON IN FORNITURA'
+
+table_cons = []
+table_dif = []
+table_dff = []
+table_codice = []
+table_energia = []
+table_margine_u = []
+table_margine_l = []
+table_gettone = []
+table_ric_listino = []
+table_ric_tot = []
+table_pereq = []
+table_pcv = []
+table_stato = []
+
+col_cons = []
+col_dif = []
+col_dff = []
+col_codice = []
+col_energia = []
+col_margine_u = []
+col_margine_l = []
+col_gettone = []
+col_ric_listino = []
+col_ric_tot = []
+col_pereq = []
+col_pcv = []
+col_stato = []
+
+for k in own.keys():
+    lot = own[k]
+    for t in lot:
+        if t == 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA':
+            pass
+        else:
+            query = 'SELECT * FROM ' + k + '.' + t + ' where 1=0'
+            #print query
+            try:
+                cursor.execute(query)
+                cur_descr = cursor.description
+            except:
+                pass            
+            cur_descr = cursor.description                
+            for i in range(0, len(cur_descr)):
+                col_type = str(cur_descr[i][1])
+                if col_type == "<type 'cx_Oracle.STRING'>" or col_type == "<type 'cx_Oracle.CHAR'>":
+                    col_name = cur_descr[i][0]
+                    sql_loc = 'select ' + col_name + ' from ' + k + '.' + t
+                    #print sql_loc                    
+                    cursor.execute(sql_loc)
+                    data = cursor.fetchall()
+                    ldata = [d[0] for d in data]
+                    if consorzio in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_cons.append(k + '.' + t)
+                        col_cons.append(col_name)
+                    elif cod_prod in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_codice.append(k + '.' + t)
+                        col_codice.append(col_name)
+                    elif energia in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_energia.append(k + '.' + t)
+                        col_energia.append(col_name)
+                    elif margine_u in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_margine_u.append(k + '.' + t)
+                        col_margine_u.append(col_name)
+                    elif margine_listino in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_margine_l.append(k + '.' + t)
+                        col_margine_l.append(col_name)
+                    elif gettone in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_gettone.append(k + '.' + t)
+                        col_gettone.append(col_name)
+                    elif ric_listino in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_ric_listino.append(k + '.' + t)
+                        col_ric_listino.append(col_name)
+                    elif ric_tot in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_ric_tot.append(k + '.' + t)
+                        col_ric_tot.append(col_name)
+                    elif pereq in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_pereq.append(k + '.' + t)
+                        col_pereq.append(col_name)
+                    elif PCV in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_pcv.append(k + '.' + t)
+                        col_pcv.append(col_name)
+                    elif stato in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_stato.append(k + '.' + t)
+                        col_stato.append(col_name)
+                elif col_type == "<type 'cx_Oracle.NUMBER'>":
+                    col_name = cur_descr[i][0]
+                    sql_loc = 'select ' + col_name + ' from ' + k + '.' + t
+                    #print sql_loc                    
+                    cursor.execute(sql_loc)
+                    data = cursor.fetchall()
+                    ldata = [d[0] for d in data]
+                    if energia_float in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_energia.append(k + '.' + t)
+                        col_energia.append(col_name)
+                    elif margine_ufloat in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_margine_u.append(k + '.' + t)
+                        col_margine_u.append(col_name)
+                    elif margine_lfloat in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_margine_l.append(k + '.' + t)
+                        col_margine_l.append(col_name)
+                    elif gettone_float in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_gettone.append(k + '.' + t)
+                        col_gettone.append(col_name)
+                    elif ric_lfloat in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_ric_listino.append(k + '.' + t)
+                        col_ric_listino.append(col_name)
+                    elif ric_tfloat in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_ric_tot.append(k + '.' + t)
+                        col_ric_tot.append(col_name)
+                    elif pereq_float in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_pereq.append(k + '.' + t)
+                        col_pereq.append(col_name)
+                    elif PCV_float in ldata:
+                        print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                        table_pcv.append(k + '.' + t)
+                        col_pcv.append(col_name)
+                elif col_type == "<type 'cx_Oracle.DATETIME'>" or col_type == "<type 'cx_Oracle.TIMESTAMP'>":
+                    col_name = cur_descr[i][0]
+                    sql_loc = 'select ' + col_name + ' from ' + k + '.' + t
+                    #print sql_loc                    
+                    cursor.execute(sql_loc)
+                    data = cursor.fetchall()
+                    ldata = [d[0] for d in data]
+                    if not all(v is None for v in ldata):
+                        ldata2 = [d.date() for d in ldata if d is not None]
+                        if dif in ldata:
+                            print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                            table_dif.append(k + '.' + t)
+                            col_dff.append(col_name)
+                        elif dff in ldata:
+                            print 'TRUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE'
+                            table_dif.append(k + '.' + t)
+                            col_dff.append(col_name)
+                
+
+end = time.time()
+print (end - start)/3600  
+
+cursor.execute('select D_LETTURA from MNH_BILLING.T_LETTURE_GAS')                       
+data = cursor.fetchall()
+ldata = [d[0].date() for d in data]
+datetime.date(2013,4,1) in ldata
+
+cursor.execute('select DT_VALORE from MNH_BILLING.T_PROFILI_EE_VAL')                       
+data = cursor.fetchall()
+ldata = [d[0].date() for d in data]
+datetime.date(2013,4,1) in ldata
+
+cursor.execute('select D_VALORE from MNH_COMMON.R_CST_PROP_CONTRATTI')
+data = cursor.fetchall()
+ldata = [d[0] for d in data]
+
+
 
 ################## BoW model #########################
 
