@@ -380,7 +380,9 @@ with open("C:/Users/utente/Documents/ricerca campi/table_gettone.txt", "wb") as 
 with open("C:/Users/utente/Documents/ricerca campi/col_gettone.txt", "wb") as fp:   #Pickling
     pickle.dump(col_gettone, fp)
 
-
+with open("C:/Users/utente/Documents/ricerca campi/table_gettone.txt", "rb") as fp:   # Unpickling
+b = pickle.load(fp)
+b
 
 for k in own.keys():
     lot = own[k]
