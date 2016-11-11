@@ -374,6 +374,14 @@ col_pereq = []
 col_pcv = []
 col_stato = []
 
+import pickle
+with open("C:/Users/utente/Documents/ricerca campi/table_gettone.txt", "wb") as fp:   #Pickling
+    pickle.dump(table_gettone, fp)
+with open("C:/Users/utente/Documents/ricerca campi/col_gettone.txt", "wb") as fp:   #Pickling
+    pickle.dump(col_gettone, fp)
+
+
+
 for k in own.keys():
     lot = own[k]
     for t in lot:
