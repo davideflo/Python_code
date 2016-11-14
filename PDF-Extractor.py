@@ -12,13 +12,14 @@ import re
 from collections import OrderedDict
 import datetime
 import calendar
-    
+import pandas as pd
 
 ####################################################################################################
 def Estrai_Linea_Att(tt, string, da):
-    inter = tt[da: da+56]
+    inter = tt[da: da+70]
+    st = inter.find('kWh')    
+    inter = inter[:st+3]
     en = ''
-    st = inter.find('kWh')
     counter_dot = 0
     counter_comma = 0
     for i in range(st-2, 0, -1):
@@ -32,23 +33,25 @@ def Estrai_Linea_Att(tt, string, da):
     en = en[:(len(en)-4)]
     en = en[::-1]
     data_inizio = inter[6:16]
-    data_fine = inter[17:27]
+    bsl = [m.start() for m in re.finditer('/', inter)]
+    data_fine = inter[(bsl[2]-2):(bsl[3]+5)]
     return (data_inizio, data_fine, en)
 ####################################################################################################
 def Estrai_Attiva(tt, d):
     rea = []
-    inter = tt[d: d+58]
+    inter = tt[d: d+70]
+    st = inter.find('kWh')
+    inter = inter[:st+3]
     data_inizio = inter[6:16]
     bsl = [m.start() for m in re.finditer('/', inter)]
     data_fine = inter[(bsl[2]-2):(bsl[3]+5)]
-    dti = datetime.date(int(str(data_inizio)[6:])),int(str(data_inizio)[3:5]),int(str(data_inizio)[:2])
+    dti = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),int(str(data_inizio)[:2]))
     dtf = datetime.date(int(str(data_fine)[6:]),int(str(data_fine)[3:5]),int(str(data_fine)[:2]))
     delta = (dtf - dti).days
-    days_first_month = (datetime.date(int(str(data_inizio)[6:])),int(str(data_inizio)[3:5]),
-                        calendar.monthrange(int(str(data_inizio)[6:]))[1], int(str(data_inizio)[3:5]) - dti).days
+    days_first_month = (datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),
+                        calendar.monthrange(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]))[1]) - dti).days
     days_last_month = delta - days_first_month
     en = ''
-    st = inter.find('kWh')
     counter_dot = 0
     counter_comma = 0
     for i in range(st-2, 0, -1):
@@ -61,76 +64,51 @@ def Estrai_Attiva(tt, d):
             break
     en = en[:(len(en)-4)]
     en = en[::-1]
-    en = en[:len(en)-5].replace('.',',') + en[len(en)-4].replace(',','.')
+    en = en[:len(en)-4].replace('.','') + en[len(en)-4:].replace(',','.')
     enf = float(en)   
-    data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]))[1]))    
-    datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:5]
+    data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]))[1]))    
+    datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
     data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),int(str(data_fine)[3:5]),1))    
-    datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:5]   
-    rea.append((data_inizio, datafine1, (enf/delta)*days_first_month),(datainizio2, data_fine, (enf/delta)*days_last_month))
+    datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4]   
+    rea.append((data_inizio, datafine1, (enf/delta)*days_first_month))
+    rea.append((datainizio2, data_fine, (enf/delta)*days_last_month))
+    return rea
 ####################################################################################################
 def Estrai_Multiple_Att(tt, string):
     res = []
     if string in ['Att-f1', 'Att-f2', 'Att-f3']:
         da = [m.start() for m in re.finditer(string, tt)]
         if len(da) <= 0:
-            return ' '
+            return ''
         elif len(da) == 1:
             return Estrai_Linea_Att(tt, string, da[0])
         else:
-            for d in da:
-                res.append(Estrai_Linea_Att(tt, string, d))
+            for d in range(0,len(da),2):
+                print d
+                res.append(Estrai_Linea_Att(tt, string, da[d]))
+            return res
     elif string == 'Att-f0':
         da = [m.start() for m in re.finditer(string, tt)]
         if len(da) == 1:
             return Estrai_Linea_Att(tt, string, da[0])
         elif len(da) > 1:
-            for d in da:
-                res.append(Estrai_Linea_Att(tt, string, d))
+            for d in range(0,len(da),2):
+                res.append(Estrai_Linea_Att(tt, string, da[d]))
+            return res
         else:
             da = [m.start() for m in re.finditer('Attiva', tt)]
             if len(da) > 0:
-                for d in d:
+                for d in da:
                     res.append(Estrai_Attiva(tt,d))
+                return res
             else:
-                return ' '
+                return ''
 ####################################################################################################        
-def Estrai_Linea_DATICONTATORE_ReAtt(tt, string):
-    da = tt.find(string)
-    if da == -1:
-        return ' '
-    inter = tt[da: da+60]
-    en = ''
-    st = inter.find('kVArh')
-    counter_dot = 0
-    counter_comma = 0
-    for i in range(st-2, 0, -1):
-        en += inter[i]
-        if inter[i] == ',':
-            counter_comma +=1
-        elif inter[i] == '.':
-            counter_dot += 1
-        if counter_comma == 2:
-            break
-    en = en[:(len(en)-4)]
-    en = en[::-1]
-    return en
-####################################################################################################
-def Estrai_linea_ReAtt0(tt):
-    da = tt.find('ReAtt-f0')
-    if da == -1:
-        da2 = tt.find('Reattiva')
-        if da2 == -1:
-            return ' '
-        else:
-            return Estrai_Linea_DATICONTATORE_ReAtt(tt, 'Reattiva', True)
-    else:
-        return Estrai_Linea_DATICONTATORE_ReAtt(tt, 'ReAtt-f0', True)
-####################################################################################################
 def Estrai_Linea_ReAtt(tt, string, da):
-    inter = tt[da: da+60]
-    en = ''
+    inter = tt[da: da+80]
     st = inter.find('kVArh')
+    inter = inter[:st+5]    
+    en = ''
     counter_dot = 0
     counter_comma = 0
     for i in range(st-2, 0, -1):
@@ -144,20 +122,21 @@ def Estrai_Linea_ReAtt(tt, string, da):
     en = en[:(len(en)-4)]
     en = en[::-1]
     data_inizio = inter[6:16]
-    data_fine = inter[17:27]
+    bsl = [m.start() for m in re.finditer('/', inter)]
+    data_fine = inter[(bsl[2]-2):(bsl[3]+5)]
     return (data_inizio, data_fine, en)
 ####################################################################################################
 def Estrai_Reattiva(tt, d):
     rea = []
-    inter = tt[d: d+56]
+    inter = tt[d: d+60]
     data_inizio = inter[8:18]
     bsl = [m.start() for m in re.finditer('/', inter)]
     data_fine = inter[(bsl[2]-2):(bsl[3]+5)]
-    dti = datetime.date(int(str(data_inizio)[6:])),int(str(data_inizio)[3:5]),int(str(data_inizio)[:2])
+    dti = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),int(str(data_inizio)[:2]))
     dtf = datetime.date(int(str(data_fine)[6:]),int(str(data_fine)[3:5]),int(str(data_fine)[:2]))
     delta = (dtf - dti).days
-    days_first_month = (datetime.date(int(str(data_inizio)[6:])),int(str(data_inizio)[3:5]),
-                        calendar.monthrange(int(str(data_inizio)[6:]))[1], int(str(data_inizio)[3:5]) - dti).days
+    days_first_month = (datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),
+                        calendar.monthrange(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]))[1]) - dti).days
     days_last_month = delta - days_first_month
     en = ''
     st = inter.find('kVArh')
@@ -173,25 +152,29 @@ def Estrai_Reattiva(tt, d):
             break
     en = en[:(len(en)-4)]
     en = en[::-1]
-    en = en[:len(en)-5].replace('.',',') + en[len(en)-4].replace(',','.')
+    en = en[:len(en)-4].replace('.','') + en[len(en)-4:].replace(',','.')
     enf = float(en)   
-    data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]))[1]))    
-    datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:5]
+    data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]))[1]))    
+    datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
     data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),int(str(data_fine)[3:5]),1))    
-    datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:5]   
-    rea.append((data_inizio, datafine1, (enf/delta)*days_first_month),(datainizio2, data_fine, (enf/delta)*days_last_month))
+    datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4]   
+    rea.append((data_inizio, datafine1, (enf/delta)*days_first_month))
+    rea.append((datainizio2, data_fine, (enf/delta)*days_last_month))
+    return rea
 ####################################################################################################
 def Estrai_Multiple_ReAtt(tt, string):
     res = []
     if string in ['ReAtt-f1', 'ReAtt-f2', 'ReAtt-f3']:
         da = [m.start() for m in re.finditer(string, tt)]
         if len(da) <= 0:
-            return ' '
+            return ''
         elif len(da) == 1:
             return Estrai_Linea_ReAtt(tt, string, da[0])
         else:
             for d in da:
-                res.append(Estrai_Linea_Att(tt, string, d))
+                print d                
+                res.append(Estrai_Linea_ReAtt(tt, string, d))
+            return res
     elif string == 'ReAtt-f0':
         da = [m.start() for m in re.finditer(string, tt)]
         if len(da) == 1:
@@ -199,13 +182,15 @@ def Estrai_Multiple_ReAtt(tt, string):
         elif len(da) > 1:
             for d in da:
                 res.append(Estrai_Linea_ReAtt(tt, string, d))
+            return res
         else:
             da = [m.start() for m in re.finditer('Reattiva', tt)]
             if len(da) > 0:
-                for d in d:
+                for d in da:
                     res.append(Estrai_Reattiva(tt,d))
+                    return res
             else:
-                return ' '
+                return ''
 ####################################################################################################        
 def Estrai_Linea_CdP(tt):
     pot = []
@@ -254,103 +239,49 @@ for i in range(1, numpages, 1):
 
 pods = [m.start() for m in re.finditer('codice POD:', text)]
 
-#'n.fattura'+','+'pod'+','+'lettura rilevata il'+','+'lettura rilevata il'+','+'Att-f0'+','+'Att-f1'+','
-#+'Att-f2'+','+'Att-f3'+','+'ReAtt-f0'+','+'ReAtt-f1'+','+'ReAtt-f2'+','+'ReAtt-f3'
+
 list_pod = []
+not_processed = []
 diz = OrderedDict()
 for x in range(len(pods) - 1):    
     print x
-    TBI = []
+    print pods[x]
     capitolo = text[pods[x]:pods[x+1]]
     ixpod = capitolo.find('codice POD')
     POD = capitolo[ixpod+12:ixpod+26]
     list_pod.append(POD)
-    index = numero_fattura + '_' + str(x)    
-    TBI.append(POD)
-    a0 = Estrai_Linea_DATICONTATORE(capitolo, 'Att-f0', True)
-    rea0 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo, 'ReAtt-f0')
-    if a0 == ' ':        
-        TBI.append(a0)        
-        a1 = Estrai_Linea_DATICONTATORE(capitolo, 'Att-f1', True)
-        TBI.append(a1[0])
-        TBI.append(a1[1])
-        TBI.append(a1[2])
-        a2 = Estrai_Linea_DATICONTATORE(capitolo, 'Att-f2')
-        TBI.append(a2)
-        a3 = Estrai_Linea_DATICONTATORE(capitolo, 'Att-f3')
-        TBI.append(a3)
-        TBI.append(rea0)        
-        rea1 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo, 'ReAtt-f1')
-        TBI.append(rea1)
-        rea2 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo, 'ReAtt-f2')
-        TBI.append(rea2)
-        rea3 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo, 'ReAtt-f3')
-        TBI.append(rea3)
-    else:
-        TBI.append(a0[0])        
-        TBI.append(a0[1])        
-        TBI.append(a0[2])        
-        a1 = Estrai_Linea_DATICONTATORE(capitolo, 'Att-f1', True)
-        TBI.append(a1[0])
-        a2 = Estrai_Linea_DATICONTATORE(capitolo, 'Att-f2')
-        TBI.append(a2)
-        a3 = Estrai_Linea_DATICONTATORE(capitolo, 'Att-f3')
-        TBI.append(a3)
-        TBI.append(rea0)        
-        rea1 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo, 'ReAtt-f1')
-        TBI.append(rea1)
-        rea2 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo, 'ReAtt-f2')
-        TBI.append(rea2)
-        rea3 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo, 'ReAtt-f3')
-        TBI.append(rea3)
-    cdp = Estrai_Linea_CdP(capitolo)
-    TBI.append(cdp)
-    diz[index] = TBI
-TBI = []
-capitolo_last = text[pods[len(pods)-1]:]
-ixpod = capitolo_last.find('codice POD')
-POD = capitolo_last[ixpod+12:ixpod+26]
-list_pod.append(POD)
-index = numero_fattura + '_' + str(len(pods))    
-TBI.append(POD)
-a0 = Estrai_Linea_DATICONTATORE(capitolo_last, 'Att-f0', True)
-rea0 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo_last, 'ReAtt-f0')
-if a0 == ' ':        
-    TBI.append(a0)        
-    a1 = Estrai_Linea_DATICONTATORE(capitolo_last, 'Att-f1', True)
-    TBI.append(a1[0])
-    TBI.append(a1[1])
-    TBI.append(a1[2])
-    a2 = Estrai_Linea_DATICONTATORE(capitolo_last, 'Att-f2')
-    TBI.append(a2)
-    a3 = Estrai_Linea_DATICONTATORE(capitolo_last, 'Att-f3')
-    TBI.append(a3)
-    TBI.append(rea0)        
-    rea1 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo_last, 'ReAtt-f1')
-    TBI.append(rea1)
-    rea2 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo_last, 'ReAtt-f2')
-    TBI.append(rea2)
-    rea3 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo_last, 'ReAtt-f3')
-    TBI.append(rea3)
-else:
-    TBI.append(a0[0])        
-    TBI.append(a0[1])        
-    TBI.append(a0[2])        
-    a1 = Estrai_Linea_DATICONTATORE(capitolo_last, 'Att-f1', True)
-    TBI.append(a1[0])
-    a2 = Estrai_Linea_DATICONTATORE(capitolo_last, 'Att-f2')
-    TBI.append(a2)
-    a3 = Estrai_Linea_DATICONTATORE(capitolo_last, 'Att-f3')
-    TBI.append(a3)
-    TBI.append(rea0)        
-    rea1 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo_last, 'ReAtt-f1')
-    TBI.apend(rea1)
-    rea2 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo_last, 'ReAtt-f2')
-    TBI.append(rea2)
-    rea3 = Estrai_Linea_DATICONTATORE_ReAtt(capitolo_last, 'ReAtt-f3')
-    TBI.append(rea3)
-cdp = Estrai_Linea_CdP(capitolo_last)
-TBI.append(cdp)
-diz[index] = TBI
+    pot = Estrai_Linea_CdP(capitolo)    
+    a0 = Estrai_Multiple_Att(capitolo, 'Att-f0')
+    rea0 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f0')
+    a1 = Estrai_Multiple_Att(capitolo, 'Att-f1')
+    rea1 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f1')
+    a2 = Estrai_Multiple_Att(capitolo, 'Att-f2')
+    rea2 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f2')
+    a3 = Estrai_Multiple_Att(capitolo, 'Att-f3')
+    rea3 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f3')
+    try:    
+        if a0 <> '':
+            for a in range(len(a0)):
+                tup = a0[a]
+                for t in len(tup):
+                    index = numero_fattura + '_' + str(x) + '_' + str(t)
+                    diz[index] = [POD, tup[t][0], tup[t][1], tup[t][2], '', '', '', rea0[a][t][2], '', '', '', pot[t]]
+        else:
+            for a in range(len(a1)):
+                index = numero_fattura + '_' + str(x) + '_' + str(a)
+                if isinstance(rea1[a], tuple) and isinstance(rea2[a], tuple) and isinstance(rea3[a], tuple):
+                    re1 = rea1[a][2]
+                    re2 = rea2[a][2]
+                    re3 = rea3[a][2]
+                    diz[index] = [POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', re1,  re2,  re3, pot[a]]
+                else:
+                    diz[index] = [POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', rea1[2],  rea2[2],  rea3[2], pot[a]]
+    except:
+        not_processed.append(POD)
         
+
+Diz = pd.DataFrame.from_dict(diz, orient = 'index')          
+Diz.columns = [['pod','lettura rilevata il','lettura rilevata il','Att-f0','Att-f1','Att-f2','Att-f3','ReAtt-f0',
+               'ReAtt-f1','ReAtt-f2','ReAtt-f3','potenza']]
         
+Diz.to_excel(numero_fattura+'.xlsx')        
