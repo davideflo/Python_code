@@ -7,6 +7,7 @@ Created on Fri Nov 11 15:23:45 2016
 PDF-Extractor
 """
 
+from __future__ import division
 import PyPDF2
 import re
 from collections import OrderedDict
@@ -128,7 +129,7 @@ def Estrai_Linea_ReAtt(tt, string, da):
 ####################################################################################################
 def Estrai_Reattiva(tt, d):
     rea = []
-    inter = tt[d: d+60]
+    inter = tt[d: d+70]
     data_inizio = inter[8:18]
     bsl = [m.start() for m in re.finditer('/', inter)]
     data_fine = inter[(bsl[2]-2):(bsl[3]+5)]
@@ -219,8 +220,20 @@ def Estrai_Linea_CdP(tt):
             pot.append(CdP)
     return pot
 ####################################################################################################    
-    
+def Transform(rea):
+    if len(rea) > 0:
+        return rea[2]
+    else:
+        return ''
+####################################################################################################
+def Transform_pot(pot,t):
+    if len(pot) > 1:
+        return pot[t]
+    else:
+        pot[0]
+####################################################################################################        
 prodotto = 'C:/Users/d_floriello/Documents/fattura_unareti.pdf'
+prodotto = 'C:/Users/d_floriello/Documents/201690120000189_Dettaglio.pdf'
 
 pdfFileObj = open(prodotto, 'rb')
 pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
@@ -260,28 +273,43 @@ for x in range(len(pods) - 1):
     a3 = Estrai_Multiple_Att(capitolo, 'Att-f3')
     rea3 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f3')
     try:    
-        if a0 <> '':
+        if a0 != '':
             for a in range(len(a0)):
                 tup = a0[a]
-                for t in len(tup):
+                for t in range(len(tup)):
                     index = numero_fattura + '_' + str(x) + '_' + str(t)
-                    diz[index] = [POD, tup[t][0], tup[t][1], tup[t][2], '', '', '', rea0[a][t][2], '', '', '', pot[t]]
+                    diz[index] = [POD, tup[t][0], tup[t][1], tup[t][2], '', '', '', rea0[a][t][2], '', '', '', Transform_pot(pot,t)]
         else:
-            for a in range(len(a1)):
-                index = numero_fattura + '_' + str(x) + '_' + str(a)
-                if isinstance(rea1[a], tuple) and isinstance(rea2[a], tuple) and isinstance(rea3[a], tuple):
-                    re1 = rea1[a][2]
-                    re2 = rea2[a][2]
-                    re3 = rea3[a][2]
-                    diz[index] = [POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', re1,  re2,  re3, pot[a]]
-                else:
-                    diz[index] = [POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', rea1[2],  rea2[2],  rea3[2], pot[a]]
+            ### 1)a. is a tuple => there is only one line
+            if isinstance(a1, tuple):
+                index = numero_fattura + '_' + str(x)
+                diz[index] = [POD, a1[0], a1[1], '', a1[2], a2[2], a3[2], '', Transform(rea1),  Transform(rea2),  Transform(rea3), pot[0]]
+            ### 2) else: => more lines
+            else:
+                for a in range(len(a1)):
+                    index = numero_fattura + '_' + str(x) + '_' + str(a)
+                    if isinstance(rea1[a], tuple) and isinstance(rea2[a], tuple) and isinstance(rea3[a], tuple):
+                        re1 = rea1[a][2]
+                        re2 = rea2[a][2]
+                        re3 = rea3[a][2]
+                        diz[index] = [POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', re1,  re2,  re3, pot[a]]
+                    else:
+                        diz[index] = [POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', rea1[2],  rea2[2],  rea3[2], pot[a]]
     except:
         not_processed.append(POD)
-        
+        print '{} NOT PROCESSED'.format(POD)
+pp = len(not_processed)/len(list_pod)
+print 'Percentage not processed: {}'.format(pp)
+missed_pg = []
+if pp > 0:
+    for np in not_processed:
+        for p in range(numpages):
+            if np in pdfReader.getPage(p).extractText():
+                missed_pg.append(p+1)
 
 Diz = pd.DataFrame.from_dict(diz, orient = 'index')          
 Diz.columns = [['pod','lettura rilevata il','lettura rilevata il','Att-f0','Att-f1','Att-f2','Att-f3','ReAtt-f0',
                'ReAtt-f1','ReAtt-f2','ReAtt-f3','potenza']]
         
-Diz.to_excel(numero_fattura+'.xlsx')        
+Diz.to_excel(numero_fattura+'A2A.xlsx')        
+Diz.to_csv(numero_fattura+'.xlsx', sep = ',')        
