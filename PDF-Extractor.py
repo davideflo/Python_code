@@ -14,6 +14,7 @@ from collections import OrderedDict
 import datetime
 import calendar
 import pandas as pd
+import math
 
 ####################################################################################################
 def Estrai_Linea_Att(tt, string, da):
@@ -33,10 +34,12 @@ def Estrai_Linea_Att(tt, string, da):
             break
     en = en[:(len(en)-4)]
     en = en[::-1]
+    en = en[:len(en)-4].replace('.','') + en[len(en)-4:].replace(',','.')
+    enf = math.ceil(float(en))
     data_inizio = inter[6:16]
     bsl = [m.start() for m in re.finditer('/', inter)]
     data_fine = inter[(bsl[2]-2):(bsl[3]+5)]
-    return (data_inizio, data_fine, en)
+    return (data_inizio, data_fine, enf)
 ####################################################################################################
 def Estrai_Attiva(tt, d):
     rea = []
@@ -71,8 +74,8 @@ def Estrai_Attiva(tt, d):
     datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
     data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),int(str(data_fine)[3:5]),1))    
     datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4]   
-    rea.append((data_inizio, datafine1, (enf/delta)*days_first_month))
-    rea.append((datainizio2, data_fine, (enf/delta)*days_last_month))
+    rea.append((data_inizio, datafine1, math.ceil((enf/delta)*days_first_month)))
+    rea.append((datainizio2, data_fine, math.ceil((enf/delta)*days_last_month)))
     return rea
 ####################################################################################################
 def Estrai_Multiple_Att(tt, string):
@@ -122,10 +125,12 @@ def Estrai_Linea_ReAtt(tt, string, da):
             break
     en = en[:(len(en)-4)]
     en = en[::-1]
+    en = en[:len(en)-4].replace('.','') + en[len(en)-4:].replace(',','.')
+    enf = math.ceil(float(en)) 
     data_inizio = inter[6:16]
     bsl = [m.start() for m in re.finditer('/', inter)]
     data_fine = inter[(bsl[2]-2):(bsl[3]+5)]
-    return (data_inizio, data_fine, en)
+    return (data_inizio, data_fine, enf)
 ####################################################################################################
 def Estrai_Reattiva(tt, d):
     rea = []
@@ -159,8 +164,8 @@ def Estrai_Reattiva(tt, d):
     datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
     data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),int(str(data_fine)[3:5]),1))    
     datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4]   
-    rea.append((data_inizio, datafine1, (enf/delta)*days_first_month))
-    rea.append((datainizio2, data_fine, (enf/delta)*days_last_month))
+    rea.append((data_inizio, datafine1, math.ceil((enf/delta)*days_first_month)))
+    rea.append((datainizio2, data_fine, math.ceil((enf/delta)*days_last_month)))
     return rea
 ####################################################################################################
 def Estrai_Multiple_ReAtt(tt, string):
@@ -217,7 +222,9 @@ def Estrai_Linea_CdP(tt):
             third = commas[2]
             CdP = CdP[(second-3):(third-8)]
             CdP = CdP[::-1]
-            pot.append(CdP)
+            CdP = CdP.replace('.','')
+            CdP = CdP.replace(',', '.')
+            pot.append(math.ceil(float(CdP)))
     return pot
 ####################################################################################################    
 def Transform(rea):
@@ -244,6 +251,9 @@ pagina_iniziale = pdfReader.getPage(0).extractText()
 nf = pagina_iniziale.find('NUMERO FATTURA')
 numero_fattura = pagina_iniziale[nf+16:nf+31]
 
+em = pagina_iniziale.find('emessa il')
+emessa = pagina_iniziale[em+10:em+20]
+
 ###### put all in a single string:
 text = 'INIZIO '
 for i in range(1, numpages, 1):
@@ -254,12 +264,14 @@ pods = [m.start() for m in re.finditer('codice POD:', text)]
 
 
 list_pod = []
-not_processed = []
+not_processed = OrderedDict()
 diz = OrderedDict()
-for x in range(len(pods) - 1):    
+for x in range(len(pods)):    
     print x
-    print pods[x]
-    capitolo = text[pods[x]:pods[x+1]]
+    if x < len(pods)-1:
+        capitolo = text[pods[x]:pods[x+1]]
+    else:
+        capitolo = text[pods[x]:]
     ixpod = capitolo.find('codice POD')
     POD = capitolo[ixpod+12:ixpod+26]
     list_pod.append(POD)
@@ -278,12 +290,12 @@ for x in range(len(pods) - 1):
                 tup = a0[a]
                 for t in range(len(tup)):
                     index = numero_fattura + '_' + str(x) + '_' + str(t)
-                    diz[index] = [POD, tup[t][0], tup[t][1], tup[t][2], '', '', '', rea0[a][t][2], '', '', '', Transform_pot(pot,t)]
+                    diz[index] = [emessa,POD, tup[t][0], tup[t][1], tup[t][2], '', '', '', rea0[a][t][2], '', '', '', Transform_pot(pot,t)]
         else:
             ### 1)a. is a tuple => there is only one line
             if isinstance(a1, tuple):
                 index = numero_fattura + '_' + str(x)
-                diz[index] = [POD, a1[0], a1[1], '', a1[2], a2[2], a3[2], '', Transform(rea1),  Transform(rea2),  Transform(rea3), pot[0]]
+                diz[index] = [emessa,POD, a1[0], a1[1], '', a1[2], a2[2], a3[2], '', Transform(rea1),  Transform(rea2),  Transform(rea3), pot[0]]
             ### 2) else: => more lines
             else:
                 for a in range(len(a1)):
@@ -292,13 +304,13 @@ for x in range(len(pods) - 1):
                         re1 = rea1[a][2]
                         re2 = rea2[a][2]
                         re3 = rea3[a][2]
-                        diz[index] = [POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', re1,  re2,  re3, pot[a]]
+                        diz[index] = [emessa,POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', re1,  re2,  re3, pot[a]]
                     else:
-                        diz[index] = [POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', rea1[2],  rea2[2],  rea3[2], pot[a]]
+                        diz[index] = [emessa,POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', rea1[2],  rea2[2],  rea3[2], pot[a]]
     except:
-        not_processed.append(POD)
+        not_processed[numero_fattura + '_' + str(x)] = POD
         print '{} NOT PROCESSED'.format(POD)
-pp = len(not_processed)/len(list_pod)
+pp = len(not_processed.keys())/len(list_pod)
 print 'Percentage not processed: {}'.format(pp)
 missed_pg = []
 if pp > 0:
@@ -308,8 +320,11 @@ if pp > 0:
                 missed_pg.append(p+1)
 
 Diz = pd.DataFrame.from_dict(diz, orient = 'index')          
-Diz.columns = [['pod','lettura rilevata il','lettura rilevata il','Att-f0','Att-f1','Att-f2','Att-f3','ReAtt-f0',
+Diz.columns = [['data emissione','pod','lettura rilevata il','lettura rilevata il','Att-f0','Att-f1','Att-f2','Att-f3','ReAtt-f0',
                'ReAtt-f1','ReAtt-f2','ReAtt-f3','potenza']]
         
-Diz.to_excel(numero_fattura+'A2A.xlsx')        
-Diz.to_csv(numero_fattura+'.xlsx', sep = ',')        
+NP = pd.DataFrame.from_dict(not_processed, orient = 'index')        
+NP.columns = [['POD']]
+
+Diz.to_excel(numero_fattura+'_A2A.xlsx')        
+NP.to_excel(numero_fattura+'_manuale_A2A.xlsx')
