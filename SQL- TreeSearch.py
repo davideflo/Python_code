@@ -151,8 +151,8 @@ SQL =   """SELECT  v.id_contratto,
            v.potenza_impegnata,
            v.frequenza_lettura
            FROM (select * from mnh_common.v_aut_simil_template) as v
-           WHERE  [Tipo punto:E:TP_PUNTO:14] = cd_tp_punto
-           AND id_fornitore =  [#AZIENDA]
+           WHERE  [Tipo punto:E:TP_PUNTO:14] = v.cd_tp_punto
+           AND v.id_fornitore =  [#AZIENDA]
            """
 
 SQL2 =  """SELECT  id_contratto,
@@ -170,3 +170,76 @@ cursor.execute('select * from MNH_COMMON.V_AUT_SIMIL_TEMPLATE')
 
 cursor.execute(SQL2)
 
+####################################################################################################
+import string
+ascii = set(string.printable)   
+
+def remove_non_ascii(s):
+    return filter(lambda x: x in ascii, s)
+
+sql = """select tr.ID_REPORT, tr.DS_REPORT, trc.S_COLUMN_NAME
+         from MNH_REPORT.T_REPORT tr inner join MNH_REPORT.T_REPORT_COLUMNS trc
+         on tr.ID_REPORT = trc.ID_REPORT"""
+
+cursor.execute(sql)
+
+data = cursor.fetchall()
+
+tabs = OrderedDict()
+nr = []
+for i in range(len(data)):
+    print i
+    x = data[i]
+    name = str(x[0]) + '-' + remove_non_ascii(x[1])
+    if int(x[0]) in nr:
+        pass
+    else:
+        nr.append(int(x[0]))
+    if name in tabs.keys():
+        tabs[name].append(x[2])
+    else:
+        tabs[name] = [x[2]]
+
+
+
+lof = [tabs[k] for k in tabs.keys()]
+feature_list = [item for sublist in lof for item in sublist]
+
+mat = OrderedDict()
+for k in tabs.keys():
+    lok = []
+    for fl in feature_list:
+        if fl in tabs[k]:
+            lok.append(1)
+        else:
+            lok.append(0)
+    mat[k] = lok
+
+df = pd.DataFrame.from_dict(mat, orient = 'index')
+df.columns = [map(remove_non_ascii,feature_list)]
+
+df.to_excel('report_columns.xlsx')
+    
+from sklearn.feature_extraction.text import CountVectorizer
+
+lot = []
+nt = []
+for k in tabs.keys():
+    print k
+    nm = k.replace(' ', '.')
+    nt.append(nm)    
+    for i in range(len(tabs[k])):
+        nm += ' ' + remove_non_ascii(tabs[k][i])
+    lot.append(nm)
+
+
+vectorizer = CountVectorizer(min_df = 1)
+X = vectorizer.fit_transform(lot)
+            
+features = vectorizer.get_feature_names()
+
+
+X.toarray()
+
+df = pd.DataFrame(X.toarray()).set_index(nr)
+df.columns = [features]
