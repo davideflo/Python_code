@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from pandas.tools import plotting
 import scipy
 import dateutil
+from collections import OrderedDict
 
 #path2 = "H:/Energy Management/04. WHOLESALE/18. FATTURAZIONE WHOLESALE/2016/TERNA_2016/01_TERNA_2016_SETTLEMENT/TERNA_2016.09/FP/2016.09_Sbilanciamento_UC_2016761743A.csv"
 
@@ -44,7 +45,7 @@ for y in years:
 sbil_tot.to_excel('aggregato_sbilanciamento.xlsx')        
 
 ST = pd.read_excel('aggregato_sbilanciamento.xlsx')
-ST = ST.set_index(pd.date_range('2015-01-01', '2016-09-30', freq = 'H'))
+#ST = ST.set_index(pd.date_range('2015-01-01', '2016-09-30', freq = 'H'))
 
 cnlist = (ST[['CODICE RUC']].values == 'UC_DP1608_CNOR').ravel().tolist()
 cnor = ST.ix[cnlist]
@@ -107,4 +108,291 @@ for h in range(24):
     plt.title(h)
 
 
+cnor.ix[cnor.index.year == 2015].plot(ylim = (-2,2))
+cnor.ix[cnor.index.year == 2016].plot(ylim = (-2,2))
 
+cnor.ix[cnor.index.year == 2015].hist()
+cnor.ix[cnor.index.year == 2016].hist()
+
+
+plotting.lag_plot(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']])
+plt.figure()
+plt.scatter(chcnor[:len(chcnor)-1], chcnor[1:])
+
+
+diz5 = OrderedDict()
+diz6 = OrderedDict()
+cn5 = cnor.ix[cnor.index.year == 2015]
+cn6 = cnor.ix[cnor.index.year == 2016]
+for h in range(24):
+    diz5[h] = cn5[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn5.index.hour == h].values.ravel()
+    diz6[h] = cn6[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn6.index.hour == h].values.ravel()
+
+CN5 = pd.DataFrame.from_dict(diz5, orient = 'index')
+CN6 = pd.DataFrame.from_dict(diz6, orient = 'index')
+
+CN5.mean().plot(ylim = (-2,2))
+
+plt.figure()
+CN6.mean().plot(color = 'red',ylim = (-2,2))
+
+plt.figure()
+CN5.mean(axis = 1).plot()
+CN6.mean(axis = 1).plot(color = 'black')
+
+CN6.mean().size
+
+plt.figure()
+plt.scatter(CN5.mean()[:274],CN6.mean())
+
+np.corrcoef(CN5.mean()[:274],CN6.mean())
+
+
+f, axarr = plt.subplots(2, sharex=True)
+axarr[0].plot(CN5.mean()[:274], lw = 2)
+axarr[1].plot(CN6.mean(), color = 'red', lw = 2)
+
+f, axarr = plt.subplots(2, sharex=True)
+axarr[0].plot(CN5.std()[:274], lw = 2)
+axarr[1].plot(CN6.std(), color = 'red', lw = 2)
+
+CN6.std().max()
+CN5.std().max()
+
+f, axarr = plt.subplots(2, sharex=True)
+axarr[0].plot(np.diff(CN5.mean()[:274]), lw = 2)
+axarr[1].plot(np.diff(CN6.mean()), color = 'red', lw = 2)
+
+###############################################################################
+def hurst(ts, n=100):
+	"""Returns the Hurst Exponent of the time series vector ts"""
+	# Create the range of lag values
+	lags = range(2, n)
+
+	# Calculate the array of the variances of the lagged differences
+	tau = [np.sqrt(np.std(np.subtract(ts[lag:], ts[:-lag]))) for lag in lags]
+
+	# Use a linear fit to estimate the Hurst Exponent
+	poly = np.polyfit(np.log(lags), np.log(tau), 1)
+
+	# Return the Hurst exponent from the polyfit output
+	return poly[0]*2.0
+###############################################################################
+hurst(CN5.mean()) 
+hurst(CN6.mean()) 
+
+###############################################################################
+def conditionalDistribution(df, h1, h2):
+    cdiz = OrderedDict()
+    df = df.T
+    dfp = df.ix[df[df.columns[h1]] > 0]
+    dfn = df.ix[df[df.columns[h1]] < 0]
+    cdiz[str(h1)+'pos'] = dfp[dfp.columns[h2]].values.ravel()
+    cdiz[str(h1)+'neg'] = dfn[dfn.columns[h2]].values.ravel()
+    return pd.DataFrame.from_dict(cdiz, orient = 'index')
+###############################################################################
+    
+H2 = conditionalDistribution(CN5, 1, 2)    
+    
+plt.figure()
+plt.hist(np.array(H2.ix['1pos'].dropna()))    
+plt.hist(np.array(0.5 + H2.ix['1neg']), color = 'red')    
+
+###############################################################################    
+def Influence(df):
+    inf = []
+    df = df.T
+    for h in range(24):
+        condcorr = 0
+        if h < 23:
+            dfp = df.ix[df[df.columns[h]] > 0]
+            dfn = df.ix[df[df.columns[h]] < 0]
+            psize = dfp.shape[0]
+            nsize = dfn.shape[0]
+            condcorr += (np.sum(np.abs(dfp[dfp.columns[h]].values.ravel() - dfp[dfp.columns[(h+1)]].values.ravel()))/2)/psize
+            condcorr += (np.sum(np.abs(dfn[dfn.columns[h]].values.ravel(),dfn[dfn.columns[(h+1)]].values.ravel()))/2)/nsize
+            inf.append(condcorr)
+        else:
+            dfp = df.ix[df[df.columns[h]] > 0]
+            dfn = df.ix[df[df.columns[h]] < 0]
+            psize = dfp.shape[0]
+            nsize = dfn.shape[0]
+            condcorr += (np.sum(np.abs(dfp[dfp.columns[h]].values.ravel()-dfp[dfp.columns[0]].values.ravel()))/2)/psize
+            condcorr += (np.sum(np.abs(dfn[dfn.columns[h]].values.ravel(),dfn[dfn.columns[0]].values.ravel()))/2)/nsize
+            inf.append(condcorr)
+    return np.array(inf)
+###############################################################################
+    
+inf15 = Influence(CN5)
+inf16 = Influence(CN6)
+
+plt.figure()
+plt.plot(inf15)    
+plt.plot(inf16, color = 'black')
+
+for h in range(23):
+    H2 = conditionalDistribution(CN6, h, h+1)    
+    plt.figure()
+    plt.hist(np.array(H2.ix[str(h)+'pos'].dropna()))    
+    plt.hist(np.array(0.5 + H2.ix[str(h)+'neg'].dropna()), color = 'red')    
+    plt.title(str(h) + ' --> ' + str(h+1))
+
+sm15 = CN5.mean().values.ravel()
+sm16 = CN6.mean().values.ravel()
+
+np.where(sm15 > 0)[0].size/sm15.size
+np.where(sm16 > 0)[0].size/sm16.size
+
+
+sd15 = CN5.std().values.ravel()
+sd16 = CN6.std().values.ravel()
+
+print(np.mean(sd15))
+print(np.mean(sd16))
+print(np.std(sd15))
+print(np.std(sd16))
+
+
+P5 = np.poly1d(np.polyfit(np.linspace(1,sm15.size,sm15.size), sm15, 3))
+P6 = np.poly1d(np.polyfit(np.linspace(1,sm16.size,sm16.size), sm16, 3))
+
+plt.figure()
+plt.plot(sm15)
+plt.plot(np.linspace(1,sm15.size,1000), P5(np.linspace(1,sm15.size,1000)))
+
+plt.figure()
+plt.plot(sm16, color = 'red')
+plt.plot(np.linspace(1,sm16.size,1000), P6(np.linspace(1,sm16.size,1000)), color = 'black')
+
+#################################################################################################################
+def getStatistics(zona):
+    cnlist = (ST[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()
+    cnor = ST.ix[cnlist]
+    cnor = cnor.reset_index(drop = True)
+
+
+    #plt.plot(np.diff(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+    chcnor = get_cons_hours(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel())   
+
+   
+    plt.figure()
+    plt.plot(np.array(chcnor))
+    plt.axhline(y = scipy.stats.mstats.mquantiles(chcnor, prob = 0.95))    
+    plt.axhline(y = scipy.stats.mstats.mquantiles(chcnor, prob = 0.025))    
+
+
+    print('mean consecutive days with same sign: {}'.format(np.mean(chcnor)))
+    print('median consecutive days with same sign: {}'.format(np.median(chcnor)))
+    print('std consecutive days with same sign: {}'.format(np.std(chcnor)))    
+
+    
+    plt.figure()
+    plt.hist(np.array(chcnor))
+
+    print('shapiro t4est: {}'.format(scipy.stats.shapiro(np.array(chcnor))))
+
+    print('#########################################################################################')
+    print(np.where(np.logical_and(0 < np.array(chcnor), np.array(chcnor) <= scipy.stats.mstats.mquantiles(chcnor, prob = 0.95)))[0].size/len(chcnor))
+    print(np.where(np.logical_and(scipy.stats.mstats.mquantiles(chcnor, prob = 0.025) < np.array(chcnor), np.array(chcnor) <= 0))[0].size/len(chcnor))
+    print('#########################################################################################')
+
+
+    si = []
+    for i in range(cnor.shape[0]):
+        si.append(dateutil.parser.parse(cnor[cnor.columns[1]].ix[i]))
+    
+    cnor = cnor.set_index(pd.to_datetime(si))
+
+#    for h in range(24):
+#        cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cnor.index.hour == h].hist()
+#        plt.title(h)
+
+
+#    cnor.ix[cnor.index.year == 2015].plot(ylim = (-2,2))
+#    cnor.ix[cnor.index.year == 2016].plot(ylim = (-2,2))
+#    
+    #cnor.ix[cnor.index.year == 2015].hist()
+    #cnor.ix[cnor.index.year == 2016].hist()
+
+
+    diz5 = OrderedDict()
+    diz6 = OrderedDict()
+    cn5 = cnor.ix[cnor.index.year == 2015]
+    cn6 = cnor.ix[cnor.index.year == 2016]
+    for h in range(24):
+        diz5[h] = cn5[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn5.index.hour == h].values.ravel()
+        diz6[h] = cn6[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn6.index.hour == h].values.ravel()
+    
+    CN5 = pd.DataFrame.from_dict(diz5, orient = 'index')
+    CN6 = pd.DataFrame.from_dict(diz6, orient = 'index')
+
+    plt.figure()
+    CN5.mean().plot(ylim = (-2,2))
+
+    plt.figure()
+    CN6.mean().plot(color = 'red',ylim = (-2,2))
+
+    plt.figure()
+    CN5.mean(axis = 1).plot()
+    CN6.mean(axis = 1).plot(color = 'black')
+    
+    f, axarr = plt.subplots(2, sharex=True)
+    axarr[0].plot(CN5.mean()[:274], lw = 2)
+    axarr[1].plot(CN6.mean(), color = 'red', lw = 2)
+    
+    f, axarr = plt.subplots(2, sharex=True)
+    axarr[0].plot(CN5.std()[:274], lw = 2)
+    axarr[1].plot(CN6.std(), color = 'red', lw = 2)
+
+    f, axarr = plt.subplots(2, sharex=True)
+    axarr[0].plot(np.diff(CN5.mean()[:274]), lw = 2)
+    axarr[1].plot(np.diff(CN6.mean()), color = 'red', lw = 2)
+    
+    H2 = conditionalDistribution(CN5, 1, 2)    
+    
+    plt.figure()
+    plt.hist(np.array(H2.ix['1pos'].dropna()))    
+    plt.hist(np.array(0.5 + H2.ix['1neg']), color = 'red')    
+    
+#    for h in range(23):
+#        H2 = conditionalDistribution(CN6, h, h+1)    
+#        plt.figure()
+#        plt.hist(np.array(H2.ix[str(h)+'pos'].dropna()))    
+#        plt.hist(np.array(0.5 + H2.ix[str(h)+'neg'].dropna()), color = 'red')    
+#        plt.title(str(h) + ' --> ' + str(h+1))
+#    
+    sm15 = CN5.mean().values.ravel()
+    sm16 = CN6.mean().values.ravel()
+    
+    np.where(sm15 > 0)[0].size/sm15.size
+    np.where(sm16 > 0)[0].size/sm16.size
+    
+    
+    sd15 = CN5.std().values.ravel()
+    sd16 = CN6.std().values.ravel()
+    
+    print(np.mean(sd15))
+    print(np.mean(sd16))
+    print(np.std(sd15))
+    print(np.std(sd16))
+
+
+    P5 = np.poly1d(np.polyfit(np.linspace(1,sm15.size,sm15.size), sm15, 3))
+    P6 = np.poly1d(np.polyfit(np.linspace(1,sm16.size,sm16.size), sm16, 3))
+    
+    plt.figure()
+    plt.plot(sm15)
+    plt.plot(np.linspace(1,sm15.size,1000), P5(np.linspace(1,sm15.size,1000)))
+    
+    plt.figure()
+    plt.plot(sm16, color = 'red')
+    plt.plot(np.linspace(1,sm16.size,1000), P6(np.linspace(1,sm16.size,1000)), color = 'black')
+    return 0
+################################################################################################################    
+
+getStatistics('NORD')
+getStatistics('CSUD')
+getStatistics('SUD')
+getStatistics('SICI')
+getStatistics('SARD')
