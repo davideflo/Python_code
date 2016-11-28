@@ -21,24 +21,24 @@ val_col = map(str, [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,
 dt = []
 for i in range(data.shape[0]):
     dt.append(pd.to_datetime(data[['Data ']].ix[i]))
+#
+#data.set_index(data[['Data ']])
+#
+#sbs = (data[['Data ']].values.ravel() == np.datetime64('2016-11-01')).tolist()
+#
+#idd = dt.index(pd.to_datetime('2016-11-01'))
+#
+#data2 = data.ix[sbs]
+#
+#data2[val_col].ix[data['Area'] == 'SICI'].T.plot()
+#
+#data3 = data2[val_col].ix[data['Area'] == 'SICI'].reset_index(drop=True)
 
-data.set_index(data[['Data ']])
-
-sbs = (data[['Data ']].values.ravel() == np.datetime64('2016-11-01')).tolist()
-
-idd = dt.index(pd.to_datetime('2016-11-01'))
-
-data2 = data.ix[sbs]
-
-data2[val_col].ix[data['Area'] == 'SICI'].T.plot()
-
-data3 = data2[val_col].ix[data['Area'] == 'SICI'].reset_index(drop=True)
-
-plt.figure()
-for i in range(data3.shape[0]):
-    P = np.poly1d(np.polyfit(np.linspace(1,24,24), data3.ix[i], 5))
-    plt.plot(np.linspace(1,25,1001),P(np.linspace(1,25,1001)))
-    plt.title('5th degree')
+#plt.figure()
+#for i in range(data3.shape[0]):
+#    P = np.poly1d(np.polyfit(np.linspace(1,24,24), data3.ix[i], 5))
+#    plt.plot(np.linspace(1,25,1001),P(np.linspace(1,25,1001)))
+#    plt.title('5th degree')
 
 
 ### same pod ###
