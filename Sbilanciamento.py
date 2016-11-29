@@ -17,6 +17,20 @@ from pandas.tools import plotting
 import scipy
 import dateutil
 from collections import OrderedDict
+import datetime
+
+###############################################################################
+def DateParser(dt):
+    dto = datetime.datetime(year = int(dt[6:10]), month = int(dt[3:5]), day = int(dt[:2]), hour = int(dt[11:13]))
+    return dto
+###############################################################################
+def ConvertDates(df):
+    dts = []
+    for i in range(df.shape[0]):
+        dts.append(DateParser(df.ix[i]))
+    return dts
+###############################################################################
+
 
 #path2 = "H:/Energy Management/04. WHOLESALE/18. FATTURAZIONE WHOLESALE/2016/TERNA_2016/01_TERNA_2016_SETTLEMENT/TERNA_2016.09/FP/2016.09_Sbilanciamento_UC_2016761743A.csv"
 
@@ -396,3 +410,128 @@ getStatistics('CSUD')
 getStatistics('SUD')
 getStatistics('SICI')
 getStatistics('SARD')
+
+######### independence of non overlapping days?
+###############################################################################
+def TestIndipendence(st, zona):
+    
+    cnlist = (st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()
+    cnor = st.ix[cnlist]
+    cnor = cnor.reset_index(drop = True)     
+    d = np.random.randint(cnor.shape[0], size = 50)
+    rem = set(range(cnor.shape[0])).difference(d)
+    sam1 = cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[d]
+    sam2 = cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[np.random.choice(list(rem), size = 50)]
+    plt.figure()
+    plt.hist(sam1.values.ravel())
+    plt.title('sample 1')
+    plt.figure()
+    plt.hist(sam2.values.ravel())
+    plt.title('sample 2')
+
+    si = []
+    for i in range(cnor.shape[0]):
+        si.append(dateutil.parser.parse(cnor[cnor.columns[1]].ix[i]))
+    
+    CN = cnor.set_index(pd.to_datetime(si))
+    
+    sm = CN[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].resample('D').mean()    
+    
+    d = np.random.randint(sm.shape[0], size = 50)
+    rem = set(range(sm.shape[0])).difference(d)
+    sam1 = sm.ix[d].dropna()
+    sam2 = sm.ix[np.random.choice(list(rem), size = 50)].dropna()
+    plt.figure()
+    plt.hist(sam1.values.ravel())
+    plt.title('sample 1')
+    plt.figure()
+    plt.hist(sam2.values.ravel())
+    plt.title('sample 2')
+
+    plt.figure()
+    plotting.lag_plot(sm)
+    plt.title('lag = 1')
+    plt.figure()
+    plotting.lag_plot(sm, lag = 2)
+    plt.title('lag = 2')
+    plt.figure()
+    plotting.lag_plot(sm, lag = 5)
+    plt.title('lag = 5')
+    plt.figure()
+    plotting.lag_plot(sm, lag = 10)
+    plt.title('lag = 10')
+    plt.figure()
+    plotting.lag_plot(sm, lag = 30)
+    plt.title('lag = 30')
+
+    
+    return 0
+###############################################################################
+
+sii = []
+for i in range(ST.shape[0]):
+    sii.append(dateutil.parser.parse(ST[ST.columns[1]].ix[i]))
+    
+ST_2 = ST.set_index(pd.to_datetime(ConvertDates(ST[ST.columns[1]])))
+
+ST16 = ST_2.ix[ST_2.index.year == 2016]
+ST15 = ST_2.ix[ST_2.index.year == 2015]
+
+#ConvertDates(ST[ST.columns[1]])
+
+
+
+TestIndipendence(ST16, 'NORD')
+TestIndipendence(ST15, 'NORD')
+TestIndipendence(ST16, 'CNOR')
+TestIndipendence(ST15, 'CNOR')
+TestIndipendence(ST16, 'CSUD')
+TestIndipendence(ST15, 'CSUD')
+TestIndipendence(ST16, 'SUD')
+TestIndipendence(ST15, 'SUD')
+TestIndipendence(ST16, 'SICI')
+TestIndipendence(ST15, 'SICI')
+TestIndipendence(ST16, 'SARD')
+TestIndipendence(ST15, 'SARD')
+
+#### qualitativamente: NORD non sembra troppo indipendente: chiaro cluster attorno a (1,1)
+#### le altre zone sembrano un po' piu indipendenti (gli sbilanciamenti medi giornalieri)
+#### reminder: 24*media_giornaliera_segni_sbilanciamento_orari ~ Binomiale
+
+##### distribution 0-variance days #####
+
+###############################################################################
+def CountZeroVariance(st, zona):    
+    
+    cnlist = (st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()
+    cnor = st.ix[cnlist]
+    cnor = cnor.reset_index(drop = True)  
+
+    CN = cnor.set_index(pd.to_datetime(ConvertDates(cnor[cnor.columns[1]])))
+    
+    CV = CN.resample('D').std()
+    
+    counter = []    
+    
+    for m in range(1,13,1):
+        print(m)
+        print('there are {} days'.format(np.sum(st.index.month == m)))
+        lm = CV.ix[CV.index.month == m].values.ravel()
+        counter.append(np.where(lm == 0)[0].size)
+    
+    return counter
+###############################################################################
+    
+CountZeroVariance(ST16, 'NORD')
+CountZeroVariance(ST15, 'NORD')
+CountZeroVariance(ST16, 'CNOR')
+CountZeroVariance(ST15, 'CNOR')
+CountZeroVariance(ST16, 'CSUD')
+CountZeroVariance(ST15, 'CSUD')
+CountZeroVariance(ST16, 'SUD')
+CountZeroVariance(ST15, 'SUD')
+CountZeroVariance(ST16, 'SICI')
+CountZeroVariance(ST15, 'SICI')
+CountZeroVariance(ST16, 'SARD')
+CountZeroVariance(ST15, 'SARD')
+
