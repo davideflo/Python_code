@@ -54,22 +54,17 @@ for y in years:
             nof = [onlyfiles[i] for i in range(len(onlyfiles)) if onlyfiles[i].startswith(str(y)+'.'+m+'_Sbilanciamento_UC_'+str(y))]
             #nof2 = [nof[i] for i in range(len(nof)) if nof[i].endswith('.csv')]        
             sbil = pd.read_csv(path+nof[0], sep = ';', skiprows = [0,1], error_bad_lines=False)
-            sbil_tot = sbil_tot.append(sbil[['CODICE RUC', 'DATA RIFERIMENTO CORRISPETTIVO', 'PV [MWh]', 'SEGNO SBILANCIAMENTO AGGREGATO ZONALE']], ignore_index = True)                
+            sbil_tot = sbil_tot.append(sbil[['CODICE RUC', 'DATA RIFERIMENTO CORRISPETTIVO', 'PV [MWh]', 'SBILANCIAMENTO FISICO [MWh]','SEGNO SBILANCIAMENTO AGGREGATO ZONALE']], ignore_index = True)                
         
 sbil_tot.to_excel('aggregato_sbilanciamento.xlsx')        
 
 ST = pd.read_excel('aggregato_sbilanciamento.xlsx')
 #ST = ST.set_index(pd.date_range('2015-01-01', '2016-09-30', freq = 'H'))
 
-cnlist = (ST[['CODICE RUC']].values == 'UC_DP1608_CNOR').ravel().tolist()
+cnlist = (ST[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()
 cnor = ST.ix[cnlist]
 cnor = cnor.reset_index(drop = True)
-cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[:1000].plot(ylim = (-2,2))
-
-plt.plot(statsmodels.api.tsa.acf(np.array(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[0:2000])))
-plotting.autocorrelation_plot(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[0:2000])
-
-plt.plot(np.diff(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+c
 
 ###############################################################################
 def get_cons_hours(ts):
@@ -122,16 +117,6 @@ for h in range(24):
     plt.title(h)
 
 
-cnor.ix[cnor.index.year == 2015].plot(ylim = (-2,2))
-cnor.ix[cnor.index.year == 2016].plot(ylim = (-2,2))
-
-cnor.ix[cnor.index.year == 2015].hist()
-cnor.ix[cnor.index.year == 2016].hist()
-
-
-plotting.lag_plot(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']])
-plt.figure()
-plt.scatter(chcnor[:len(chcnor)-1], chcnor[1:])
 
 
 diz5 = OrderedDict()
@@ -236,13 +221,6 @@ def Influence(df):
             inf.append(condcorr)
     return np.array(inf)
 ###############################################################################
-    
-inf15 = Influence(CN5)
-inf16 = Influence(CN6)
-
-plt.figure()
-plt.plot(inf15)    
-plt.plot(inf16, color = 'black')
 
 for h in range(23):
     H2 = conditionalDistribution(CN6, h, h+1)    
@@ -312,11 +290,7 @@ def getStatistics(zona):
     print('#########################################################################################')
 
 
-    si = []
-    for i in range(cnor.shape[0]):
-        si.append(dateutil.parser.parse(cnor[cnor.columns[1]].ix[i]))
-    
-    cnor = cnor.set_index(pd.to_datetime(si))
+    cnor = cnor.set_index(pd.to_datetime(ConvertDates(cnor[cnor.columns[1]])))
 
 #    for h in range(24):
 #        cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cnor.index.hour == h].hist()
@@ -468,10 +442,6 @@ def TestIndipendence(st, zona):
     return 0
 ###############################################################################
 
-sii = []
-for i in range(ST.shape[0]):
-    sii.append(dateutil.parser.parse(ST[ST.columns[1]].ix[i]))
-    
 ST_2 = ST.set_index(pd.to_datetime(ConvertDates(ST[ST.columns[1]])))
 
 ST16 = ST_2.ix[ST_2.index.year == 2016]
@@ -521,6 +491,16 @@ def CountZeroVariance(st, zona):
     
     return counter
 ###############################################################################
+def DistBetweenZeroVarDays(vec):
+    dist = []
+    x = 0
+    for i in range(vec.size):
+        if vec[i] == 0:
+            dist.append(i - x)
+            x = i
+    return dist
+###############################################################################
+            
     
 CountZeroVariance(ST16, 'NORD')
 CountZeroVariance(ST15, 'NORD')
@@ -535,3 +515,166 @@ CountZeroVariance(ST15, 'SICI')
 CountZeroVariance(ST16, 'SARD')
 CountZeroVariance(ST15, 'SARD')
 
+nord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
+nord15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
+
+
+f, axarr = plt.subplots(2)
+axarr[0].plot(nord16.resample('D').mean(), lw = 2)
+axarr[1].plot(nord15.resample('D').mean(), color = 'red', lw = 2)
+
+f, axarr = plt.subplots(2)
+axarr[0].plot(nord16.resample('D').std(), lw = 2)
+axarr[1].plot(nord15.resample('D').std(), color = 'red', lw = 2)
+
+var_nord16 = np.array(nord16.resample('D').std()).ravel()
+var_nord15 = np.array(nord15.resample('D').std()).ravel()
+
+plt.figure()
+plt.hist(np.array(var_nord16), bins = 20)
+plt.figure()
+plotting.autocorrelation_plot(pd.Series(var_nord16))
+plt.figure()
+plotting.autocorrelation_plot(pd.Series(np.random.sample(size = len(var_nord16))))
+
+d16nord = DistBetweenZeroVarDays(var_nord16)
+d15nord = DistBetweenZeroVarDays(var_nord15)
+
+plt.figure()
+plt.hist(np.array(d16nord))
+plt.figure()
+plt.hist(np.array(d15nord))
+
+np.mean(d16nord)
+np.mean(d15nord)
+np.std(d16nord)
+np.std(d15nord)
+np.median(d16nord)
+np.median(d15nord)
+
+import Fourier
+
+plt.figure()
+plt.plot(np.array(var_nord16), lw = 2)
+plt.plot(Fourier.fourierExtrapolation(var_nord16, 0), lw = 2, color = 'black')
+
+data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
+data = data.set_index(data['Date'])
+data = data.ix[data.index.month <= 9]
+pnord = data['MGP NORD [€/MWh]']
+pnord = pnord.ix[:pnord.shape[0]-1]
+cnord = data['MGP CNOR [€/MWh]']
+cnord = cnord.ix[:pnord.shape[0]-1]
+csud = data['MGP CSUD [€/MWh]']
+csud = csud.ix[:csud.shape[0]-1]
+sud = data['MGP SUD [€/MWh]']
+sud = sud.ix[:sud.shape[0]-1]
+sici = data['MGP SICI [€/MWh]']
+sici = sici.ix[:sici.shape[0]-1]
+sard = data['MGP SARD [€/MWh]']
+csud = sard.ix[:sard.shape[0]-1]
+
+pun = data['PUN [€/MWH]']
+#pun = data['PUN [€/MWH]'].dropna().resample('D').mean()
+
+pd.Series(pnord.values.ravel()).corr(pd.Series(nord16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+pind = pnord.index.tolist()
+cind = nord16.index.tolist()
+
+plt.figure()
+plt.scatter(np.array(pnord.resample('D').mean()), np.array(nord16.resample('D').mean()))
+plt.figure()
+plt.scatter(np.array(pnord.resample('D').mean()), np.array(nord16.resample('D').std()), color = 'red')
+plt.figure()
+plt.scatter(np.array(pnord.resample('D').std()), np.array(nord16.resample('D').std()), color = 'green')
+    
+
+
+cnord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_CNOR').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(cnord.resample('D').mean()), np.array(cnord16.resample('D').mean()))
+
+pd.Series(cnord.values.ravel()).corr(pd.Series(cnord16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+csud16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_CSUD').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(csud.resample('D').mean()), np.array(csud16.resample('D').mean()))
+
+pd.Series(csud.values.ravel()).corr(pd.Series(csud16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+sud16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_SUD').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(sud.resample('D').mean()), np.array(sud16.resample('D').mean()))
+
+pd.Series(csud.values.ravel()).corr(pd.Series(csud16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+sici16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_SICI').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(sici.resample('D').mean()), np.array(sici16.resample('D').mean()))
+
+pd.Series(sici.values.ravel()).corr(pd.Series(sici16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+sard16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_SARD').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(sard.resample('D').mean()), np.array(sard16.resample('D').mean()))
+
+pd.Series(sard.values.ravel()).corr(pd.Series(sard16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+###############################################################################
+def RBinomialTree(st, zona, B):
+    dix = OrderedDict()
+    #######################
+    diz = OrderedDict()
+    stz = st.ix[(st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    cn = stz.ix[stz.index.year == 2016]
+    for h in range(24):
+        diz[h] = cn[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn.index.hour == h].values.ravel()
+    
+    CN = pd.DataFrame.from_dict(diz, orient = 'index')
+    #######################
+    pstart = np.where(CN.ix[0] == 1)[0].size/CN.shape[1]
+    
+    for b in range(B):
+        r = scipy.stats.bernoulli.rvs(pstart, size=1)
+        tree = [r[0]]
+        for h in range(1, 23, 1):
+            H = conditionalDistribution(CN, h, h+1)
+            ph = np.where(H.ix[0] == 1)[0].size/H.shape[1]
+            tree.append(scipy.stats.bernoulli.rvs(ph, size=1)[0])
+        dix[b] = tree
+    
+    return pd.DataFrame.from_dict(dix, orient = 'index')
+###############################################################################
+import time
+    
+start = time.time()
+t1 = RBinomialTree(ST16, 'NORD', 1000)    
+(time.time() - start)/60    
+    
+###############################################################################
+def converter(ser):
+    res = []
+    for i in range(ser.size):
+        x = float(ser.ix[i].replace(',', '.'))
+        res.append(x)
+    return np.array(res).ravel()
+###############################################################################
+    
+plt.figure()
+plt.plot(converter(nord16[nord16.columns[2]]))
+plt.figure()
+plt.plot(converter(cnord16[cnord16.columns[2]]))
+plt.figure()
+plt.plot(converter(csud16[csud16.columns[2]]))
+plt.figure()
+plt.plot(converter(sud16[sud16.columns[2]]))
+plt.figure()
+plt.plot(converter(sici16[sici16.columns[2]]))
+plt.figure()
+plt.plot(converter(sard16[sard16.columns[2]]))
