@@ -64,7 +64,7 @@ ST = pd.read_excel('aggregato_sbilanciamento.xlsx')
 cnlist = (ST[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()
 cnor = ST.ix[cnlist]
 cnor = cnor.reset_index(drop = True)
-c
+
 
 ###############################################################################
 def get_cons_hours(ts):
@@ -518,7 +518,6 @@ CountZeroVariance(ST15, 'SARD')
 nord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
 nord15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
 
-
 f, axarr = plt.subplots(2)
 axarr[0].plot(nord16.resample('D').mean(), lw = 2)
 axarr[1].plot(nord15.resample('D').mean(), color = 'red', lw = 2)
@@ -678,3 +677,165 @@ plt.figure()
 plt.plot(converter(sici16[sici16.columns[2]]))
 plt.figure()
 plt.plot(converter(sard16[sard16.columns[2]]))
+
+plt.figure()
+(-nord16[['PV [MWh]']]).plot()
+plt.figure()
+nord16[['SBILANCIAMENTO FISICO [MWh]']].plot()
+plt.figure()
+(-nord15[['PV [MWh]']]).plot(color = 'black')
+plt.figure()
+nord15[['SBILANCIAMENTO FISICO [MWh]']].plot(color = 'black')
+
+psnord15 = nord15[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(nord15[['PV [MWh]']].values.ravel())
+plt.figure()
+plt.plot(psnord15,color = 'green')
+plt.axhline(y=0, color = 'black')
+
+psnord16 = nord16[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(nord16[['PV [MWh]']].values.ravel())
+plt.figure()
+plt.plot(psnord16,color = 'indigo')
+plt.axhline(y=0, color = 'black')
+
+
+psnord15ts = pd.Series(psnord15, index = nord15.index)
+dec = statsmodels.api.tsa.seasonal_decompose(psnord15ts, freq = 24)
+plt.figure()
+dec.plot()
+plt.figure()
+plt.plot(dec.seasonal[0:23])
+
+###############################################################################
+def BestApproximatingPolynomial(vec):
+    best_d = 0
+    P1 = np.mean(vec)
+    qerr1 = np.mean((vec - P1)**2)
+    best_error = qerr1
+    print('0-degree error: {}'.format(qerr1))
+    for d in range(1, 11, 1):
+        BP = np.poly1d(np.polyfit(np.linspace(1,vec.size,vec.size), vec, d))
+        qerr = np.mean((vec - BP(np.linspace(1,vec.size,vec.size)))**2)
+        print(str(d)+'-degree error: {}'.format(qerr))
+        if qerr < best_error:
+            best_d = d
+            best_error = qerr
+    return best_d
+###############################################################################
+def exponential_smoothing(series, alpha):
+    result = [series[0]] # first value is same as series
+    for n in range(1, len(series)):
+        result.append(alpha * series[n] + (1 - alpha) * result[n-1])
+    return result
+###############################################################################
+def deseasonalise(hts): ## TS with temporal timestamp
+    dix = OrderedDict()
+    for h in range(24):
+        dix[h] = hts.ix[hts.index.hour == h].values.ravel()
+    return pd.DataFrame.from_dict(dix, orient = 'columns')
+###############################################################################
+def deseasonalised(hts, seas):
+    res = []
+    for i in range(0, hts.shape[0]-24, 24):
+        day = hts[i:i+24].values.ravel()
+        res.append(day - seas)
+    day = hts[hts.shape[0] - 24:].values.ravel()
+    res.append(day - seas)
+    return np.array(res).ravel()
+###############################################################################
+
+psnord15ts = pd.DataFrame(psnord15ts)
+trend = psnord15ts.rolling(24).mean()
+
+BestApproximatingPolynomial(psnord15)
+
+Ptrend = np.poly1d(np.polyfit(np.linspace(1,psnord15.size,psnord15.size), psnord15, 6))
+
+plt.figure()
+plt.plot(trend.values.ravel())
+plt.plot(np.linspace(1,psnord15.size,1000), Ptrend(np.linspace(1,psnord15.size,1000)),lw=2, color = 'black')
+
+trendN15 = Ptrend(np.linspace(1,psnord15.size,psnord15.size))
+
+det_psnord15 = psnord15 + trendN15
+
+plt.figure()
+plt.plot(psnord15)
+plt.plot(exponential_smoothing(psnord15,0.9), color = 'black')
+
+Ds = deseasonalise(psnord15ts)
+Ds.plot()
+plt.figure()
+Ds.mean().plot()
+
+plt.figure()
+plt.plot(deseasonalised(psnord15,Ds.mean()))
+
+np.mean(deseasonalised(psnord15,Ds.mean()))
+np.mean(psnord15)
+
+############ Kalman - filter toy usage ########################################
+n_iter = psnord15.size
+sz = (n_iter,) # size of array
+x = 0.0 # truth value
+z = psnord15 # observations 
+
+Q = 1e-5 # process variance
+
+# allocate space for arrays
+xhat=np.zeros(n_iter)      # a posteri estimate of x
+P=np.zeros(n_iter)         # a posteri error estimate
+xhatminus=np.zeros(n_iter) # a priori estimate of x
+Pminus=np.zeros(n_iter)    # a priori error estimate
+K=np.zeros(n_iter)         # gain or blending factor
+
+R = 0.1**2 # estimate of measurement variance, change to see effect
+
+# intial guesses
+xhat[0] = 0.0
+P[0] = 1.0
+
+for k in range(1,n_iter):
+    # time update
+    xhatminus[k] = xhat[k-1]
+    Pminus[k] = P[k-1]+Q
+
+    # measurement update
+    K[k] = Pminus[k]/( Pminus[k]+R )
+    xhat[k] = xhatminus[k]+K[k]*(z[k]-xhatminus[k])
+    P[k] = (1-K[k])*Pminus[k]
+
+plt.figure()
+plt.plot(z,'k-o',label='noisy measurements')
+plt.plot(xhat,'b-',label='a posteri estimate')
+plt.axhline(x,color='g')
+plt.legend()
+plt.title('Estimate vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('Percentage Imbalance')
+
+plt.figure()
+valid_iter = range(1,n_iter) # Pminus not valid at step 0
+plt.plot(valid_iter,Pminus[valid_iter],label='a priori error estimate')
+plt.title('Estimated $\it{\mathbf{a \ priori}}$ error vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('$(Voltage)^2$')
+plt.setp(plt.gca(),'ylim',[0,.01])
+plt.show()
+
+plt.figure()
+plt.plot(dec.trend.values.ravel(), color = 'navy')
+plt.plot(xhat, color = 'coral')
+plt.title('difference of estimations')
+###############################################################################
+
+des = deseasonalised(psnord15ts, dec.seasonal[0:24])
+
+residuals = des - dec.trend.values.ravel() 
+
+plt.figure()
+plt.plot(residuals)
+
+np.nanmean(residuals)
+np.nanstd(residuals)
+np.nanmax(residuals)/np.nanstd(residuals)
+np.nanmin(residuals)/np.nanstd(residuals)
