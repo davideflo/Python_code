@@ -18,6 +18,7 @@ import scipy
 import dateutil
 from collections import OrderedDict
 import datetime
+import sklearn
 
 ###############################################################################
 def DateParser(dt):
@@ -28,6 +29,17 @@ def ConvertDates(df):
     dts = []
     for i in range(df.shape[0]):
         dts.append(DateParser(df.ix[i]))
+    return dts
+###############################################################################
+###############################################################################
+def DateParser2(dt):
+    dto = datetime.datetime(year = int(dt[6:10]), month = int(dt[3:5]), day = int(dt[:2]))
+    return dto
+###############################################################################
+def ConvertDates2(df):
+    dts = []
+    for i in range(df.shape[0]):
+        dts.append(DateParser2(df.ix[i]))
     return dts
 ###############################################################################
 
@@ -705,6 +717,8 @@ dec.plot()
 plt.figure()
 plt.plot(dec.seasonal[0:23])
 
+plotting.autocorrelation_plot(psnord15ts)
+
 ###############################################################################
 def BestApproximatingPolynomial(vec):
     best_d = 0
@@ -839,3 +853,202 @@ np.nanmean(residuals)
 np.nanstd(residuals)
 np.nanmax(residuals)/np.nanstd(residuals)
 np.nanmin(residuals)/np.nanstd(residuals)
+scipy.stats.skew(residuals[np.logical_not(np.isnan(residuals))])
+scipy.stats.kurtosis(residuals[np.logical_not(np.isnan(residuals))])
+scipy.stats.shapiro(residuals[np.logical_not(np.isnan(residuals))])
+
+
+plt.figure()
+plt.hist(residuals[np.logical_not(np.isnan(residuals))])
+
+meteo = pd.read_excel('C:/Users/d_floriello/Documents/PUN/Milano 2016.xlsx')
+meteo = meteo.set_index(pd.to_datetime(ConvertDates2(meteo['DATA'])))
+
+nlug16 = nord16.ix[nord16.index.month <= 7]
+
+snlug16 = nlug16['SBILANCIAMENTO FISICO [MWh]'].resample('D').sum()
+snlug16.plot()
+plt.figure()
+meteo['Tmedia'].plot()
+
+mnlug16 = nlug16['SBILANCIAMENTO FISICO [MWh]'].resample('D').mean()
+plt.figure()
+mnlug16.plot()
+
+plt.figure()
+plt.scatter(meteo['Tmedia'].values.ravel(), snlug16.values.ravel())
+plt.scatter(meteo['Tmedia'].values.ravel(), mnlug16.values.ravel(), color = 'red')
+
+Mnlug16 = nlug16['SBILANCIAMENTO FISICO [MWh]'].resample('D').max()
+plt.figure()
+Mnlug16.plot()
+
+psnordlug16 = nord16[['SBILANCIAMENTO FISICO [MWh]']].ix[nord16.index.month <= 7].resample('D').sum().values.ravel()/np.abs(nord16[['PV [MWh]']].ix[nord16.index.month <= 7].resample('D').sum().values.ravel())
+psnordlug16 = pd.Series(nord16[['SBILANCIAMENTO FISICO [MWh]']].ix[nord16.index.month <= 7].values.ravel()/np.abs(nord16[['PV [MWh]']].ix[nord16.index.month <= 7].values.ravel()), index = nord16.index[nord16.index.month <= 7])
+psnordlug16 = psnordlug16.resample('D').sum().values.ravel()
+
+plt.figure()
+plt.scatter(meteo['Tmedia'].values.ravel(), psnordlug16, color = 'green')
+plt.axhline(y = scipy.stats.mstats.mquantiles(psnordlug16, prob = 0.95), color = 'turquoise')
+plt.axhline(y = scipy.stats.mstats.mquantiles(psnordlug16, prob = 0.025), color = 'turquoise')
+plt.axvline(x = scipy.stats.mstats.mquantiles(meteo['Tmedia'].values.ravel(), prob = 0.95), color = 'yellow')
+plt.axvline(x = scipy.stats.mstats.mquantiles(meteo['Tmedia'].values.ravel(), prob = 0.025), color = 'yellow')
+
+P2 = np.poly1d(np.polyfit(meteo['Tmedia'].values.ravel(), psnordlug16, 2))
+#X = np.array([meteo['Tmedia'].values.ravel(), meteo['Tmedia'].values.ravel()**2])
+#ols_model = statsmodels.regression.linear_model.OLS(psnordlug16, X.T)
+#res = ols_model.fit()
+#res.params
+
+plt.figure()
+plt.scatter(meteo['Tmedia'].values.ravel(), psnordlug16, color = 'green')
+plt.plot(np.linspace(-5,35,1000), P2(np.linspace(-5,35,1000)))
+
+## R2 with outliers
+R2 = 1 - np.sum((psnordlug16 - P2(meteo['Tmedia'].values.ravel()))**2)/np.sum((psnordlug16 - np.mean(psnordlug16))**2)
+
+np.mean(psnordlug16 - P2(meteo['Tmedia'].values.ravel()))
+np.std(psnordlug16 - P2(meteo['Tmedia'].values.ravel()))
+
+## R2 without outliers
+
+less = np.where(psnordlug16 < scipy.stats.mstats.mquantiles(psnordlug16, prob = 0.025))[0]
+
+nooutlug16 = psnordlug16[list(set(list(range(psnordlug16.size))).difference(less))]
+nooutmeteo = meteo['Tmedia'].values.ravel()[list(set(list(range(meteo['Tmedia'].values.ravel().size))).difference(less))]
+
+P2out = np.poly1d(np.polyfit(nooutmeteo, nooutlug16, 2))
+R2out = 1 - np.sum((nooutlug16 - P2(nooutmeteo))**2)/np.sum((nooutlug16 - np.mean(nooutlug16))**2)
+
+plt.figure()
+plt.scatter(nooutmeteo, nooutlug16, color = 'gold')
+plt.plot(np.linspace(-5,35,1000), P2(np.linspace(-5,35,1000)))
+plt.figure()
+plt.plot(psnordlug16)
+
+################### correlation meteo 2015
+
+met15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_milano_aggiornato.txt')
+met15 = met15.set_index(pd.to_datetime(ConvertDates2(met15['Data'])))
+
+met15 = met15.ix[met15.index.year == 2015]
+
+plt.figure()
+plt.scatter(met15['Tmedia'].values.ravel(), psnord15ts.resample('D').sum().values.ravel())
+
+plt.figure()
+plt.plot(met15['Tmedia'].values.ravel())
+plt.figure()
+plt.plot(psnord15ts.resample('D').sum().values.ravel())
+
+plt.figure()
+plt.plot(met15['Tmedia'].values.ravel())
+plt.plot(psnord15ts.resample('D').sum().values.ravel())
+
+
+n_iter = psnord15ts.resample('D').sum().values.ravel().size
+sz = (n_iter,) # size of array
+x = 0.0 # truth value
+z = psnord15ts.resample('D').sum().values.ravel() # observations 
+
+Q = 1e-5 # process variance
+
+# allocate space for arrays
+xhat=np.zeros(n_iter)      # a posteri estimate of x
+P=np.zeros(n_iter)         # a posteri error estimate
+xhatminus=np.zeros(n_iter) # a priori estimate of x
+Pminus=np.zeros(n_iter)    # a priori error estimate
+K=np.zeros(n_iter)         # gain or blending factor
+
+R = 0.1**2 # estimate of measurement variance, change to see effect
+
+# intial guesses
+xhat[0] = 0.0
+P[0] = 1.0
+
+for k in range(1,n_iter):
+    # time update
+    xhatminus[k] = xhat[k-1]
+    Pminus[k] = P[k-1]+Q
+
+    # measurement update
+    K[k] = Pminus[k]/( Pminus[k]+R )
+    xhat[k] = xhatminus[k]+K[k]*(z[k]-xhatminus[k])
+    P[k] = (1-K[k])*Pminus[k]
+
+plt.figure()
+plt.plot(z,'k-o',label='noisy measurements')
+plt.plot(xhat,'b-',label='a posteri estimate')
+plt.axhline(x,color='g')
+plt.legend()
+plt.title('Estimate vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('Percentage Imbalance')
+
+
+###############################################################################
+
+plt.figure()
+plt.scatter(met15['Tmedia'].values.ravel(), xhat)
+
+
+n_iter = met15['Tmedia'].values.ravel().size
+sz = (n_iter,) # size of array
+x = 0.0 # truth value
+z = met15['Tmedia'].values.ravel() # observations 
+
+Q = 1e-5 # process variance
+
+# allocate space for arrays
+yhat=np.zeros(n_iter)      # a posteri estimate of x
+P=np.zeros(n_iter)         # a posteri error estimate
+yhatminus=np.zeros(n_iter) # a priori estimate of x
+Pminus=np.zeros(n_iter)    # a priori error estimate
+K=np.zeros(n_iter)         # gain or blending factor
+
+R = 0.1**2 # estimate of measurement variance, change to see effect
+
+# intial guesses
+yhat[0] = 0.0
+P[0] = 1.0
+
+for k in range(1,n_iter):
+    # time update
+    yhatminus[k] = yhat[k-1]
+    Pminus[k] = P[k-1]+Q
+
+    # measurement update
+    K[k] = Pminus[k]/( Pminus[k]+R )
+    yhat[k] = yhatminus[k]+K[k]*(z[k]-yhatminus[k])
+    P[k] = (1-K[k])*Pminus[k]
+
+plt.figure()
+plt.plot(z,'k-o',label='noisy measurements')
+plt.plot(yhat,'b-',label='a posteri estimate')
+plt.axhline(x,color='g')
+plt.legend()
+plt.title('Estimate vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('Percentage Imbalance')
+
+
+###############################################################################
+
+plt.figure()
+plt.scatter(yhat, xhat, color = 'crimson')
+
+##### correlation with meteo 2015 CSUD
+
+roma15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_roma.txt')
+roma15 = roma15.set_index(pd.to_datetime(ConvertDates2(roma15['Data'])))
+
+roma15 = roma15.ix[roma15.index.year == 2015]
+
+csud15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_CSUD').ravel().tolist()]
+pcsud15 = csud15[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(csud15[['PV [MWh]']].values.ravel())
+pcsud15 = pd.Series(pcsud15, index = csud15.index)
+
+plt.figure()
+roma15['Tmedia'].plot()
+plt.figure()
+pcsud15.resample('D').sum().plot()
