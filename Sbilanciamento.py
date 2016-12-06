@@ -676,6 +676,31 @@ def converter(ser):
         res.append(x)
     return np.array(res).ravel()
 ###############################################################################
+def PlotImbalance(st15, st16, zona):
+    df16 = st16.ix[(st16[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    df15 = st15.ix[(st15[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    plt.figure()
+    (-df16[['PV [MWh]']]).plot()
+    plt.figure()
+    df16[['SBILANCIAMENTO FISICO [MWh]']].plot()
+    plt.figure()
+    (-df15[['PV [MWh]']]).plot(color = 'black')
+    plt.figure()
+    df15[['SBILANCIAMENTO FISICO [MWh]']].plot(color = 'black')
+    
+    psdf15 = df15[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(df15[['PV [MWh]']].values.ravel())
+    plt.figure()
+    plt.plot(psdf15,color = 'green')
+    plt.axhline(y=0, color = 'black')
+    plt.title(zona+' Imbalance Percentage 2015')
+    
+    psdf16 = df16[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(df16[['PV [MWh]']].values.ravel())
+    plt.figure()
+    plt.plot(psdf16,color = 'indigo')
+    plt.axhline(y=0, color = 'black')
+    plt.title(zona+' Imbalance Percentage 2016')        
+    return 0
+###############################################################################    
     
 plt.figure()
 plt.plot(converter(nord16[nord16.columns[2]]))
@@ -718,6 +743,11 @@ plt.figure()
 plt.plot(dec.seasonal[0:23])
 
 plotting.autocorrelation_plot(psnord15ts)
+
+scipy.stats.kurtosis(psnord15)
+scipy.stats.skew(psnord15)
+scipy.stats.kurtosis(psnord16)
+scipy.stats.skew(psnord16)
 
 ###############################################################################
 def BestApproximatingPolynomial(vec):
@@ -1052,3 +1082,13 @@ plt.figure()
 roma15['Tmedia'].plot()
 plt.figure()
 pcsud15.resample('D').sum().plot()
+
+
+###############################################################################
+
+PlotImbalance(ST15, ST16, 'CNOR')
+PlotImbalance(ST15, ST16, 'CSUD')
+PlotImbalance(ST15, ST16, 'SUD')
+PlotImbalance(ST15, ST16, 'SICI')
+PlotImbalance(ST15, ST16, 'SARD')
+
