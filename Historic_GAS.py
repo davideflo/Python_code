@@ -81,7 +81,7 @@ p = pdr[0]
 df2 = pd.DataFrame()
 
 for p in pdr:
-    if p is not None:
+    if p != 'None':
         loc = []
         anno = []
         for d in data:
