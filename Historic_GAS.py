@@ -12,6 +12,7 @@ import cx_Oracle
 import numpy as np
 from collections import OrderedDict
 import datetime
+import re
 
 ####################################################################################################
 def FilterMisura(df, pdr, year, month):
@@ -45,6 +46,8 @@ dfm = pd.DataFrame()
 for j in range(len(data2)):
     dfm = dfm.append(pd.DataFrame({'pdr':str(data2[j][1]), 'year':data2[j][0].year, 'month':data2[j][0].month, 'lettura':data2[j][2]}, index = [ii]))
     ii += 1
+
+dfm.to_excel('df_,misure.xlsx')
 
 SQL181 = """SELECT ANNO_COMPETENZA, 
             CLIENTE,
@@ -88,12 +91,12 @@ for p in pdr:
             if p in d:
                 loc.append(d)
                 anno.append(d[0])
-        cliente = loc[0][1]
+        cliente = re.sub(r'[^\x00-\x7f]',r' ',loc[0][1])
         cd_cli = loc[0][2]
         ppdr = loc[0][3]
         mis = loc[0][4]
         corre = loc[0][5]
-        distr = loc[0][6]
+        distr = re.sub(r'[^\x00-\x7f]',r' ',loc[0][6])
         for a in list(set(anno)):
             dia = OrderedDict()
             loc_anno = []
@@ -132,5 +135,5 @@ for p in pdr:
 #df2 = changeencode(df, ['cliente', 'distributore'])
 
 df.to_csv('storico_GAS.csv', sep = '|')
-#df2.to_excel('storico_GAS.xlsx', encoding='utf-8')
+df.to_excel('storico_GAS.xlsx')
 
