@@ -58,12 +58,12 @@ sbil_tot = pd.DataFrame()
 for y in years:    
     for m in mon:
         print(m)
-        if y == 2016 and m in ['10', '11', '12']:
+        if y == 2016 and m in ['11', '12']:
             break
         else:
             #pp = path+str(y)+'/TERNA_'+str(y)+'/01_TERNA_'+str(y)+'_SETTLEMENT/TERNA_'+str(y)+'.'+m+'/FA/'
             onlyfiles = [f for f in listdir(path) if isfile(join(path, f))]
-            nof = [onlyfiles[i] for i in range(len(onlyfiles)) if onlyfiles[i].startswith(str(y)+'.'+m+'_Sbilanciamento_UC_'+str(y))]
+            nof = [onlyfiles[i] for i in range(len(onlyfiles)) if onlyfiles[i].startswith(str(y)+'.'+str(m)+'_Sbilanciamento_UC_'+str(y))]
             #nof2 = [nof[i] for i in range(len(nof)) if nof[i].endswith('.csv')]        
             sbil = pd.read_csv(path+nof[0], sep = ';', skiprows = [0,1], error_bad_lines=False)
             sbil_tot = sbil_tot.append(sbil[['CODICE RUC', 'DATA RIFERIMENTO CORRISPETTIVO', 'PV [MWh]', 'SBILANCIAMENTO FISICO [MWh]','SEGNO SBILANCIAMENTO AGGREGATO ZONALE']], ignore_index = True)                
@@ -1074,6 +1074,7 @@ roma15 = roma15.set_index(pd.to_datetime(ConvertDates2(roma15['Data'])))
 
 roma15 = roma15.ix[roma15.index.year == 2015]
 
+csud16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_CSUD').ravel().tolist()]
 csud15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_CSUD').ravel().tolist()]
 pcsud15 = csud15[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(csud15[['PV [MWh]']].values.ravel())
 pcsud15 = pd.Series(pcsud15, index = csud15.index)
@@ -1083,6 +1084,64 @@ roma15['Tmedia'].plot()
 plt.figure()
 pcsud15.resample('D').sum().plot()
 
+corrs = []
+for h in range(24):
+    ath = csud15['SBILANCIAMENTO FISICO [MWh]'].ix[csud15.index.hour == h]
+    corrs.append(np.corrcoef(ath.values.ravel(), roma15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), roma15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs), color = 'yellow')
+
+corrs2 = []
+for h in range(24):
+    ath = (-1)*csud15['PV [MWh]'].ix[csud15.index.hour == h]
+    corrs2.append(np.corrcoef(ath.values.ravel(), roma15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), roma15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs2), color = 'gold')
+
+##### NORD ######
+
+mi15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_milano_aggiornato.txt')
+mi15 = mi15.set_index(pd.to_datetime(ConvertDates2(mi15['Data'])))
+
+mi15 = mi15.ix[mi15.index.year == 2015]
+
+nord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
+nord15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
+
+
+corrs = []
+for h in range(24):
+    ath = nord15['SBILANCIAMENTO FISICO [MWh]'].ix[nord15.index.hour == h]
+    corrs.append(np.corrcoef(ath.values.ravel(), mi15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), mi15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs), color = 'lime')
+
+corrs2 = []
+for h in range(24):
+    ath = (-1)*nord15['PV [MWh]'].ix[nord15.index.hour == h]
+    corrs2.append(np.corrcoef(ath.values.ravel(), mi15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), mi15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs2), color = 'silver')
 
 ###############################################################################
 
@@ -1092,3 +1151,112 @@ PlotImbalance(ST15, ST16, 'SUD')
 PlotImbalance(ST15, ST16, 'SICI')
 PlotImbalance(ST15, ST16, 'SARD')
 
+###### SARD ####
+
+sard16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_SARD').ravel().tolist()]
+sard15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_SARD').ravel().tolist()]
+
+(-sard15['PV [MWh]']).plot()
+plt.figure()
+sard15['SBILANCIAMENTO FISICO [MWh]'].plot()
+
+ca15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_cagliari_aggiornato.txt')
+ca15 = ca15.set_index(pd.to_datetime(ConvertDates2(ca15['Data'])))
+
+ca15 = ca15.ix[ca15.index.year == 2015]
+
+corrs = []
+for h in range(24):
+    ath = sard15['SBILANCIAMENTO FISICO [MWh]'].ix[sard15.index.hour == h]
+    corrs.append(np.corrcoef(ath.values.ravel(), ca15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), ca15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs))
+
+corrs2 = []
+for h in range(24):
+    ath = (-1)*sard15['PV [MWh]'].ix[sard15.index.hour == h]
+    corrs2.append(np.corrcoef(ath.values.ravel(), ca15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), ca15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs2), color = 'coral')
+
+ca16 = pd.read_excel('C:/Users/d_floriello/Documents/PUN/Cagliari 2016.xlsx')
+ca16 = ca16.set_index(pd.date_range('2016-01-01', '2016-10-31', freq = 'D'))
+ca16 = ca16.ix[ca16.index.month <= 9]
+
+corrs6 = []
+for h in range(24):
+    ath = sard16['SBILANCIAMENTO FISICO [MWh]'].ix[sard16.index.hour == h]
+    if h == 2: 
+        corrs6.append(np.corrcoef(ath.values.ravel(), np.delete(ca16['Tmedia'].values.ravel(),57))[0,1])
+        print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), np.delete(ca16['Tmedia'].values.ravel(),57))[0,1]))
+    else:
+        corrs6.append(np.corrcoef(ath.values.ravel(), ca16['Tmedia'].values.ravel())[0,1])
+        print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), ca16['Tmedia'].values.ravel())[0,1]))
+
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs6), color = 'turquoise')
+
+
+###### CNORD #######
+
+fi15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_firenze_aggiornato.txt')
+fi15 = fi15.set_index(pd.to_datetime(ConvertDates2(fi15['Data'])))
+
+fi15 = fi15.ix[fi15.index.year == 2015]
+
+cnord15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_CNOR').ravel().tolist()]
+cnord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_CNOR').ravel().tolist()]
+
+
+corrs = []
+for h in range(24):
+    ath = cnord15['SBILANCIAMENTO FISICO [MWh]'].ix[cnord15.index.hour == h]
+    corrs.append(np.corrcoef(ath.values.ravel(), fi15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), fi15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs), color = 'darkturquoise')
+
+corrs2 = []
+for h in range(24):
+    ath = (-1)*cnord15['PV [MWh]'].ix[cnord15.index.hour == h]
+    corrs2.append(np.corrcoef(ath.values.ravel(), fi15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), fi15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs2), color = 'deepskyblue')
+
+
+cnord15['SBILANCIAMENTO FISICO [MWh]'].plot()
+cnord16['SBILANCIAMENTO FISICO [MWh]'].plot()
+
+cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('D').mean().plot()
+cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('M').mean().plot()
+cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('D').std().plot()
+cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('M').std().plot()
+
+
+cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('D').mean().plot(lw = 2)
+cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('M').mean().plot(lw = 2)
+cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('D').std().plot(lw = 2)
+cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('M').std().plot(lw = 2)
+
+np.sign(np.diff(cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('M').mean()))
+np.sign(np.diff(cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('M').mean()))
