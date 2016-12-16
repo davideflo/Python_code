@@ -461,6 +461,39 @@ ST15 = ST_2.ix[ST_2.index.year == 2015]
 
 #ConvertDates(ST[ST.columns[1]])
 
+###############################################################################
+#### dataset to be used in R ####
+def ToDataFrame(st, zona):
+    stz = st.ix[(st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    diz = OrderedDict()
+    rng = pd.date_range(start = '2015-01-01', end = '2016-11-01', freq = 'D')
+    for r in rng:
+        hl = []
+        hl2 = 0
+        sub1 = stz.ix[stz.index.year == r.year]
+        sub2 = sub1.ix[sub1.index.month == r.month]
+        sub3 = sub2.ix[sub2.index.day == r.day]
+        for h in range(24):
+            if sub3['FABBISOGNO REALE'].ix[sub3.index.hour == h].values.ravel().size == 0:
+                hl.append(0)
+            elif sub3['FABBISOGNO REALE'].ix[sub3.index.hour == h].values.ravel().size == 2:
+                hl.append([np.sum(sub3['FABBISOGNO REALE'].ix[sub3.index.hour == h].values.ravel())])
+            else:
+                hl.append(sub3['FABBISOGNO REALE'].ix[sub3.index.hour == h].values.ravel())
+        if isinstance(hl[0], list):
+            hl2 = [float(item) for sublist in hl for item in sublist]
+        else:
+            hl2 = hl
+        diz[r] = np.array(hl2).ravel()
+    df = pd.DataFrame.from_dict(diz, orient = 'index')
+    df.columns = ['0','1','2','3','4','5','6','7','8','9','10','11',
+                  '12','13','14','15','16','17','18','19','20','21','22','23']
+    return df
+###############################################################################
+ex = ToDataFrame(ST_2, 'CNOR')
+
+ex.to_csv('cnord.csv', sep = ';')
+ex.to_excel('cnord.xlsx')
 
 
 TestIndipendence(ST16, 'NORD')
