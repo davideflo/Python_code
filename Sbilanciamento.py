@@ -486,14 +486,22 @@ def ToDataFrame(st, zona):
             hl2 = hl
         diz[r] = np.array(hl2).ravel()
     df = pd.DataFrame.from_dict(diz, orient = 'index')
-    df.columns = ['0','1','2','3','4','5','6','7','8','9','10','11',
-                  '12','13','14','15','16','17','18','19','20','21','22','23']
+    df.columns = ['1','2','3','4','5','6','7','8','9','10','11','12',
+                  '13','14','15','16','17','18','19','20','21','22','23','24']
     return df
 ###############################################################################
 ex = ToDataFrame(ST_2, 'CNOR')
+ex2 = ToDataFrame(ST_2, 'NORD')
+ex3 = ToDataFrame(ST_2, 'CSUD')
+ex4 = ToDataFrame(ST_2, 'SUD')
+ex5 = ToDataFrame(ST_2, 'SICI')
+ex6 = ToDataFrame(ST_2, 'SARD')
+
+
 
 ex.to_csv('cnord.csv', sep = ';')
 ex.to_excel('cnord.xlsx')
+ex2.to_excel('nord.xlsx')
 
 
 TestIndipendence(ST16, 'NORD')
