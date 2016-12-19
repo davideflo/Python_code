@@ -17,6 +17,16 @@ import pandas as pd
 import math
 
 ####################################################################################################
+def FilterAttiva(tt, da):
+    res = []
+    for d in da:
+        iniziolinea = tt[d-2:d+3]
+        if iniziolinea == 'ReAtt':
+            pass
+        else:
+            res.append(d)
+        return res
+####################################################################################################
 def Estrai_Linea_Att(tt, string, da):
     inter = tt[da: da+70]
     st = inter.find('kWh')    
@@ -82,15 +92,17 @@ def Estrai_Multiple_Att(tt, string):
     res = []
     if string in ['Att-f1', 'Att-f2', 'Att-f3']:
         da = [m.start() for m in re.finditer(string, tt)]
+        da = FilterAttiva(tt, da)
         if len(da) <= 0:
             return ''
         elif len(da) == 1:
             return Estrai_Linea_Att(tt, string, da[0])
         else:
-            for d in range(0,len(da),2):
+#            for d in range(0,len(da),2):
+             for d in range(len(da)):
                 print d
                 res.append(Estrai_Linea_Att(tt, string, da[d]))
-            return res
+        return res
     elif string == 'Att-f0':
         da = [m.start() for m in re.finditer(string, tt)]
         if len(da) == 1:
@@ -237,10 +249,16 @@ def Transform_pot(pot,t):
     if len(pot) > 1:
         return pot[t]
     else:
-        pot[0]
+        return pot[0]
 ####################################################################################################        
-prodotto = 'C:/Users/d_floriello/Documents/fattura_unareti.pdf'
-prodotto = 'C:/Users/d_floriello/Documents/201690120000189_Dettaglio.pdf'
+#prodotto = 'C:/Users/d_floriello/Documents/fattura_unareti.pdf'
+#prodotto = 'C:/Users/d_floriello/Documents/201690120000189_Dettaglio.pdf'
+
+#prodotto = 'C:/Users/d_floriello/Documents/201690110003764_Dettaglio.pdf'
+
+prodotto = 'C:/Users/d_floriello/Documents/201690120001617_Dettaglio.pdf'
+prodotto = 'C:/Users/d_floriello/Documents/201690110007780_Dettaglio.pdf'
+
 
 pdfFileObj = open(prodotto, 'rb')
 pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
@@ -322,9 +340,12 @@ if pp > 0:
 Diz = pd.DataFrame.from_dict(diz, orient = 'index')          
 Diz.columns = [['data emissione','pod','lettura rilevata il','lettura rilevata il','Att-f0','Att-f1','Att-f2','Att-f3','ReAtt-f0',
                'ReAtt-f1','ReAtt-f2','ReAtt-f3','potenza']]
-        
-NP = pd.DataFrame.from_dict(not_processed, orient = 'index')        
-NP.columns = [['POD']]
-
 Diz.to_excel(numero_fattura+'_A2A.xlsx')        
-NP.to_excel(numero_fattura+'_manuale_A2A.xlsx')
+
+NP = pd.DataFrame.from_dict(not_processed, orient = 'index')
+
+if NP.shape[0] > 0:                
+    NP.columns = [['POD']]
+    NP.to_excel(numero_fattura+'_manuale_A2A.xlsx')
+else:
+    print 'Tutto finito'
