@@ -6,6 +6,7 @@ Created on Mon Nov 21 12:17:02 2016
 
 SET - extractor
 """
+
 from __future__ import division
 import pandas as pd
 from collections import OrderedDict
@@ -44,15 +45,16 @@ def ExtractPotenza_Set(df):
     df2 = df.ix[df[df.columns[2]] == 'quota potenza']
     res = []
     if df2.size > 0:
-        res.append(round(df2[df2.columns[7]].tolist()[0],0))
+        res.append(round(float(df2[df2.columns[7]].tolist()[0].replace(',','.')),0))
     else:
         res = ['']
     return res
 ####################################################################################################
 
 set1 = pd.read_excel('C:/Users/d_floriello/Documents/set.xlsx')
+set1 = pd.read_table('Z:/AREA BO&B/00000.File Distribuzione/3. SET DISTRIBUZIONE/E1D05I_E1V171E-AXOPOWER SRL (SET) - DP1608-CL-01932800228_03728900964 (8).csv', sep = ';')
 
-ix_pod = set1.ix[set1[0] == 'POD'].index
+ix_pod = set1.ix[set1[set1.columns[0]] == 'POD'].index
 
 list_pod = []
 missing = []

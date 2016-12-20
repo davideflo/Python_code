@@ -49,6 +49,13 @@ def convert(fname, pages=None):
     output.close
     return text 
 ####################################################################################################
+def GetType(tt):
+    tt2 = re.findall('(Fascia((?!Fascia).)*?Fascia)', tt, re.S)[0][0]
+    if len([m.start() for m in re.finditer('CONSUMO REALE', tt2)]) > 1:
+        return Attiva_Extracter(tt)
+    else:
+        return Attiva_Extracter2(tt)
+####################################################################################################
 def Attiva_Extracter(tt):
     Eff = ['F1', 'F2', 'F3']
     res = []
@@ -86,7 +93,45 @@ def Attiva_Extracter(tt):
             else:
                 res.append(enf)
     return res
-####################################################################################################    
+####################################################################################################
+def Attiva_Extracter2(tt):
+    Eff = ['F1', 'F2', 'F3']
+    res = []
+    if len([m.start() for m in re.finditer('ENERGIA ATTIVA', tt)]) > 3:
+        raise ValueError
+    for F in Eff:
+        if F == 'F1':
+            da = [m.start() for m in re.finditer('F1', tt)]
+            da2 = [m.start() for m in re.finditer('Fascia', tt)][1]
+        elif F == 'F2':
+            da = [m.start() for m in re.finditer('F2', tt)]
+            da2 = [m.start() for m in re.finditer('Fascia', tt)][2]
+        elif F == 'F3':
+            da = [m.start() for m in re.finditer('F3', tt)]
+            da2 = [m.start() for m in re.finditer('Quadro', tt)][0]
+        tts = tt[da[0]:da2]
+        if 'ENERGIA ATTIVA' in tts:
+            bsl = [m.start() for m in re.finditer('/', tts)]
+            dts = tts[(bsl[0]-2):(bsl[3]+5)]
+            en = ''
+            for j in range(len(tts)-1, 0, -1):
+                en += tts[j]
+                if tts[j] == ',':
+                    break
+            en = en[::-1]                        
+            en = en[4:]
+            enf = float(en)
+            minus = dts.find('-')
+            di = dts[:minus]
+            df = dts[minus+1:]
+            if F == 'F1':
+                res.append(di)
+                res.append(df)
+                res.append(enf)
+            else:
+                res.append(enf)
+    return res    
+####################################################################################################
 def Reattiva_Extracter(tt):
     Eff = ['F1', 'F2', 'F3']
     res = []
@@ -108,9 +153,9 @@ def Reattiva_Extracter(tt):
             da = re.findall('(F3((?!F3).)*?Quadro)',tt,re.S)[0][0]
             da = re.sub('\  Quadro$', '', da)
         tts = da.replace('.',',')
-        if 'ENERGIA REATTIVA' not in tts:
-            print 'Not ENERGIA REATTIVA'
-            raise ValueError                
+#        if 'ENERGIA REATTIVA' not in tts:
+#            print 'Not ENERGIA REATTIVA'
+#            raise ValueError                
         en = ''
         for j in range(len(tts)-1, 0, -1):
             en += tts[j]
@@ -145,7 +190,9 @@ def Potenza_Extractor(tt):
         return ''
 ####################################################################################################
 
-prodotto = 'C:/Users/d_floriello/Documents/Aem_STAMPABOLLETTE.2016080540_61150650_Allegato_21_1.001.pdf'
+#prodotto = 'C:/Users/d_floriello/Documents/Aem_STAMPABOLLETTE.2016080540_61150650_Allegato_21_1.001.pdf'
+prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/2. IRETI/2727EM/Aem_STAMPABOLLETTE.2016120540_61150650_Allegato_24_1.001.pdf'
+prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/2. IRETI/2689EM/Aem_STAMPABOLLETTE.2016110560_61150650_Allegato_33_1.001.pdf'
 
 text = convert(prodotto)
 
@@ -153,7 +200,7 @@ pods = [m.start() for m in re.finditer('Codice POD', text)]
 
 fatt_n = text[text.find('Fattura n.')+10:text.find('Fattura n.')+17]
 em = text.find('Emessa il')
-EM = text[em+9:em+23]
+EM = text[em+9:em+25]
 
 
 list_pod = []
@@ -169,7 +216,7 @@ for x in range(len(pods)):
     list_pod.append(codpod)
     index = codpod + '_' + str(x)
     try:
-        ae = Attiva_Extracter(capitolo)
+        ae = GetType(capitolo)
         ree = Reattiva_Extracter(capitolo)
         pe = Potenza_Extractor(capitolo)
         al = [fatt_n, codpod]
@@ -186,9 +233,12 @@ print 'percentage not processed: {}'.format(len(not_proc.keys())/len(list_pod))
 Diz = pd.DataFrame.from_dict(diz, orient = 'index')
 Diz.columns = [['numero fattura', 'POD', 'data inizio', 'data fine', 'attiva F1', 'attiva F2', 'attiva F3',
                 'reattiva F1', 'reattiva F2', 'reattiva F3', 'potenza']] 
-   
-NP = pd.DataFrame.from_dict(not_proc, orient = 'index')
-NP.columns = [['POD']]
-             
 Diz.to_excel('IRETI_'+fatt_n.replace('/','-')+'.xlsx')
-NP.to_excel(fatt_n.replace('/','-')+'_IRETI_manuale.xlsx')
+
+NP = pd.DataFrame.from_dict(not_proc, orient = 'index')
+
+if NP.shape[0] > 0:
+    NP.columns = [['POD']]             
+    NP.to_excel(fatt_n.replace('/','-')+'_IRETI_manuale.xlsx')
+else:
+    print 'Tutto finito'

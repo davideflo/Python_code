@@ -258,7 +258,8 @@ def Transform_pot(pot,t):
 
 prodotto = 'C:/Users/d_floriello/Documents/201690120001617_Dettaglio.pdf'
 prodotto = 'C:/Users/d_floriello/Documents/201690110007780_Dettaglio.pdf'
-
+prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/201690120001827_Dettaglio.pdf'
+unareti(prodotto)
 
 pdfFileObj = open(prodotto, 'rb')
 pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
