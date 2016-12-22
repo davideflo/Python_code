@@ -66,7 +66,7 @@ for y in years:
             nof = [onlyfiles[i] for i in range(len(onlyfiles)) if onlyfiles[i].startswith(str(y)+'.'+str(m)+'_Sbilanciamento_UC_'+str(y))]
             #nof2 = [nof[i] for i in range(len(nof)) if nof[i].endswith('.csv')]        
             sbil = pd.read_csv(path+nof[0], sep = ';', skiprows = [0,1], error_bad_lines=False)
-            sbil_tot = sbil_tot.append(sbil[['CODICE RUC', 'DATA RIFERIMENTO CORRISPETTIVO', 'PV [MWh]', 'SBILANCIAMENTO FISICO [MWh]','SEGNO SBILANCIAMENTO AGGREGATO ZONALE']], ignore_index = True)                
+            sbil_tot = sbil_tot.append(sbil[['CODICE RUC', 'DATA RIFERIMENTO CORRISPETTIVO', 'MO [MWh]', 'PV [MWh]', 'SBILANCIAMENTO FISICO [MWh]','SEGNO SBILANCIAMENTO AGGREGATO ZONALE']], ignore_index = True)                
         
 sbil_tot.to_excel('aggregato_sbilanciamento.xlsx')        
 
@@ -490,6 +490,33 @@ def ToDataFrame(st, zona):
                   '13','14','15','16','17','18','19','20','21','22','23','24']
     return df
 ###############################################################################
+def ToDataFrameMO(st, zona):
+    stz = st.ix[(st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    diz = OrderedDict()
+    rng = pd.date_range(start = '2015-01-01', end = '2016-11-01', freq = 'D')
+    for r in rng:
+        hl = []
+        hl2 = 0
+        sub1 = stz.ix[stz.index.year == r.year]
+        sub2 = sub1.ix[sub1.index.month == r.month]
+        sub3 = sub2.ix[sub2.index.day == r.day]
+        for h in range(24):
+            if sub3['MO [MWh]'].ix[sub3.index.hour == h].values.ravel().size == 0:
+                hl.append(0)
+            elif sub3['MO [MWh]'].ix[sub3.index.hour == h].values.ravel().size == 2:
+                hl.append([np.sum(float(sub3['MO [MWh]'].ix[sub3.index.hour == h].values.ravel()[0].replace(',','.')) )])
+            else:
+                hl.append(float(sub3['MO [MWh]'].ix[sub3.index.hour == h].values.ravel()[0].replace(',','.')))
+        if isinstance(hl[0], list):
+            hl2 = [float(item) for sublist in hl for item in sublist]
+        else:
+            hl2 = hl
+        diz[r] = hl2
+    df = pd.DataFrame.from_dict(diz, orient = 'index')
+    df.columns = ['1','2','3','4','5','6','7','8','9','10','11','12',
+                  '13','14','15','16','17','18','19','20','21','22','23','24']
+    return df
+###############################################################################
 ex = ToDataFrame(ST_2, 'CNOR')
 ex2 = ToDataFrame(ST_2, 'NORD')
 ex3 = ToDataFrame(ST_2, 'CSUD')
@@ -497,7 +524,10 @@ ex4 = ToDataFrame(ST_2, 'SUD')
 ex5 = ToDataFrame(ST_2, 'SICI')
 ex6 = ToDataFrame(ST_2, 'SARD')
 
+exmo = ToDataFrameMO(ST_2, 'CNOR')
+ex2 = ToDataFrameMO(ST_2, 'NORD')
 
+exmo.to_excel('MOcnord2.xlsx')
 
 ex.to_csv('cnord.csv', sep = ';')
 ex.to_excel('cnord.xlsx')
