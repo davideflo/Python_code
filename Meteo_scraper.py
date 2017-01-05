@@ -14,8 +14,9 @@ import MEteo_scraper_fun as ME
 
 
 city = sys.argv[1]
+anno = sys.argv[2]
 list_mesi = []
-for arg in sys.argv[2:]:
+for arg in sys.argv[3:]:
   list_mesi.append(arg)
 
 #browser = webdriver.Firefox()
@@ -23,7 +24,7 @@ cromepath = r'C:/Users/d_floriello/Desktop/chromedriver.exe'
 
 browser = webdriver.Chrome(cromepath)
 
-ME.GetListMonth(browser, city, list_mesi)
+ME.GetListMonth(browser, city, list_mesi, anno)
 ME.ElaborateExcel(city, list_mesi)
 #city = 'Milano'
 #list_mesi = ['Settembre']
