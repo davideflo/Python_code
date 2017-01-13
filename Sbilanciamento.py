@@ -58,7 +58,7 @@ sbil_tot = pd.DataFrame()
 for y in years:    
     for m in mon:
         print(m)
-        if y == 2016 and m in ['11', '12']:
+        if y == 2016 and m in ['12']:
             break
         else:
             #pp = path+str(y)+'/TERNA_'+str(y)+'/01_TERNA_'+str(y)+'_SETTLEMENT/TERNA_'+str(y)+'.'+m+'/FA/'
