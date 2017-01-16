@@ -8,7 +8,7 @@ PUN Pricing
 """
 
 import pandas as pd
-import numpy as np
+#import numpy as np
 from pandas.tools import plotting
 import matplotlib.pyplot as plt
 
@@ -18,15 +18,20 @@ data2 = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO
 
 data3 = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
 
+data4 = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2017/06. MI/DB_Borse_Elettriche_PER MI_17.xlsx", sheetname = 'DB_Dati')
+
+
 pun = []
 pun.append(data1['PUN'].values.ravel())
 pun.append(data2['PUN [€/MWH]'].values.ravel())
 pun.append(data3['PUN [€/MWH]'].dropna().values.ravel())
+pun.append(data4['PUN [€/MWH]'].dropna().values.ravel())
+
 
 unlisted =  [item for sublist in pun for item in sublist]
 
 df = pd.DataFrame(unlisted) ######### to: 2 DAYS AHEAD OF TODAY
-df = df.set_index(pd.date_range('2014-01-01', '2016-12-24', freq = 'H')[:df.shape[0]])
+df = df.set_index(pd.date_range('2014-01-01', '2017-01-18', freq = 'H')[:df.shape[0]])
 
 df.plot()
 df.resample('D').mean().plot()
@@ -75,7 +80,7 @@ df.ix[df.index.year == 2016].resample('D').mean().plot(color = 'green')
 
 df.resample('D').std().plot()
 
-df.to_excel('dati_2014-2016.xlsx')
+df.to_excel('dati_2014-2017.xlsx')
 
 ##########
 
