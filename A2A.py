@@ -18,6 +18,16 @@ import pandas as pd
 import math
 
 ####################################################################################################
+def IsLastDay(dtt):
+    DAY = dtt.day
+    MONTH = dtt.month
+    YEAR = dtt.year
+    cal = calendar.monthrange(YEAR, MONTH)[1]
+    if DAY == cal:
+        return True
+    else:
+        return False
+####################################################################################################
 def FilterAttiva(tt, da):
     res = []
     for d in da:
@@ -94,7 +104,8 @@ def Estrai_Attiva(tt, d):
             data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
             datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
             delta = (dff - dti).days
-            rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
+            if not IsLastDay(dff):
+                rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
         elif dti.month < dr <dtf.month:
             data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
             datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
@@ -120,20 +131,23 @@ def Estrai_Multiple_Att(tt, string):
         elif len(da) <= 0:
             return ''
         elif len(da) == 1:
-            return Estrai_Linea_Att(tt, string, da[0])
+#            return Estrai_Linea_Att(tt, string, da[0])
+             return Estrai_Attiva(tt, da[0])
         else:
 #            for d in range(0,len(da),2):
              for d in range(len(da)):
                 print d
-#                res.append(Estrai_Linea_Att(tt, string, da[d]))
+#                res.append(Estrai_Attiva(tt, da[d]))
                 res.append(Estrai_Linea_Att(tt, string, da[d]))               
-        return res
+             return res
     elif string == 'Att-f0':
         da = [m.start() for m in re.finditer(string, tt)]
         if len(da) == 1:
-            return Estrai_Linea_Att(tt, string, da[0])
+#            return Estrai_Linea_Att(tt, string, da[0])
+            return Estrai_Attiva(tt, da[0])
         elif len(da) > 1:
             for d in range(0,len(da),2):
+#                res.append(Estrai_Linea_Att(tt, string, da[d]))
                 res.append(Estrai_Linea_Att(tt, string, da[d]))
             return res
         else:
@@ -164,7 +178,7 @@ def Estrai_Linea_ReAtt(tt, string, da):
     en = en[::-1]
     en = en[:len(en)-4].replace('.','') + en[len(en)-4:].replace(',','.')
     enf = math.ceil(float(en)) 
-    data_inizio = inter[6:16]
+    data_inizio = inter[8:16]
     bsl = [m.start() for m in re.finditer('/', inter)]
     data_fine = inter[(bsl[2]-2):(bsl[3]+5)]
     return (data_inizio, data_fine, enf)
@@ -210,7 +224,8 @@ def Estrai_Reattiva(tt, d):
             data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
             datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
             delta = (dff - dti).days
-            rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
+            if not IsLastDay(dff):
+                rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
         elif dti.month < dr <dtf.month:
             data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
             datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
@@ -235,19 +250,23 @@ def Estrai_Multiple_ReAtt(tt, string):
         elif len(da) <= 0:
             return ''
         elif len(da) == 1:
-            return Estrai_Linea_ReAtt(tt, string, da[0])
+#            return Estrai_Linea_ReAtt(tt, string, da[0])
+            return Estrai_Reattiva(tt, da[0])
         else:
             for d in da:
                 print d                
-                res.append(Estrai_Linea_ReAtt(tt, string, d))
+#                res.append(Estrai_Linea_ReAtt(tt, string, d))
+                res.append(Estrai_Reattiva(tt, d))
             return res
     elif string == 'ReAtt-f0':
         da = [m.start() for m in re.finditer(string, tt)]
         if len(da) == 1:
-            return Estrai_Linea_ReAtt(tt, string, da[0])
+#            return Estrai_Linea_ReAtt(tt, string, da[0])
+            return Estrai_Reattiva(tt, da[0])
         elif len(da) > 1:
             for d in da:
-                res.append(Estrai_Linea_ReAtt(tt, string, d))
+#                res.append(Estrai_Linea_ReAtt(tt, string, d))
+                res.append(Estrai_Reattiva(tt, d))
             return res
         else:
             da = [m.start() for m in re.finditer('Reattiva', tt)]
@@ -260,31 +279,49 @@ def Estrai_Multiple_ReAtt(tt, string):
 ####################################################################################################        
 def Estrai_Linea_CdP(tt):
     pot = []
-    lines =  [m.start() for m in re.finditer('corrispettivo di potenza', tt)]
-    if len(lines) == 0:
-        return ' '
-    else:
-        for line in lines:
-            inter = tt[line:line+61]
-            CdP = ''
-            counter_dot = 0
-            counter_comma = 0
-            for i in range(len(inter)-1, 0, -1):
-                CdP += inter[i]
-                if inter[i] == ',':
-                    counter_comma += 1
-                elif inter[i] == '.':
-                    counter_dot += 1
-                if counter_comma == 3:
-                    break
-            commas = [m.start() for m in re.finditer(',', CdP)]
-            second = commas[1]
-            third = commas[2]
-            CdP = CdP[(second-3):(third-8)]
-            CdP = CdP[::-1]
-            CdP = CdP.replace('.','')
-            CdP = CdP.replace(',', '.')
-            pot.append(math.ceil(float(CdP)))
+    tt2 = tt.find('PERIODO')
+    DA = tt[tt2:]
+    periodi = [m.start() for m in re.finditer('dal', DA)]
+    for k in range(len(periodi)):
+        #print k
+        if k < len(periodi)-1:
+            DA2 = DA[periodi[k]:periodi[k+1]]
+        else:
+            DA2 = DA[periodi[k]:DA.find('Totale')]
+        p = 0
+        lines = [DA2.find('corrispettivo di potenza')]
+        if len(lines) == 0 or lines[0] == -1:
+            #return ' '
+            pass
+        else:
+            init = DA2[p+4:p+14]
+            fine = DA2[p+18:p+28]
+            d_init = datetime.date(int(str(init)[6:]),int(str(init)[3:5]),int(str(init)[0:2]))
+            d_fine = datetime.date(int(str(fine)[6:]),int(str(fine)[3:5]),int(str(fine)[0:2]))
+            month_diff = d_fine.month - d_init.month + 1
+            #lines =  [m.start() for m in re.finditer('corrispettivo di potenza', tt)]
+            for line in lines:
+                inter = DA2[line:line+61]
+                CdP = ''
+                counter_dot = 0
+                counter_comma = 0
+                for i in range(len(inter)-1, 0, -1):
+                    CdP += inter[i]
+                    if inter[i] == ',':
+                        counter_comma += 1
+                    elif inter[i] == '.':
+                        counter_dot += 1
+                    if counter_comma == 3:
+                        break
+                commas = [m.start() for m in re.finditer(',', CdP)]
+                second = commas[1]
+                third = commas[2]
+                CdP = CdP[(second-3):(third-8)]
+                CdP = CdP[::-1]
+                CdP = CdP.replace('.','')
+                CdP = CdP.replace(',', '.')
+                for m in range(month_diff):
+                    pot.append(math.ceil(float(CdP)))
     return pot
 ####################################################################################################    
 def Transform(rea):
@@ -352,6 +389,26 @@ def A2A_Executer(prodotto):
         rea2 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f2')
         a3 = Estrai_Multiple_Att(capitolo, 'Att-f3')
         rea3 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f3')
+        Rea1 = []
+        Rea2 = []
+        Rea3 = []
+        Rea0 = []
+        if rea1 == '':
+            for i in range(len(a1)):
+                Rea1.append(('', '', ''))            
+                rea1 = Rea1                
+        if rea2 == '':
+            for i in range(len(a2)):
+                Rea2.append(('', '', ''))     
+                rea2 = Rea2                       
+        if rea3 == '':
+            for i in range(len(a1)):
+                Rea3.append(('', '', ''))
+                rea3 = Rea3                            
+        if rea0 == '' and a0 != '':
+            for i in range(len(a0)):
+                Rea0.append(('', '', ''))                            
+                rea0 = Rea0
         try:    
             if a0 != '':
                 for a in range(len(a0)):
@@ -376,31 +433,38 @@ def A2A_Executer(prodotto):
                         else:
                             diz[index] = [emessa,POD, a1[a][0], a1[a][1], '', a1[a][2], a2[a][2], a3[a][2], '', rea1[2],  rea2[2],  rea3[2], pot[a]]
         except:
-            not_processed[numero_fattura + '_' + str(x)] = POD
+            not_processed[POD] = 0 
             print '{} NOT PROCESSED'.format(POD)
     pp = len(not_processed.keys())/len(list_pod)
     print 'Percentage not processed: {}'.format(pp)
-    missed_pg = []
+    #missed_pg = []
     if pp > 0:
-        for np in not_processed:
-            for p in range(numpages):
-                if np in pdfReader.getPage(p).extractText():
-                    missed_pg.append(p+1)
+        with open(prodotto, 'rb') as pdfFile:
+            pdf = PyPDF2.PdfFileReader(pdfFile)
+            for np in not_processed:
+                for p in range(numpages):
+                    #print p 
+                    if np in pdf.getPage(p).extractText():
+                        not_processed[np] = p+1
+                        #missed_pg.append(p+1)
     
     Diz = pd.DataFrame.from_dict(diz, orient = 'index')          
-    Diz.columns = [['data emissione','pod','lettura rilevata il','lettura rilevata il','Att-f0','Att-f1','Att-f2','Att-f3','ReAtt-f0',
-                   'ReAtt-f1','ReAtt-f2','ReAtt-f3','potenza']]
+    
     if Diz.shape[0] > 0:
+        Diz.columns = [['data emissione','pod','lettura rilevata il','lettura rilevata il','Att-f0','Att-f1','Att-f2','Att-f3','ReAtt-f0',
+                   'ReAtt-f1','ReAtt-f2','ReAtt-f3','potenza']]
+
         Diz.to_excel('fatture/'+numero_fattura+'_A2A.xlsx')        
     
+    not_processed[''] = OrderedDict()
     NP = pd.DataFrame.from_dict(not_processed, orient = 'index')
     
     if NP.shape[0] > 0:                
-        NP.columns = [['POD']]
+        NP.columns = [['Pagina']]
         NP.to_excel('fatture/'+numero_fattura+'_manuale_A2A.xlsx')
     else:
         print 'Tutto finito'
-    return "done"
+    return 1
 ###############################################################################################################################
     
 
@@ -411,11 +475,11 @@ mypath = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI'
 
 onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 
-onlyfiles = onlyfiles[:len(onlyfiles)-2]
+onlyfiles = onlyfiles[:len(onlyfiles)-1]
 
 mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/'
 
-prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/201690110007595_Dettaglio.pdf'
+prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/201690110004940_Dettaglio.pdf'
 A2A_Executer(prodotto)
 
 for FILE in onlyfiles:
