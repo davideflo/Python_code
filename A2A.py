@@ -97,28 +97,37 @@ def Estrai_Attiva(tt, d):
     en = en[:len(en)-4].replace('.','') + en[len(en)-4:].replace(',','.')
     enf = float(en)   
     
-    for dr in range(dti.month, dtf.month+1,1):
-        print dr
-        if dr == dti.month:
-            dff = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1])
-            data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
-            datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
-            delta = (dff - dti).days
-            if not IsLastDay(dff):
-                rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
-        elif dti.month < dr <dtf.month:
-            data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
-            datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
-            data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
-            datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
-            delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]
-            rea.append((datainizio2, datafine1, math.ceil((enf/deltad)*delta)))
-        else:
-            data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
-            datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
-            delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1] - datetime.date(int(str(data_fine)[6:]),dr,1).day + 1
-            rea.append((datainizio2, data_fine, math.ceil((enf/deltad)*delta)))
+    #condition2 = (dtf - dti).days <= min([calendar.monthrange(dtf.year, dtf.month)[1],calendar.monthrange(dti.year, dti.month)[1]])
+    condition = (dti.month != dtf.month)    
     
+    if condition:
+        for dr in range(dti.month, dtf.month+1,1):
+            print dr
+            if dr == dti.month:
+                dff = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1])
+                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
+                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
+                delta = (dff - dti).days
+                if not IsLastDay(dff):
+                    rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
+            elif dti.month < dr <dtf.month:
+                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
+                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
+                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
+                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
+                delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]
+                rea.append((datainizio2, datafine1, math.ceil((enf/deltad)*delta)))
+            else:
+                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
+                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
+                delta = (dtf - datetime.date(int(str(data_inizio2)[:4]),dr,1)).days + 1
+                rea.append((datainizio2, data_fine, math.ceil((enf/deltad)*delta)))
+    
+#    elif (not condition) and condition2:
+#        rea.append((data_inizio, data_fine, enf))
+    else:
+        rea.append((data_inizio, data_fine, enf))
+        
     return rea
 ####################################################################################################
 def Estrai_Multiple_Att(tt, string):
@@ -217,27 +226,35 @@ def Estrai_Reattiva(tt, d):
     en = en[:len(en)-4].replace('.','') + en[len(en)-4:].replace(',','.')
     enf = float(en)   
     
-    for dr in range(dti.month, dtf.month+1,1):
-        print dr
-        if dr == dti.month:
-            dff = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1])
-            data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
-            datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
-            delta = (dff - dti).days
-            if not IsLastDay(dff):
-                rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
-        elif dti.month < dr <dtf.month:
-            data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
-            datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
-            data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
-            datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
-            delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]
-            rea.append((datainizio2, datafine1, math.ceil((enf/deltad)*delta)))
-        else:
-            data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
-            datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
-            delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1] - datetime.date(int(str(data_fine)[6:]),dr,1).day + 1
-            rea.append((datainizio2, data_fine, math.ceil((enf/deltad)*delta)))
+    condition = (dti.month != dtf.month)    
+    
+    if condition:
+        for dr in range(dti.month, dtf.month+1,1):
+            print dr
+            if dr == dti.month:
+                dff = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1])
+                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
+                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
+                delta = (dff - dti).days
+                if not IsLastDay(dff):
+                    rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
+            elif dti.month < dr <dtf.month:
+                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
+                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
+                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
+                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
+                delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]
+                rea.append((datainizio2, datafine1, math.ceil((enf/deltad)*delta)))
+            else:
+                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
+                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
+                delta = (dtf - datetime.date(int(str(data_inizio2)[:4]),dr,1)).days + 1
+                rea.append((datainizio2, data_fine, math.ceil((enf/deltad)*delta)))
+    
+#    elif (not condition) and condition2:
+#        rea.append((data_inizio, data_fine, enf))
+    else:
+        rea.append((data_inizio, data_fine, enf))
     
     return rea
 ####################################################################################################
@@ -415,7 +432,10 @@ def A2A_Executer(prodotto):
                     tup = a0[a]
                     for t in range(len(tup)):
                         index = numero_fattura + '_' + str(x) + '_' + str(t)
-                        diz[index] = [emessa,POD, tup[t][0], tup[t][1], tup[t][2], '', '', '', rea0[a][t][2], '', '', '', Transform_pot(pot,t)]
+                        if int(tup[t][0][3:5]) == int(tup[t][1][3:5]):
+                            raise ValueError
+                        else:
+                            diz[index] = [emessa,POD, tup[t][0], tup[t][1], tup[t][2], '', '', '', rea0[a][t][2], '', '', '', Transform_pot(pot,t)]
             else:
                 ### 1)a. is a tuple => there is only one line
                 if isinstance(a1, tuple):
@@ -479,8 +499,9 @@ onlyfiles = onlyfiles[:len(onlyfiles)-1]
 
 mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/'
 
-prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/201690110004940_Dettaglio.pdf'
+prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/201690110007324_Dettaglio.pdf'
 A2A_Executer(prodotto)
 
 for FILE in onlyfiles:
     A2A_Executer(mypath2+FILE)
+    
