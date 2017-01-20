@@ -26,7 +26,7 @@ cromepath = r'C:/Users/d_floriello/Desktop/chromedriver.exe'
 browser = webdriver.Chrome(cromepath)
 
 ME.GetListMonth(browser, city, list_mesi, anno)
-ME.ElaborateExcel(city, list_mesi)
+ME.ElaborateExcel(city, list_mesi, anno)
 #city = 'Milano'
 #list_mesi = ['Settembre']
 
