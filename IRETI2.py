@@ -219,7 +219,7 @@ def IRETI_Executer(prodotto):
         index = codpod + '_' + str(x)
         try:
             ae = GetType(capitolo)
-            if int(ae[0][3:5]) == int(ae[1][3:5]):
+            if int(ae[0][3:5]) != int(ae[1][3:5]):
                 raise ValueError
             ree = Reattiva_Extracter(capitolo)
             pe = Potenza_Extractor(capitolo)
