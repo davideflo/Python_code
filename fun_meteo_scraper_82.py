@@ -42,12 +42,12 @@ def GetListMonth(browser, city, list_month, anno):
         GetMonth(browser, city, lm, anno)
     return 1
 ###############################################################################
-def ElaborateExcel(city, list_mesi):
-    df = pd.read_excel('C:/Users/d_floriello/Documents/PUN/'+city+' 2016.xlsx')
+def ElaborateExcel(city, list_mesi, anno):
+    df = pd.read_excel('C:/Users/d_floriello/Documents/PUN/'+city+' '+str(anno)+'.xlsx')
     dfnames = df.columns
     
     for m in list_mesi:
-        dfloc = pd.read_csv('C:/Users/d_floriello/Downloads/'+city+'-2016-'+m+'.csv', sep = ';', header = None)
+        dfloc = pd.read_csv('C:/Users/d_floriello/Downloads/'+city+'-'+str(anno)+'-'+m+'.csv', sep = ';', header = None)
         dfloc = dfloc.ix[1:]
         dfloc.columns = dfnames
         dfloc[dfloc.columns[2:13]] = dfloc[dfloc.columns[2:13]].apply(pd.to_numeric) 
