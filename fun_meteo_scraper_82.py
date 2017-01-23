@@ -30,7 +30,7 @@ def GetMonth(browser, city, lm, anno):
     browser.find_element_by_name("conferma").click()
     
     # '//*[@title="dati storici Milano Settembre 2016"]'
-    xpath = '//*[@title="dati storici ' + city + ' ' + lm + ' 2016"]'
+    xpath = '//*[@title="dati storici ' + city + ' ' + lm + ' ' + anno +'"]'
     elem3 = browser.find_element_by_xpath(xpath)
     elem3.click()
     
@@ -54,6 +54,6 @@ def ElaborateExcel(city, list_mesi, anno):
         df = df.append(dfloc)
     
     print(df)
-    df.to_excel('C:/Users/d_floriello/Documents/PUN/'+city+' 2016_updated.xlsx')
+    df.to_excel('C:/Users/d_floriello/Documents/PUN/'+city+' '+ anno + '_updated.xlsx')
     return df
 ###############################################################################
