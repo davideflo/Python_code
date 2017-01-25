@@ -10,6 +10,8 @@ SET Extractor
 from __future__ import division
 import pandas as pd
 from collections import OrderedDict
+import xlwt
+#from tempfile import TemporaryFile
 
 ####################################################################################################
 def getDate(string):
@@ -21,7 +23,7 @@ def ExtractAttiva_Set(df):
     res = []
     for F in Eff:
         string = 'quota variabile - ' + F
-        df2 = df.ix[df[df.columns[2]] == string]
+        df2 = df.ix[df[df.columns[2]].values.ravel() == string]
         val = df2[df2.columns[7]].tolist()[0]
         if isinstance(val, str):
             val = float(val.replace(',','.'))
@@ -71,7 +73,7 @@ def ExtractPotenza_Set(df):
 #set1 = pd.read_excel('C:/Users/d_floriello/Documents/set.xlsx')
 #set1 = pd.read_table('Z:/AREA BO&B/00000.File Distribuzione/3. SET DISTRIBUZIONE/E1D05I_E1V171E-AXOPOWER SRL (SET) - DP1608-CL-01932800228_03728900964 (8).csv', sep = ';')
 
-def SET_Extractor(set1):
+def SET_Extractor(set1, name):
     if '.xls' in set1:
         set1 = pd.read_excel(set1)
     else:
@@ -103,13 +105,21 @@ def SET_Extractor(set1):
     
     print 'pod non processati {}'.format(len(missing))
     
+    book = xlwt.Workbook()
+    sheet1 = book.add_sheet('sheet1')
+    for i,e in enumerate(missing):
+        sheet1.write(i,1,e)
     
+    if len(missing) > 0:
+        book.save('fatture/SET_manuale_' + name + '.xlsx')
     
     DF = pd.DataFrame.from_dict(diz, orient = 'index')
-    DF.columns = [['Num allegato', 'data inizio', 'data fine', 'En Attiva F1', 'En Attiva F2', 'En Attiva F3',
-                   'En Reattiva F1','En Reattiva F2','En Reattiva F3', 'Potenza']]
+    if DF.shape[0] > 0:    
+        DF.columns = [['Num allegato', 'data inizio', 'data fine', 'En Attiva F1', 'En Attiva F2', 'En Attiva F3',
+                       'En Reattiva F1','En Reattiva F2','En Reattiva F3', 'Potenza']]
+        
+        DF.to_excel('fatture/fattura_SET_' + name + '.xlsx')
     
-    DF.to_excel('fattura_SET.xlsx')
     return 1
 ####################################################################################################
     
@@ -134,6 +144,6 @@ onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 ff2 = [y for y in onlyfiles if 'Thumbs' not in y]
 for f in ff2: 
     print mypath2+'/'+f
-    SET_Extractor(mypath2+'/'+f)    
+    SET_Extractor(mypath2+'/'+f, f)    
     
 set1 = mypath2+'/'+f   
