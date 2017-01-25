@@ -269,6 +269,7 @@ dirs = os.walk(mypath)
 dirs = [x[0] for x in os.walk(mypath)]
 
 dirs = [os.path.join(mypath,o) for o in os.listdir(mypath) if os.path.isdir(os.path.join(mypath,o))]
+dirs = dirs[:2]
 
 mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/2. IRETI/'
 
