@@ -308,8 +308,7 @@ def Estrai_Linea_CdP(tt):
         p = 0
         lines = [DA2.find('corrispettivo di potenza')]
         if len(lines) == 0 or lines[0] == -1:
-            #return ' '
-            pass
+            pot. append('')
         else:
             init = DA2[p+4:p+14]
             fine = DA2[p+18:p+28]
