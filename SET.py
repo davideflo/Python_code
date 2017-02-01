@@ -11,6 +11,7 @@ from __future__ import division
 import pandas as pd
 from collections import OrderedDict
 import xlwt
+import unidecode
 #from tempfile import TemporaryFile
 
 ####################################################################################################
@@ -24,37 +25,62 @@ def ExtractAttiva_Set(df):
     for F in Eff:
         string = 'quota variabile - ' + F
         df2 = df.ix[df[df.columns[2]].values.ravel() == string]
-        val = df2[df2.columns[7]].tolist()[0]
-        if isinstance(val, str):
-            val = float(val.replace(',','.'))
-        if F == 'F1':
-            res.append(str(df2[df2.columns[4]].tolist()[0]))
-            res.append(str(df2[df2.columns[5]].tolist()[0]))
-            res.append(round(val,0))
-        else:
-            res.append(round(val,0))
+        val = 0
+        if df2.shape[0] > 0:        
+            val = df2[df2.columns[7]].tolist()[0]
+            if isinstance(val, str):
+                val = float(val.replace(',','.'))
+            if F == 'F1':
+                res.append(str(df2[df2.columns[4]].tolist()[0]))
+                res.append(str(df2[df2.columns[5]].tolist()[0]))
+                res.append(round(val,0))
+            else:
+                res.append(round(val,0))
+    if len(res) == 0:
+        string = 'quota variabile'
+        df2 = df.ix[df[df.columns[2]].values.ravel() == string]
+        res.append(round(df2[df2.columns[7]].sum(),0))   
     return res
 ####################################################################################################
 def ExtractReattiva_Set(df):
     Eff = ['F1', 'F2', 'F3']
     res = []
     for F in Eff:
+        ai = Eff.index(F)
         string = 'cosfi 1^ fascia - ' + F
+        string2 = 'cosfi 2^ fascia - ' + F
         place = -1
+        place2 = -1
         for i in range(int(df[df.columns[2]].size)):
-            if string in str(df[df.columns[2]].tolist()[i]):
-                place = i
+            if isinstance(df[df.columns[2]].values.tolist()[i], unicode):
+                x = unidecode.unidecode(df[df.columns[2]].values.tolist()[i])
+                if string in x:
+                    place = i
+                if string2 in x:
+                    place2 = i
         if place == -1:
             res.append('')
         else:
-            df2 = df.ix[place]
-            val = df2.ix[7]
-            if isinstance(val, str):
-                val = float(val.replace(',','.'))
-            if df2.size > 0:
-                res.append(round(val,0))
+            val = [df[df.columns[7]].values.tolist()[place]]
+            if len(val) > 0:            
+                if isinstance(val, str):
+                    val = float(val[0].replace(',','.'))
+                else:
+                    val = val[0]
+                if place2 != -1:
+                    val2 = [df[df.columns[7]].values.tolist()[place2]]
+                    if len(val2) > 0:            
+                        if isinstance(val2, str):
+                            val2 = float(val2[0].replace(',','.'))
+                        else:
+                            val2 = val2[0]
+                    
+                    attiva = ExtractAttiva_Set(df)
+                    val = attiva[2+ai]*(0.33) + val + val2
+                    
+            res.append(round(float(val),0))
 #            else:
-#                res = ['','','']
+#               res.append('')
     return res
 ####################################################################################################
 def ExtractPotenza_Set(df):
@@ -136,14 +162,14 @@ onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 #
 #dirs = [os.path.join(mypath,o) for o in os.listdir(mypath) if os.path.isdir(os.path.join(mypath,o))]
 
-mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/3. SET DISTRIBUZIONE/'
+mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/3. SET DISTRIBUZIONE/Dettagli originali'
 
 
-onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+onlyfiles = [f for f in listdir(mypath2) if isfile(join(mypath2, f))]
 #ff = [y for y in  if 'Unica' not in y]
 ff2 = [y for y in onlyfiles if 'Thumbs' not in y]
 for f in ff2: 
     print mypath2+'/'+f
-    SET_Extractor(mypath2+'/'+f, f)    
+    SET_Extractor(mypath2+'/'+f, f[:-4])    
     
-set1 = mypath2+'/'+f   
+set1 = mypath2+'/'+ff2[0]   
