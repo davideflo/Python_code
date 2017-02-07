@@ -25,18 +25,19 @@ def ExtractAttiva_Set(df):
     for F in Eff:
         string = 'quota variabile - ' + F
         df2 = df.ix[df[df.columns[2]].values.ravel() == string]
+        if F == 'F1':
+            res.append(str(df[df.columns[4]].dropna().tolist()[1]))
+            res.append(str(df[df.columns[5]].dropna().tolist()[1]))
         val = 0
         if df2.shape[0] > 0:        
             val = df2[df2.columns[7]].tolist()[0]
             if isinstance(val, str):
                 val = float(val.replace(',','.'))
-            if F == 'F1':
-                res.append(str(df2[df2.columns[4]].tolist()[0]))
-                res.append(str(df2[df2.columns[5]].tolist()[0]))
+            
                 res.append(round(val,0))
             else:
                 res.append(round(val,0))
-    if len(res) == 0:
+    if len(res) == 2:
         string = 'quota variabile'
         df2 = df.ix[df[df.columns[2]].values.ravel() == string]
         res.append(round(df2[df2.columns[7]].sum(),0))   
@@ -107,6 +108,8 @@ def SET_Extractor(set1, name):
     
     ix_pod = set1.ix[set1[set1.columns[0]] == 'POD'].index
     
+    DE = str(set1[set1.columns[1]].ix[set1[set1.columns[0]] == 'Data allegato'].tolist()[0])[:10]
+    
     list_pod = []
     missing = []
     diz = OrderedDict()
@@ -120,6 +123,8 @@ def SET_Extractor(set1, name):
         list_pod.append(pod)
         allegato = capitolo[capitolo.columns[1]].ix[ix_pod[x]+2]
         al.append([allegato])
+        al.append([DE])
+        al.append([pod])
         try:
             al.append(ExtractAttiva_Set(capitolo))
             al.append(ExtractReattiva_Set(capitolo))
@@ -141,8 +146,10 @@ def SET_Extractor(set1, name):
     
     DF = pd.DataFrame.from_dict(diz, orient = 'index')
     if DF.shape[0] > 0:    
-        DF.columns = [['Num allegato', 'data inizio', 'data fine', 'En Attiva F1', 'En Attiva F2', 'En Attiva F3',
+        DF.columns = [['Numero fattura', 'data emissione', 'POD', 'data inizio', 'data fine', 'En Attiva F1', 'En Attiva F2', 'En Attiva F3',
                        'En Reattiva F1','En Reattiva F2','En Reattiva F3', 'Potenza']]
+        
+        DF = DF.reset_index(drop = True)
         
         DF.to_excel('fatture/fattura_SET_' + name + '.xlsx')
     
