@@ -15,6 +15,7 @@ from collections import OrderedDict
 from os import listdir
 from os.path import isfile, join
 import unidecode
+import datetime
 
 ####################################################################################################
 def DaConferire(l):
@@ -50,10 +51,64 @@ def cleanDF(df):
             surv.append(ldf.index.tolist()[ld.index(np.max(ld))])
     return df.ix[surv]
 ####################################################################################################
-
+def RCleaner(df):
+    df1 = df.ix[df['SHIPPER'] == '0001808491-AXOPOWER SRL']
+    df2 = df1.ix[df['DESCRIZIONE_PRODOTTO'] != 'Solo Superi e Quota Fissa']
+    df3 = df2.ix[df2['D_VALIDO_AL'] >= datetime.datetime(2016, 10, 1)]
+    return df3.reset_index(drop = True)
+####################################################################################################
+def ActiveAtMonth(start, end):
+    active = np.repeat(0,12)
+    if start <= datetime.datetime(2016,10,1) and end >= datetime.datetime(2017, 9, 30):
+        active = np.repeat(1, 12)
+        return active
+    elif start <= datetime.datetime(2016,10,1) and end <= datetime.datetime(2017, 9, 30):
+        fm = end.month
+        if fm >= 10:
+            active[:fm-9] = 1
+        else:
+            active[:fm+3] = 1
+        return active
+    elif start >= datetime.datetime(2016,10,1) and end >= datetime.datetime(2017, 9, 30):
+        im = start.month   
+        if im >= 10:
+            active[im-10:] = 1
+        else:
+            active[im+2:] = 1
+        return active
+    elif start >= datetime.datetime(2016,10,1) and end <= datetime.datetime(2017, 9, 30):
+        im = start.month
+        fm = end.month
+        if im == fm:
+            if im >= 10:
+                active[im-10] = 1
+            else:
+                active[im+2] = 1
+        else:
+            if im >= 10 and fm >= 10:
+                active[im-10:fm-9] = 1
+            elif im >= 10 and fm <= 10:
+                active[im-10:fm+3] = 1
+            elif im <= 10 and fm <= 10:
+                active[im+2:fm+3] = 1
+            else:
+                print 'impossible dates:'
+                print start 
+                print end
+        return active
+####################################################################################################
+def Regulator(vec, k):
+    res = np.repeat(0,12)
+    if k >= 10:
+        res[:k-9] = vec[:k-9]/100
+    else:
+        res[:k+3] = vec[:k+3]/100
+    return res
+####################################################################################################
 
 doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170201 Report Fatturato Gas_Dicembre.xlsx'
-doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
+#doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
+doc2 = 'C:/Users/d_floriello/Documents/Report 2018.xls'
 doc3 = 'Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico/1702/Anagrafica TIS EVOLUTION.xlsm'
 
 
@@ -66,6 +121,8 @@ dfA = pd.read_excel(doc3, sheetname = 'Importazione', converters={'COD_PDR': str
 years = [2016, 2017]
 months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
+df218 = RCleaner(df218)
+
 cod = list(set(df218['CLIENTE_CODICE']))
 
 res = OrderedDict()
@@ -75,12 +132,16 @@ for c in cod:
     remi = cdf218['COD_REMI'].values.tolist()[-1]
     cons_contr = cdf218['CONSUMO_CONTR_ANNUO'].values.tolist()[-1]
     cons_distr = cdf218['CONSUMO_DISTRIBUTORE'].values.tolist()[-1]
-    pp = cdf218['PROFILO_PRELIEVO'].values.tolist()[-1]
-    if len(pdrs) > 0:
+    if len(pdrs) > 0 and str(pdrs[0]) != 'nan':
         for p in pdrs:
             mcount = 0
             vaf = 0
             pdf181 = df181.ix[df181['PDR'] == p]
+            PDR = cdf218['PROFILO_PRELIEVO'].ix[cdf218['FORNITURA_POD'] == p].values.tolist()
+            if len(PDR) == 1:
+                pp = PDR[0]
+            else:
+                pp = PDR[-1]
             for y in years:
                 ydf = pdf181.ix[pdf181['ANNO_COMPETENZA'] == y]
                 if ydf.shape[0] > 0:
@@ -131,9 +192,9 @@ resdf = pd.DataFrame.from_dict(res, orient = 'index')
 resdf.columns = [['REMI', 'PROFILO_PRELIEVO', 'CONSUMO_CONTRATTUALE', 'CONSUMO_DISTRIBUTORE', 'SII', 
                   'VOLUME ANNUO FATTURATO', 'FATTURATO MIN 12', 'DA CONFERIRE']]
 
-resdf.to_excel('Trasferimenti.xlsx')
+resdf.to_excel('Trasferimenti_clean.xlsx')
 
-resdf = pd.read_excel('Trasferimenti.xlsx', converters = {'REMI': str})
+resdf = pd.read_excel('Trasferimenti_clean.xlsx', converters = {'REMI': str})
                   
 ####### aggregazione capacità per trasportatore
 trasp = pd.read_excel('Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\DB Trasportatori.xlsx', skiprows = [0,1,2,3,4,5])
@@ -262,6 +323,7 @@ for of in others:
         for i in range(dfr.shape[0]):
             g_i += 1
             rr = dfr['Codice Punto'].ix[i]
+            print rr
             m = str(int(dfr['Termini Temporali Da'].ix[i][3:5]))
             if rr != '' and str(rr) != 'nan':      
                 try:
@@ -290,18 +352,23 @@ for of in others:
         newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
         NRemi = NRemi.append(newremi)
 
+#cgsnam = cgsnam.ix[cgsnam[cgsnam.columns[2:]].sum(axis= 1) > 0]
+
+NR = NRemi.groupby('REMI')
+NR = NR.agg(sum)
+
 tot_remi += len(list(set(NRemi['REMI'].values.tolist())))
 
 #if len(newremi.keys()) > 0:
 #    newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
 #    newremi = newremi.reset_index(drop = True)
 #    newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-print '#############################################################################################'
-print 'ci sono {} nuovi REMI da SNAM!'.format(cleanDF(NRemi).dropna().shape[0])
-print '#############################################################################################'
+#print '#############################################################################################'
+#print 'ci sono {} nuovi REMI da SNAM!'.format(cleanDF(NRemi).dropna().shape[0])
+#print '#############################################################################################'
 
 
-cgsnam = cgsnam.append(cleanDF(NRemi).dropna(), ignore_index = True)    
+#cgsnam = cgsnam.append(cleanDF(NRemi).dropna(), ignore_index = True)    
 
 #### another check:
 #cgsnam.sum(axis = 1)
@@ -387,7 +454,7 @@ for of in others:
         if newremi.shape[0] > 0:
             newremi.reset_index(drop = True)
             newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-            NRemi = NRemi.append(newremi, ignore_index = True)
+            Rg = Rg.append(newremi, ignore_index = True)
     else:
         print "Error in the file's name"
 
@@ -399,7 +466,7 @@ print 'ci sono {} nuovi REMI da RETRAGAS!'.format(cleanDF(NRemi).shape[0])
 print '#############################################################################################'
 
 
-Rg = Rg.append(NRemi, ignore_index = True)
+#Rg = Rg.append(NRemi, ignore_index = True)
 
 ### SGI
 directory = 'Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\SGI'
@@ -486,6 +553,8 @@ print '#########################################################################
 print '#############################################################################################'
 print '#############################################################################################'
 
+
+sg = sg[sg.columns[:14]]
 sg = sg.append(NRemi, ignore_index = True)
 
 ########    
@@ -493,35 +562,61 @@ sg = sg.append(NRemi, ignore_index = True)
 cg1 = cgsnam.append(Rg, ignore_index = True)
 CGM = cg1.append(sg, ignore_index= True)
 
+grouped = CGM.groupby(['REMI', 'AREA'])
+cgm2 = grouped.agg(sum)
+
+cgm2.to_excel('agg_cgm.xlsx')
 ################################################ 
 ### Estimated requested capacity    
 prof = pd.read_excel('C:/Users/d_floriello/Documents/Profili standard di prelievo 2016-17.xlsx', sheetname = '% prof', 
                      skiprows = [0,458,459,460,461,462,463,464,465,466,467,468,469,470,471,472,473])    
                      
 
-aggremi = OrderedDict()
+pdrprofile = OrderedDict()
 remis = list(set(resdf['REMI'].values.tolist()))
 
 for re in remis:
-    remi_index = remis.index(re)
+    #print re
     atremi = resdf.ix[resdf['REMI'] == re]
-    atremi = atremi.reset_index(drop=True)
-    tot_cap = 0
-    for i in range(atremi.shape[0]):
-        tot_cap += atremi['DA CONFERIRE'].ix[i] * prof[atremi['PROFILO_PRELIEVO'].ix[i]].max()
-    aggremi[remi_index] = [re, trasp['AREA'].ix[trasp['REMI'] == re].values.tolist()[0],np.repeat((1.2)*tot_cap, 12)]
+    pdrl = list(set(atremi.index.tolist()))
+    for p in pdrl:
+        atpdr = df218.ix[df218['FORNITURA_POD'] == p].reset_index(drop = True)
+        for i in range(atpdr.shape[0]):
+     #       print i
+            di = atpdr['D_VALIDO_DAL'].ix[i]
+            df = atpdr['D_VALIDO_AL'].ix[i]
+            tot_cap = (atremi['DA CONFERIRE'].ix[p]) * (ActiveAtMonth(di, df)) * (prof[atpdr['PROFILO_PRELIEVO'].ix[i]].max())
+            pre = [re, trasp['AREA'].ix[trasp['REMI'] == re].values.tolist()[0]]
+            pre.extend(tot_cap.tolist())
+            pdrprofile[str(p) + '_' + str(i)] = pre
     
-aggremi = pd.DataFrame.form_dict(aggremi, orient = 'index')
-aggremi = aggremi.reset_index(drop = True)
-aggremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-                  
+    
+pdrprofile = pd.DataFrame.from_dict(pdrprofile, orient = 'index')
+#pdrprofile = pdrprofile.reset_index(drop = True)
+pdrprofile.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
+ 
+gbr = pdrprofile.groupby('REMI')
+GBR = gbr.agg(sum)
+GBR.to_excel('stima capacita richiesta.xlsx')                 
 ### Estimation of residual capacity
 
+mtoday = datetime.datetime.now().month
 diff = OrderedDict()
-for i in range(aggremi.shape[0]):
-    remi = aggremi['REMI'].ix[i].tolist()[0]
-    dv = CGM[CGM.columns[2:]].ix[CGM['REMI'] == remi].values - aggremi[aggremi.columns[2:]].ix[i].values
-    diff[i] = [remi, dv]
-
+cap_remi = [cgm2.index.tolist()[i][0] for i in range(len(cgm2.index.tolist()))]
+missing = []
+for i in GBR.index.tolist():
+    remi = i
+    try:
+        cap_remi.index(remi)
+        dv = cgm2.ix[remi].values.ravel() - 1.2 * Regulator(GBR.ix[i].values.ravel(), mtoday)
+        ld = [remi]
+        ld.extend(dv.tolist())
+        diff[i] = ld
+    except:
+        missing.append(remi)
+print 'mancano {} REMI'.format(len(missing))        
+        
 Diff = pd.DataFrame.from_dict(diff, orient = 'index')
 Diff.columns = [['REMI', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
+
+Diff.to_excel('capacita residue.xlsx')
