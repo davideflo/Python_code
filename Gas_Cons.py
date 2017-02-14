@@ -105,6 +105,14 @@ def Regulator(vec, k):
         res[:k+3] = vec[:k+3]/100
     return res
 ####################################################################################################
+def GenerateCapacity(C, m):
+    cvec = np.repeat(0, 12)
+    if m >= 10:
+        cvec[m-10:] = C
+    else:
+        cvec[m+2:] = C
+    return cvec
+####################################################################################################
 
 doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170201 Report Fatturato Gas_Dicembre.xlsx'
 #doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
@@ -216,7 +224,6 @@ snamb.columns = [unidecode.unidecode(x) for x in snamb.columns.tolist()]
 snama.columns = [unidecode.unidecode(x) for x in snama.columns.tolist()]
 remi_snam = list(set(snamb['Codice Punto'].values.tolist()))
 
-tot_remi += len(remi_snam)
 
 cen = np.repeat(snama['Capacita Richiesta [Sm3/g]'].ix[snama['Codice Punto'].tolist().index('M_RN_CEN')],12)
 mer = np.repeat(snama['Capacita Richiesta [Sm3/g]'].ix[snama['Codice Punto'].tolist().index('M_RN_MER')],12)
@@ -243,12 +250,124 @@ cgsnam.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6
 #cgsnam2 = cgsnam
 #cgsnam2.to_excel('cgsnam2.xlsx')
 ###
+#
+#NRemi = pd.DataFrame()
+#g_i = 0
+#for of in others:
+#    newremi = OrderedDict()    
+#    print of
+#    if 'TRAS' in of:
+#        df = pd.read_excel(directory + '/' + of, sheetname = 'Esito', converters = {'PdR Aggregato': str})
+#        df.columns = [unidecode.unidecode(x) for x in df.columns.tolist()]
+#        for i in range(df.shape[0]):
+#            g_i += 1
+#            rr = df['PdR Aggregato'].ix[i]
+#            za = df['Codice Area di prelievo'].ix[i]
+#            m = str(int(df['Data Inizio'].ix[i][3:5]))
+#            if za == 'M_RN_CEN':
+#                cen = UpdateZona(cen, int(m), df['Cap Addiz RN Conf/Cap Rila RN'].ix[i])
+#            elif za == 'M_RN_MER':
+#                mer = UpdateZona(mer, int(m), df['Cap Addiz RN Conf/Cap Rila RN'].ix[i])
+#            elif za == 'M_RN_NOC':
+#                noc = UpdateZona(noc, int(m), df['Cap Addiz RN Conf/Cap Rila RN'].ix[i])
+#            elif za == 'M_RN_NOR':
+#                nor = UpdateZona(nor, int(m), df['Cap Addiz RN Conf/Cap Rila RN'].ix[i])
+#            elif za == 'M_RN_SOC':
+#                soc = UpdateZona(soc, int(m), df['Cap Addiz RN Conf/Cap Rila RN'].ix[i])
+#            elif za == 'M_RN_SOR':
+#                sor = UpdateZona(sor, int(m), df['Cap Addiz RN Conf/Cap Rila RN'].ix[i])
+#            else:
+#                print 'NO ZONE FOUND!!!'
+#            if str(rr) != 'nan' and rr != '':     
+#                try:
+#                    ir = cgsnam['REMI'].values.tolist().index(rr)
+#                    up = cgsnam[m].ix[ir] + df['Capacita Trasferita'].ix[i] + df['Cap Addiz RR Conf/Rein RR Conf'].ix[i]
+#                    ic = cgsnam.columns.tolist().index(m)
+#                    cgsnam.set_value(ir, m, up)
+#                    for j in range(ic, cgsnam.shape[1],1):
+#                        cgsnam.set_value(ir, cgsnam.columns[j], up)
+#                except:
+#                    index_rs = df['PdR Aggregato'].values.tolist().index(rr)
+#                    print g_i
+#                    atr = []
+#                    atr.append(rr)
+#                    atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
+#                    up = df['Capacita Trasferita'].ix[i] + df['Cap Addiz RR Conf/Rein RR Conf'].ix[i]
+#                    mcg = np.repeat(0, 12)
+#                    if m in ['10','11','12']:
+#                        mcg[(int(m)-10):] = up
+#                    else:
+#                        mcg[int(m)+2:] = up
+#                    atr.extend(mcg)
+#                    newremi[g_i] = atr
+#        newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
+#        newremi.reset_index(drop = True)
+#        newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
+#        NRemi = NRemi.append(newremi)
+#
+#    elif 'INCR' in of:
+#        dfr = pd.read_excel(directory + '/' + of, sheetname = 'Punti di Riconsegna', converters = {'Codice Punto': str})
+#        dfr.columns = [unidecode.unidecode(x) for x in dfr.columns.tolist()]
+#        dfa = pd.read_excel(directory + '/' + of, sheetname = 'Punti di uscita', converters = {'Codice Punto': str})
+#        dfa.columns = [unidecode.unidecode(x) for x in dfa.columns.tolist()]
+#        for i in range(dfa.shape[0]):
+#            za = dfa['Codice Punto'].ix[i]
+#            m = str(int(dfa['Termini Temporali Da'].ix[i][3:5]))
+#            if za == 'M_RN_CEN':
+#                cen = UpdateZona(cen, int(m), dfa['Capacita Sottoscritta [Sm3/g]'].ix[i])
+#            elif za == 'M_RN_MER':
+#                mer = UpdateZona(mer, int(m), dfa['Capacita Sottoscritta [Sm3/g]'].ix[i])
+#            elif za == 'M_RN_NOC':
+#                noc = UpdateZona(noc, int(m), dfa['Capacita Sottoscritta [Sm3/g]'].ix[i])
+#            elif za == 'M_RN_NOR':
+#                nor = UpdateZona(nor, int(m), dfa['Capacita Sottoscritta [Sm3/g]'].ix[i])
+#            elif za == 'M_RN_SOC':
+#                soc = UpdateZona(soc, int(m), dfa['Capacita Sottoscritta [Sm3/g]'].ix[i])
+#            elif za == 'M_RN_SOR':
+#                sor = UpdateZona(sor, int(m), dfa['Capacita Sottoscritta [Sm3/g]'].ix[i])
+#            else:
+#                print 'NO ZONE FOUND!!!'
+#        for i in range(dfr.shape[0]):
+#            g_i += 1
+#            rr = dfr['Codice Punto'].ix[i]
+#            print rr
+#            m = str(int(dfr['Termini Temporali Da'].ix[i][3:5]))
+#            if rr != '' and str(rr) != 'nan':      
+#                try:
+#                    ir = cgsnam['REMI'].values.tolist().index(rr)
+#                    up = int(cgsnam[m].ix[cgsnam['REMI'] == rr].values.tolist()[0]) + dfr['Capacita Sottoscritta [Sm3/g]'].ix[i]
+#                    ic = cgsnam.columns.tolist().index(m)
+#                    cgsnam.set_value(ir, m, up)
+#                    for j in range(ic, cgsnam.shape[1],1):
+#                        cgsnam.set_value(ir, cgsnam.columns[j], up)
+#                except:
+#                    index_rs = dfr['Codice Punto'].values.tolist().index(rr)
+#                    print g_i
+#                    atr = []
+#                    atr.append(rr)
+#                    atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
+#                    up = dfr['Capacita Sottoscritta [Sm3/g]'].ix[i]
+#                    mcg = np.repeat(0, 12)
+#                    if m in ['10','11','12']:
+#                        mcg[(int(m)-10):] = up
+#                    else:
+#                        mcg[int(m)+2:] = up
+#                    atr.extend(mcg)
+#                    newremi[g_i] = atr
+#        newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
+#        newremi.reset_index(drop = True)
+#        newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
+#        NRemi = NRemi.append(newremi)
+#
+##cgsnam = cgsnam.ix[cgsnam[cgsnam.columns[2:]].sum(axis= 1) > 0]
+#
+#NR = NRemi.groupby('REMI')
+#NR = NR.agg(sum)
 
-NRemi = pd.DataFrame()
+###### ALTERNATIVE BUILDING ######
 g_i = 0
+newremi = OrderedDict()
 for of in others:
-    newremi = OrderedDict()    
-    print of
     if 'TRAS' in of:
         df = pd.read_excel(directory + '/' + of, sheetname = 'Esito', converters = {'PdR Aggregato': str})
         df.columns = [unidecode.unidecode(x) for x in df.columns.tolist()]
@@ -271,33 +390,12 @@ for of in others:
                 sor = UpdateZona(sor, int(m), df['Cap Addiz RN Conf/Cap Rila RN'].ix[i])
             else:
                 print 'NO ZONE FOUND!!!'
-            if str(rr) != 'nan' and rr != '':     
-                try:
-                    ir = cgsnam['REMI'].values.tolist().index(rr)
-                    up = cgsnam[m].ix[ir] + df['Capacita Trasferita'].ix[i] + df['Cap Addiz RR Conf/Rein RR Conf'].ix[i]
-                    ic = cgsnam.columns.tolist().index(m)
-                    cgsnam.set_value(ir, m, up)
-                    for j in range(ic, cgsnam.shape[1],1):
-                        cgsnam.set_value(ir, cgsnam.columns[j], up)
-                except:
-                    index_rs = df['PdR Aggregato'].values.tolist().index(rr)
-                    print g_i
-                    atr = []
-                    atr.append(rr)
-                    atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
-                    up = df['Capacita Trasferita'].ix[i] + df['Cap Addiz RR Conf/Rein RR Conf'].ix[i]
-                    mcg = np.repeat(0, 12)
-                    if m in ['10','11','12']:
-                        mcg[(int(m)-10):] = up
-                    else:
-                        mcg[int(m)+2:] = up
-                    atr.extend(mcg)
-                    newremi[g_i] = atr
-        newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
-        newremi.reset_index(drop = True)
-        newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-        NRemi = NRemi.append(newremi)
-
+            if str(rr) != 'nan' and rr != '':    
+                C = df['Capacita Trasferita'].ix[i] + df['Cap Addiz RR Conf/Rein RR Conf'].ix[i]
+                atr = [rr, za]
+                atr.extend(GenerateCapacity(C, int(m)).tolist())                   
+                newremi[g_i] = atr
+        
     elif 'INCR' in of:
         dfr = pd.read_excel(directory + '/' + of, sheetname = 'Punti di Riconsegna', converters = {'Codice Punto': str})
         dfr.columns = [unidecode.unidecode(x) for x in dfr.columns.tolist()]
@@ -326,46 +424,28 @@ for of in others:
             print rr
             m = str(int(dfr['Termini Temporali Da'].ix[i][3:5]))
             if rr != '' and str(rr) != 'nan':      
-                try:
-                    ir = cgsnam['REMI'].values.tolist().index(rr)
-                    up = int(cgsnam[m].ix[cgsnam['REMI'] == rr].values.tolist()[0]) + dfr['Capacita Sottoscritta [Sm3/g]'].ix[i]
-                    ic = cgsnam.columns.tolist().index(m)
-                    cgsnam.set_value(ir, m, up)
-                    for j in range(ic, cgsnam.shape[1],1):
-                        cgsnam.set_value(ir, cgsnam.columns[j], up)
-                except:
-                    index_rs = dfr['Codice Punto'].values.tolist().index(rr)
-                    print g_i
-                    atr = []
-                    atr.append(rr)
-                    atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
-                    up = dfr['Capacita Sottoscritta [Sm3/g]'].ix[i]
-                    mcg = np.repeat(0, 12)
-                    if m in ['10','11','12']:
-                        mcg[(int(m)-10):] = up
-                    else:
-                        mcg[int(m)+2:] = up
-                    atr.extend(mcg)
-                    newremi[g_i] = atr
-        newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
-        newremi.reset_index(drop = True)
-        newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-        NRemi = NRemi.append(newremi)
+                C = dfr['Capacita Sottoscritta [Sm3/g]'].ix[i]
+                atr = [rr, za]
+                atr.extend(GenerateCapacity(C, int(m)).tolist())                   
+                newremi[g_i] = atr
+                
+        
+newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
+newremi.reset_index(drop = True)
+newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
 
-#cgsnam = cgsnam.ix[cgsnam[cgsnam.columns[2:]].sum(axis= 1) > 0]
+cg2 = cgsnam.append(newremi, ignore_index = True)
+cg2 = cg2.groupby('REMI')
+cg2 = cg2.agg(sum)
 
-NR = NRemi.groupby('REMI')
-NR = NR.agg(sum)
-
-tot_remi += len(list(set(NRemi['REMI'].values.tolist())))
 
 #if len(newremi.keys()) > 0:
 #    newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
 #    newremi = newremi.reset_index(drop = True)
 #    newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-#print '#############################################################################################'
-#print 'ci sono {} nuovi REMI da SNAM!'.format(cleanDF(NRemi).dropna().shape[0])
-#print '#############################################################################################'
+print '#############################################################################################'
+print 'ci sono {} nuovi REMI da SNAM!'.format(newremi.shape[0])
+print '#############################################################################################'
 
 
 #cgsnam = cgsnam.append(cleanDF(NRemi).dropna(), ignore_index = True)    
@@ -384,11 +464,11 @@ directory = 'Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\RETRAGAS'
 listfiles = [f for f in listdir(directory) if isfile(join(directory, f))]                 
 base = [lf for lf in listfiles if 'Conferimenti' in lf]
 others = list(set(listfiles).difference(set(base)))
+variazioni = [f for f in others if 'Variazioni' in f][0]
     
 rgb = pd.read_excel(directory + '/' + base[0], converters = {'PdrLogico': str}, skiprows = [0,1,2,3,4,5,6,8]) 
 remi_rg = list(set(rgb['PdrLogico'].values.tolist()))
     
-tot_remi += len(remi_rg)    
     
 Rg = OrderedDict()
 for rg in remi_rg:
@@ -411,10 +491,9 @@ Rg.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '
 # Rg2 = Rg
 
 g_i = 0
-NRemi = pd.DataFrame()
+newremi = OrderedDict()
 for of in others:
-    print of
-    newremi = OrderedDict()
+    print of    
     if 'TRAS' in of or 'INCR' in of or 'RCT' in of:
         m = str(int(of[2:4]))
         df = pd.read_excel(directory + '/' + of, converters = {'PdrLogico': str}, skiprows = [0,1,2,3,4,5,6, 8])
@@ -425,44 +504,36 @@ for of in others:
             print rr
             if rr != '' and str(rr) != 'nan':
                 cap = 0
-                ic = Rg.columns.tolist().index(m)
-                try:
-                    ir = Rg['REMI'].values.tolist().index(rr)
-                    if 'INCR' in of:
-                        if df['Esito'].ix[i] > 0:
-                            cap = df['capacita'].ix[i] + Rg[m].ix[ir]
-                            Rg.set_value(ir, m, cap)
-                    else:
-                        cap = df['capacita'].ix[i] + Rg[m].ix[ir]
-                        Rg.set_value(ir, m, cap)
-                    for j in range(ic, Rg.shape[1],1):
-                        Rg.set_value(ir, Rg.columns[j], cap)
-                except:
-                    print g_i
-                    atr = []
-                    atr.append(rr)
-                    atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
-                    up = df['capacita'].ix[i]
-                    mcg = np.repeat(0, 12)
-                    if m in ['10','11','12']:
-                        mcg[(int(m)-10):] = up
-                    else:
-                        mcg[int(m)+2:] = up
-                    atr.extend(mcg)
-                    newremi[g_i] = atr
-        newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
-        if newremi.shape[0] > 0:
-            newremi.reset_index(drop = True)
-            newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-            Rg = Rg.append(newremi, ignore_index = True)
-    else:
-        print "Error in the file's name"
-
-tot_remi += len(list(set(NRemi['REMI'].values.tolist())))
-
+                if 'INCR' in of:
+                    if df['Esito'].ix[i] > 0:
+                        cap = df['capacita'].ix[i] 
+                else:
+                    cap = df['capacita'].ix[i]
+                atr = [rr, 'M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0]]
+                atr.extend(GenerateCapacity(cap, int(m)).tolist())
+                newremi[g_i] = atr
+    elif 'Variazioni' in of:
+        df = pd.read_excel(directory + '/' + variazioni, converters = {'Codice logico di riconsegna': str, 'Data Inizio': str})
+        df.columns = [unidecode.unidecode(x) for x in df.columns.tolist()]
+        for i in df.shape[0]:
+            if df['Capacita di trasporto conferita - Sm3 g'].ix[i] < 0:
+                cap = df['Capacita di trasporto conferita - Sm3 g'].ix[i]
+                atr = [rr, 'M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0]]
+                atr.extend(GenerateCapacity(cap, int(m)).tolist())
+                newremi[g_i] = atr
+                
+                
+newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
+if newremi.shape[0] > 0:
+    newremi.reset_index(drop = True)
+    newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
+    Rg = Rg.append(newremi, ignore_index = True)
+    
+Rg2 = Rg.groupby('REMI')
+Rg2 = Rg2.agg(sum)
 
 print '#############################################################################################'
-print 'ci sono {} nuovi REMI da RETRAGAS!'.format(cleanDF(NRemi).shape[0])
+print 'ci sono {} nuovi REMI da RETRAGAS!'.format(newremi.shape[0])
 print '#############################################################################################'
 
 
@@ -473,13 +544,13 @@ directory = 'Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\SGI'
 listfiles = [f for f in listdir(directory) if isfile(join(directory, f))]                 
 base = [lf for lf in listfiles if 'CONF' in lf]
 others = list(set(listfiles).difference(set(base)))
+
     
 sgi = pd.read_excel(directory + '/' + base[0], converters = {'Punto di Riconsegna': str}) 
 sgi.columns = [unidecode.unidecode(x) for x in sgi.columns.tolist()]
 
 remi_sgi = list(set(sgi['Punto di Riconsegna'].values.tolist()))
     
-tot_remi += len(remi_sgi)    
     
 sg = OrderedDict()
 for rg in remi_sgi:
@@ -499,10 +570,9 @@ sg.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '
 # sg2 = sg
 
 g_i = 0
-NRemi = pd.DataFrame()
+newremi = OrderedDict()
 for of in others:
-    print of
-    newremi = OrderedDict()
+    print of    
     df = pd.read_excel(directory + '/' + of, converters = {'PUNTO DI RICONSEGNA': str})
     df.columns = [unidecode.unidecode(x) for x in df.columns.tolist()]
     for i in range(df.shape[0]):
@@ -511,61 +581,48 @@ for of in others:
         rr = df['PUNTO DI RICONSEGNA'].ix[i]
         m = str(df["DATA DI INIZIO VALIDITA' DELLA CAPACITA' RICHIESTA"].ix[i].month)
         if rr != '' and str(rr) != 'nan':
-            ic = sg.columns.tolist().index(m)
-            try:
-                ir = sg['REMI'].values.tolist().index(rr)
-                up = int(sg[m].ix[sg['REMI'] == rr].values.tolist()[0]) + df["CAPACITA'\nOTTENUTA\n(Sm3/g)"].ix[i] 
-                sg.set_value(ir, ic, up)
-                for j in range(ic, sg.shape[1],1):
-                    sg.set_value(ir, sg.columns[j], up)
-            except:
                 atr = []
                 atr.append(rr)
                 atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
                 up = df["CAPACITA'\nOTTENUTA\n(Sm3/g)"].ix[i]
-                mcg = np.repeat(0, 12)
-                if m in ['10','11','12']:
-                    mcg[(int(m)-10):] = up
-                else:
-                    mcg[int(m)+2:] = up
-                atr.extend(mcg)
+                atr.extend(GenerateCapacity(up, int(m)))
                 newremi[g_i] = atr
-        newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
-        if newremi.shape[0] > 0:
-            newremi.reset_index(drop = True)
-            newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-            NRemi = NRemi.append(newremi, ignore_index = True)
 
-tot_remi += len(list(set(NRemi['REMI'].values.tolist())))
+newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
+if newremi.shape[0] > 0:
+    newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
 
+#sg = sg[sg.columns[:14]]
 
-print '#############################################################################################'
-print 'ci sono {} nuovi REMI da SGI!'.format(cleanDF(NRemi).shape[0])
-print '#############################################################################################'
+sg = sg.append(newremi, ignore_index = True)
 
-print '#############################################################################################'
-print '#############################################################################################'
-print '#############################################################################################'
-
-print 'tot remi = {}'.format(tot_remi)
+sg2 = sg.groupby('REMI')
+sg2 = sg2.agg(sum)
 
 print '#############################################################################################'
+print 'ci sono {} nuovi REMI da SGI!'.format(newremi.shape[0])
 print '#############################################################################################'
-print '#############################################################################################'
 
+#print '#############################################################################################'
+#print '#############################################################################################'
+#print '#############################################################################################'
+#
+#print 'tot remi = {}'.format(tot_remi)
+#
+#print '#############################################################################################'
+#print '#############################################################################################'
+#print '#############################################################################################'
 
-sg = sg[sg.columns[:14]]
-sg = sg.append(NRemi, ignore_index = True)
+########  AGGREGATION OF THE TRANSPORTERS  
 
-########    
+cg1 = cg2.append(Rg2)
+CGM = cg1.append(sg2)
 
-cg1 = cgsnam.append(Rg, ignore_index = True)
-CGM = cg1.append(sg, ignore_index= True)
+#grouped = CGM.groupby('REMI', 'AREA'])
+#cgm2 = grouped.agg(sum)
 
-grouped = CGM.groupby(['REMI', 'AREA'])
-cgm2 = grouped.agg(sum)
-
-cgm2.to_excel('agg_cgm.xlsx')
+CGM.to_excel('agg_cgm_new.xlsx')
+cgm2 = CGM
 ################################################ 
 ### Estimated requested capacity    
 prof = pd.read_excel('C:/Users/d_floriello/Documents/Profili standard di prelievo 2016-17.xlsx', sheetname = '% prof', 
