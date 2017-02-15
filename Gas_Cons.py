@@ -18,16 +18,6 @@ import unidecode
 import datetime
 
 ####################################################################################################
-def DaConferire(l):
-    ### l = [cons_contr, cons_distr, sii, VAF, vaf]
-    if l[3] > 0:
-        return l[3]
-    elif l[3] == 0 and l[2] > 0:
-        return l[2]
-    elif l[3] == 0 and l[2] == 0 and l[1]> 0:
-        return l[1]
-    else:
-        return l[0]
 ####################################################################################################
 def UpdateZona(vec, j, val):
     for k in range(j, 12, 1):
@@ -113,6 +103,45 @@ def GenerateCapacity(C, m):
         cvec[m+2:] = C
     return cvec
 ####################################################################################################
+def GetStartDate(dt):
+    if dt >= datetime.datetime(2016,10,1):
+        return dt
+    else:
+        return datetime.datetime(2016,10,1)
+####################################################################################################
+def GetEndDate(dt):
+    if dt <= datetime.datetime(2017,9,30):
+        return dt
+    else:
+        return datetime.datetime(2017,9,30)
+####################################################################################################
+def WYEstimation(cons, prof, setmonth, pp):
+    used_perc = 0
+    for m in setmonth:
+        used_perc += prof[pp].ix[prof.index.month == m].sum()
+    if used_perc > 1e-3:
+        return cons/(used_perc/100)
+    else:
+        return 0
+####################################################################################################
+def DaConferire(l, prof, setmonth, pp):
+    ### l = [cons_contr, cons_distr, sii, VAF, vaf]
+    if l[3] > 0:
+        return l[3]
+    elif l[3] == 0 and l[2] > 0 and l[4] > 0:
+        if l[2] > l[4]: 
+            return l[2]
+        else:
+            y = WYEstimation(l[4], prof, setmonth, pp)
+            if y > 0:
+                return y
+            else:
+                return l[2]
+    elif l[3] == 0 and l[2] == 0 and l[1]> 0:
+        return l[1]
+    else:
+        return l[0]
+####################################################################################################
 
 doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170201 Report Fatturato Gas_Dicembre.xlsx'
 #doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
@@ -126,6 +155,13 @@ df218 = pd.read_excel(doc2, sheetname = 'Simil Template_Globale', skiprows = [0,
                       'CLIENTE_CODICE': str, 'COD_REMI': str})
 dfA = pd.read_excel(doc3, sheetname = 'Importazione', converters={'COD_PDR': str, 'COD_REMI': str})
 
+
+prof = pd.read_excel('C:/Users/d_floriello/Documents/Profili standard di prelievo 2016-17.xlsx', sheetname = '% prof', 
+                     skiprows = [0,2])    
+
+prof = prof.set_index(pd.date_range(start= '2016-10-01', end = '2017-09-30', freq = 'D'))
+
+
 years = [2016, 2017]
 months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
@@ -138,12 +174,13 @@ for c in cod:
     cdf218 = df218.ix[df218['CLIENTE_CODICE'] == c]
     pdrs = list(set(cdf218['FORNITURA_POD'].values.tolist()))
     remi = cdf218['COD_REMI'].values.tolist()[-1]
-    cons_contr = cdf218['CONSUMO_CONTR_ANNUO'].values.tolist()[-1]
-    cons_distr = cdf218['CONSUMO_DISTRIBUTORE'].values.tolist()[-1]
     if len(pdrs) > 0 and str(pdrs[0]) != 'nan':
         for p in pdrs:
+            setm = []
             mcount = 0
             vaf = 0
+            cons_contr = cdf218['CONSUMO_CONTR_ANNUO'].ix[cdf218['FORNITURA_POD'] == p].values.tolist()[-1]
+            cons_distr = cdf218['CONSUMO_DISTRIBUTORE'].ix[cdf218['FORNITURA_POD'] == p].values.tolist()[-1]            
             pdf181 = df181.ix[df181['PDR'] == p]
             PDR = cdf218['PROFILO_PRELIEVO'].ix[cdf218['FORNITURA_POD'] == p].values.tolist()
             if len(PDR) == 1:
@@ -156,6 +193,7 @@ for c in cod:
                     for m in months:
                         mydf = ydf.ix[ydf['MESE_COMP'] == m]
                         if mydf.shape[0] > 0:
+                            setm.append(m)                            
                             mcount += 1
                             m_cons = mydf['CONSUMO_SMC'].sum() 
                             if mydf['CONSUMO_SMC'].sum() < 0:                        
@@ -169,10 +207,18 @@ for c in cod:
             VAF = 0
             if mcount == 12:
                 VAF = vaf
-            res[p] = [remi, pp, cons_contr, cons_distr, sii, VAF, vaf, DaConferire([cons_contr, cons_distr, sii, VAF, vaf])]
+            res[str(p)] = [str(p), remi, pp, cons_contr, cons_distr, sii, VAF, vaf, DaConferire([cons_contr, cons_distr, sii, VAF, vaf], prof, setm, pp)]
     else:
+        setm = []
         mcount = 0
         vaf = 0
+        cons_contr = cdf218['CONSUMO_CONTR_ANNUO'].ix[cdf218['COD_REMI'] == remi].values.tolist()[-1]
+        cons_distr = cdf218['CONSUMO_DISTRIBUTORE'].ix[cdf218['COD_REMI'] == remi].values.tolist()[-1]            
+        PDR = cdf218['PROFILO_PRELIEVO'].ix[cdf218['COD_REMI'] == remi].values.tolist()[-1]
+        if len(PDR) == 1:
+            pp = PDR[0]
+        else:
+            pp = PDR[-1]
         pdf181 = df181.ix[df181['REMI'] == remi]
         for y in years:
             ydf = pdf181.ix[pdf181['ANNO_COMPETENZA'] == y]
@@ -180,6 +226,7 @@ for c in cod:
                 for m in months:
                     mydf = ydf.ix[ydf['MESE_COMP'] == m]
                     if mydf.shape[0] > 0:
+                        setm.append(m)
                         mcount += 1
                         m_cons = mydf['CONSUMO_SMC'].sum() 
                         if mydf['CONSUMO_SMC'].sum() < 0:                        
@@ -193,16 +240,16 @@ for c in cod:
         VAF = 0
         if mcount == 12:
             VAF = vaf
-        res[remi] = [remi, pp, cons_contr, cons_distr, sii, VAF, vaf, DaConferire([cons_contr, cons_distr, sii, VAF, vaf])]
+        res[remi] = [remi, remi, pp, cons_contr, cons_distr, sii, VAF, vaf, DaConferire([cons_contr, cons_distr, sii, VAF, vaf], prof, setm, pp)]
 
 
 resdf = pd.DataFrame.from_dict(res, orient = 'index')
-resdf.columns = [['REMI', 'PROFILO_PRELIEVO', 'CONSUMO_CONTRATTUALE', 'CONSUMO_DISTRIBUTORE', 'SII', 
+resdf.columns = [['PDR','REMI', 'PROFILO_PRELIEVO', 'CONSUMO_CONTRATTUALE', 'CONSUMO_DISTRIBUTORE', 'SII', 
                   'VOLUME ANNUO FATTURATO', 'FATTURATO MIN 12', 'DA CONFERIRE']]
 
-resdf.to_excel('Trasferimenti_clean.xlsx')
+resdf.to_excel('Trasferimenti_clean2.xlsx')
 
-resdf = pd.read_excel('Trasferimenti_clean.xlsx', converters = {'REMI': str})
+resdf = pd.read_excel('Trasferimenti_clean.xlsx', converters = {'PDR': str,'REMI': str})
                   
 ####### aggregazione capacità per trasportatore
 trasp = pd.read_excel('Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\DB Trasportatori.xlsx', skiprows = [0,1,2,3,4,5])
@@ -211,7 +258,6 @@ trasp = trasp.dropna()
 trasp.columns = [['REMI', 'AREA']]
 trasp = trasp.ix[trasp['AREA'] != '0']
 
-tot_remi = 0
 ### SNAM
 directory = 'Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\SNAM'
 listfiles = [f for f in listdir(directory) if isfile(join(directory, f))]                 
@@ -515,7 +561,7 @@ for of in others:
     elif 'Variazioni' in of:
         df = pd.read_excel(directory + '/' + variazioni, converters = {'Codice logico di riconsegna': str, 'Data Inizio': str})
         df.columns = [unidecode.unidecode(x) for x in df.columns.tolist()]
-        for i in df.shape[0]:
+        for i in range(df.shape[0]):
             if df['Capacita di trasporto conferita - Sm3 g'].ix[i] < 0:
                 cap = df['Capacita di trasporto conferita - Sm3 g'].ix[i]
                 atr = [rr, 'M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0]]
@@ -625,9 +671,6 @@ CGM.to_excel('agg_cgm_new.xlsx')
 cgm2 = CGM
 ################################################ 
 ### Estimated requested capacity    
-prof = pd.read_excel('C:/Users/d_floriello/Documents/Profili standard di prelievo 2016-17.xlsx', sheetname = '% prof', 
-                     skiprows = [0,458,459,460,461,462,463,464,465,466,467,468,469,470,471,472,473])    
-                     
 
 pdrprofile = OrderedDict()
 remis = list(set(resdf['REMI'].values.tolist()))
@@ -635,17 +678,18 @@ remis = list(set(resdf['REMI'].values.tolist()))
 for re in remis:
     #print re
     atremi = resdf.ix[resdf['REMI'] == re]
-    pdrl = list(set(atremi.index.tolist()))
+    pdrl = list(set(atremi['PDR'].tolist()))
     for p in pdrl:
         atpdr = df218.ix[df218['FORNITURA_POD'] == p].reset_index(drop = True)
-        for i in range(atpdr.shape[0]):
-     #       print i
-            di = atpdr['D_VALIDO_DAL'].ix[i]
-            df = atpdr['D_VALIDO_AL'].ix[i]
-            tot_cap = (atremi['DA CONFERIRE'].ix[p]) * (ActiveAtMonth(di, df)) * (prof[atpdr['PROFILO_PRELIEVO'].ix[i]].max())
-            pre = [re, trasp['AREA'].ix[trasp['REMI'] == re].values.tolist()[0]]
-            pre.extend(tot_cap.tolist())
-            pdrprofile[str(p) + '_' + str(i)] = pre
+        if atpdr.shape[0] > 0:
+            for i in range(atpdr.shape[0]):
+         #       print i
+                di = GetStartDate(atpdr['FORNITURA_CONTRATTO_DA'].ix[i])
+                df = GetEndDate(atpdr['FORNITURA_CONTRATTO_A'].ix[i])
+                tot_cap = (atremi['DA CONFERIRE'].ix[atremi['PDR'] == p].tolist()[0]) * (ActiveAtMonth(di, df)) * (prof[atpdr['PROFILO_PRELIEVO'].ix[i]].resample('M').max()/100)
+                pre = [re, trasp['AREA'].ix[trasp['REMI'] == re].values.tolist()[0]]
+                pre.extend(tot_cap.tolist())
+                pdrprofile[str(p) + '_' + str(i)] = pre
     
     
 pdrprofile = pd.DataFrame.from_dict(pdrprofile, orient = 'index')
