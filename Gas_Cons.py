@@ -16,6 +16,7 @@ from os import listdir
 from os.path import isfile, join
 import unidecode
 import datetime
+import time
 
 ####################################################################################################
 ####################################################################################################
@@ -159,7 +160,7 @@ dfA = pd.read_excel(doc3, sheetname = 'Importazione', converters={'COD_PDR': str
 prof = pd.read_excel('C:/Users/d_floriello/Documents/Profili standard di prelievo 2016-17.xlsx', sheetname = '% prof', 
                      skiprows = [0,2])    
 
-prof = prof.set_index(pd.date_range(start= '2016-10-01', end = '2017-09-30', freq = 'D'))
+prof = prof.set_index(pd.date_range(start = '2016-10-01', end = '2017-09-30', freq = 'D'))
 
 
 years = [2016, 2017]
@@ -484,13 +485,14 @@ cg2 = cgsnam.append(newremi, ignore_index = True)
 cg2 = cg2.groupby('REMI')
 cg2 = cg2.agg(sum)
 
-
+num_nuovi_remi_snam = len(list(set(cgsnam['REMI'].values.tolist()).difference(set(newremi['REMI'].values.tolist())))) 
 #if len(newremi.keys()) > 0:
 #    newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
 #    newremi = newremi.reset_index(drop = True)
 #    newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
+time.sleep(2)
 print '#############################################################################################'
-print 'ci sono {} nuovi REMI da SNAM!'.format(newremi.shape[0])
+print 'ci sono {} nuovi REMI da SNAM!'.format(num_nuovi_remi_snam)
 print '#############################################################################################'
 
 
@@ -568,18 +570,20 @@ for of in others:
                 atr.extend(GenerateCapacity(cap, int(m)).tolist())
                 newremi[g_i] = atr
                 
-                
+num_nuovi_remi_retragas = 0                
 newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
 if newremi.shape[0] > 0:
     newremi.reset_index(drop = True)
     newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
+    num_nuovi_remi_retragas = len(list(set(Rg['REMI'].values.tolist()).difference(set(newremi['REMI'].values.tolist()))))     
     Rg = Rg.append(newremi, ignore_index = True)
     
 Rg2 = Rg.groupby('REMI')
 Rg2 = Rg2.agg(sum)
 
+time.sleep(2)
 print '#############################################################################################'
-print 'ci sono {} nuovi REMI da RETRAGAS!'.format(newremi.shape[0])
+print 'ci sono {} nuovi REMI da RETRAGAS!'.format(num_nuovi_remi_retragas)
 print '#############################################################################################'
 
 
@@ -634,9 +638,11 @@ for of in others:
                 atr.extend(GenerateCapacity(up, int(m)))
                 newremi[g_i] = atr
 
+num_nuovi_remi_sgi = 0
 newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
 if newremi.shape[0] > 0:
     newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
+    num_nuovi_remi_sgi = len(list(set(sg['REMI'].values.tolist()).difference(set(newremi['REMI'].values.tolist())))) 
 
 #sg = sg[sg.columns[:14]]
 
@@ -645,8 +651,9 @@ sg = sg.append(newremi, ignore_index = True)
 sg2 = sg.groupby('REMI')
 sg2 = sg2.agg(sum)
 
+time.sleep(2)
 print '#############################################################################################'
-print 'ci sono {} nuovi REMI da SGI!'.format(newremi.shape[0])
+print 'ci sono {} nuovi REMI da SGI!'.format(num_nuovi_remi_sgi)
 print '#############################################################################################'
 
 #print '#############################################################################################'
@@ -703,7 +710,7 @@ GBR.to_excel('stima capacita richiesta.xlsx')
 
 mtoday = datetime.datetime.now().month
 diff = OrderedDict()
-cap_remi = [cgm2.index.tolist()[i][0] for i in range(len(cgm2.index.tolist()))]
+cap_remi = cgm2.index.tolist()
 missing = []
 for i in GBR.index.tolist():
     remi = i
