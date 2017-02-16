@@ -16,15 +16,22 @@ import calendar
 import scipy
 from sklearn.ensemble import AdaBoostRegressor
 from sklearn.tree import DecisionTreeRegressor
+from collections import OrderedDict
+import datetime
 
+today = datetime.datetime.now()
 ####################################################################################################
-def SimilarDaysError(df):
+### @param: y1 and y2 are the years to be compared; y1 < y2 and y1 will bw taken as reference, unless it is a leap year
+def SimilarDaysError(df, y1, y2):
     errors = []
+    y = y1
+    if y % 4 == 0:
+        y = y2
     for m in range(1,13,1):
-        dim = calendar.monthrange(2015, m)[1]
+        dim = calendar.monthrange(y, m)[1]
         dfm = df.ix[df.index.month == m]
-        dfm5 = dfm.ix[dfm.index.year == 2015]
-        dfm6 = dfm.ix[dfm.index.year == 2016]
+        dfm5 = dfm.ix[dfm.index.year == y]
+        dfm6 = dfm.ix[dfm.index.year == y2]
         for d in range(1, dim, 1):
             ddfm5 = dfm5.ix[dfm5.index.day == d]
             ddfm6 = dfm6.ix[dfm6.index.day == d]
@@ -32,7 +39,61 @@ def SimilarDaysError(df):
                 errors.extend(ddfm6['FABBISOGNO REALE'].values.ravel() - ddfm5['FABBISOGNO REALE'].values.ravel().tolist())
     return errors
 ####################################################################################################
-
+def AddHolidaysDate(vd):
+    
+  ##### codifica numerica delle vacanze
+  ## 1 Gennaio = 1, Epifania = 2
+  ## Pasqua = 3, Pasquetta = 4
+  ## 25 Aprile = 5, 1 Maggio = 6, 2 Giugno = 7,
+  ## Ferragosto = 8, 1 Novembre = 9
+  ## 8 Dicembre = 10, Natale = 11, S.Stefano = 12, S.Silvestro = 13
+    holidays = 0
+    pasquetta = [datetime.datetime(2015,4,6), datetime.datetime(2016,3,28)]
+    pasqua = [datetime.datetime(2015,4,5), datetime.datetime(2016,3,27)]
+  
+    if vd.month == 1 and vd.day == 1:
+        holidays = 1
+    if vd.month  == 1 and vd.day == 6: 
+        holidays = 1
+    if vd.month  == 4 and vd.day == 25: 
+        holidays = 1
+    if vd.month  == 5 and vd.day == 1: 
+        holidays = 1
+    if vd.month  == 6 and vd.day == 2: 
+        holidays = 1
+    if vd.month  == 8 and vd.day == 15: 
+        holidays = 1
+    if vd.month  == 11 and vd.day == 1: 
+        holidays = 1
+    if vd.month  == 12 and vd.day == 8: 
+        holidays = 1
+    if vd.month  == 12 and vd.day == 25: 
+        holidays = 1
+    if vd.month  == 12 and vd.day == 26: 
+        holidays = 1
+    if vd.month  == 12 and vd.day == 31: 
+        holidays = 1
+    if vd in pasqua:
+        holidays = 1
+    if vd in pasquetta:
+        holidays = 1
+  
+    return holidays
+####################################################################################################
+def MakeDatasetTS(df, meteo):
+    dts = OrderedDict()
+    for i in df.index.tolist():
+        wd = i.weekday()
+        h = i.hour
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        dts[i] = [wd, h, dy, Tmax, rain, wind, hol, df['FABBISOGNO REALE'].ix[i]]
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    return dts
+####################################################################################################
 
 sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento.xlsx')
 nord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_NORD']
@@ -91,3 +152,56 @@ plt.plot(y, color = 'red')
 
 plt.figure()
 plt.plot(y - yhat)
+
+#### fabbisogno 2009
+sbil2009 = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento2009.xlsx')
+nord2009 = sbil2009.ix[sbil2009['CODICE RUC'] == 'UC_DP1608_NORD']
+nord2009.index = pd.date_range('2009-01-01', '2010-01-02', freq = 'H')[:nord2009.shape[0]]
+
+#### difference between 2015 and 2009 since they were identical years (same days were on the same days)
+diff = nord['FABBISOGNO REALE'].ix[nord.index.year == 2015].values.ravel() - nord2009['FABBISOGNO REALE'].values.ravel()
+
+plt.figure()
+plt.plot(diff)
+
+##### experiment AdaBoost + Decision Trees 2015 to 2016
+cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
+cnord.index = pd.date_range('2015-01-01', '2017-01-02', freq = 'H')[:nord.shape[0]]
+fi5 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2015.xlsx')
+fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
+
+DT5 = MakeDatasetTS(cnord.ix[cnord.index.year == 2015], fi5)
+DT6 = MakeDatasetTS(cnord.ix[cnord.index.year == 2016], fi6)
+
+regr = AdaBoostRegressor(DecisionTreeRegressor(max_depth = 24),n_estimators=24000)
+
+DT5s = DT5.sample(frac = 1).reset_index(drop = True)
+
+x = DT5[DT5.columns[:7]]
+y = DT5[DT5.columns[7]]
+xs = DT5s[DT5s.columns[:7]]
+ys = DT5s[DT5s.columns[7]]
+x6 = DT6[DT6.columns[:7]]
+y6 = DT6[DT6.columns[7]]
+
+regr.fit(xs, ys)
+yhat = regr.predict(x)
+
+regrR2 = 1 - (np.sum((y - yhat)**2))/(np.sum((y - np.mean(y))**2))
+
+plt.figure()
+plt.plot(yhat, color = 'blue', marker = 'o')
+plt.plot(y.values.ravel(), color = 'red')
+
+plt.figure()
+plt.plot(y - yhat)
+
+yhat6 = regr.predict(x6)
+
+plt.figure()
+plt.plot(yhat6, color = 'navy', marker = 'o')
+plt.plot(y6.values.ravel(), color = 'coral')
+
+plt.figure()
+plt.plot(y6 - yhat6)
+
