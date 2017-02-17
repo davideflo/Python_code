@@ -137,7 +137,8 @@ def DaConferire(l, prof, setmonth, pp):
             if y > 0:
                 return y
             else:
-                return l[2]
+                if l[2] > 0:
+                    return l[2]
     elif l[3] == 0 and l[2] == 0 and l[1]> 0:
         return l[1]
     else:
@@ -248,6 +249,13 @@ resdf = pd.DataFrame.from_dict(res, orient = 'index')
 resdf.columns = [['PDR','REMI', 'PROFILO_PRELIEVO', 'CONSUMO_CONTRATTUALE', 'CONSUMO_DISTRIBUTORE', 'SII', 
                   'VOLUME ANNUO FATTURATO', 'FATTURATO MIN 12', 'DA CONFERIRE']]
 
+#### check that every pdr has a value in "da conferire": ###########################################
+if resdf['DA CONFERIRE'].ix[resdf['DA CONFERIRE'] == 0].values.size > 0:
+    print 'ATTENZIONE: alcuni PDR non hanno valore da conferire!!'
+    print resdf['PDR'].ix[resdf['DA CONFERIRE'] == 0].values
+else:
+    print 'tutti i PDR hanno valori da conferire'
+####################################################################################################
 resdf.to_excel('Trasferimenti_clean2.xlsx')
 
 resdf = pd.read_excel('Trasferimenti_clean.xlsx', converters = {'PDR': str,'REMI': str})
