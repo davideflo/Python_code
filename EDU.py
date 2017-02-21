@@ -49,5 +49,14 @@ pw.send_keys("Axopower_123")
 login = browser.find_element_by_xpath("//input[@value='Login']")
 login.click()
 
-browser_ie = webdriver.Ie('C:/Program Files/Internet Explorer/iexplore.exe')
+#browser_ie = webdriver.Ie('C:/Program Files/Internet Explorer/iexplore.exe')
+browser_ie = webdriver.Ie('C:/Users/d_floriello/Desktop/IEdriver/IEDriverServer.exe')
+
 browser_ie.get(login_url)
+
+browser_ie.switch_to.frame(browser.find_element_by_name('entrustTruePassGuiFrame'))
+profilo = browser_ie.find_element_by_name('username')
+pw = browser_ie.find_element_by_name('password')
+
+profilo.send_keys("Z:\Lorenzo\Entrust Profile\GABRIELE BERTHOLET.epf")
+pw.send_keys("Axopower_123")
