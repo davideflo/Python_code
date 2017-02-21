@@ -131,6 +131,41 @@ def MakeDatasetTSCurve(df, meteo):
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
     return dts
 ####################################################################################################
+def getindex(m, y):
+    if y == 2016:
+        if m == 1:
+            return '11_2015'
+        elif m == 2:
+            return '12_2015'
+        else:
+            return str(m-2) + '_' + str(y)
+    else:
+        return str(m-2) + '_' + str(y)
+####################################################################################################
+def MakeDatasetTSFixedCurve(df, meteo):
+    dts = OrderedDict()
+    cm = GetMeanCurve(df,'FABBISOGNO REALE')
+    df5 = df.ix[df.index.year == 2015]
+    df6 = df.ix[df.index.year == 2016]
+    df = df5.ix[df5.index.month > 2].append(df6)
+    for i in df.index.tolist():
+        m = i.month
+        y = i.year
+        cmym = cm.ix[getindex(m, y)]
+        wd = i.weekday()
+        h = i.hour
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ll = [wd, h, dy, Tmax, rain, wind, hol]
+        ll.extend(cmym.tolist())
+        ll.extend([df['FABBISOGNO REALE'].ix[i]])
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    return dts
+####################################################################################################
 
 
 sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento.xlsx')
@@ -294,3 +329,91 @@ plt.axhline(y = 0)
 fi = fi5.append(fi6)
 
 DTC = MakeDatasetTSCurve(cnord, fi)
+
+DTC.to_excel('DTC.xlsx') #### in Users/utente
+
+DTC = pd.read_excel('C:/Users/utente/DTC.xlsx')
+
+DTCs = DTC.sample(frac = 1).reset_index(drop = True)
+trs = np.random.randint(0, DTC.shape[0], np.ceil(DTC.shape[0] * 0.85))
+tes = list(set(range(DTC.shape[0] )).difference(set(trs)))
+
+
+x = DTC[DTC.columns[:31]]
+y = DTC[DTC.columns[31]]
+xs = DTCs[DTCs.columns[:31]]
+ys = DTCs[DTCs.columns[31]]
+
+rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+rfregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+rfregr.fit(DTCs[DTCs.columns[:31]].ix[trs], DTCs[DTCs.columns[31]].ix[trs])
+yhat = rfregr.predict(DTCs[DTCs.columns[:31]].ix[trs])
+
+regrR2 = 1 - (np.sum((DTCs[DTCs.columns[31]].ix[trs] - yhat)**2))/(np.sum((DTCs[DTCs.columns[31]].ix[trs] - np.mean(DTCs[DTCs.columns[31]].ix[trs]))**2))
+
+yhat6 = rfregr.predict(DTCs[DTCs.columns[:31]].ix[tes])
+regr6R2 = 1 - (np.sum((DTCs[DTCs.columns[31]].ix[tes] - yhat6)**2))/(np.sum((DTCs[DTCs.columns[31]].ix[tes] - np.mean(DTCs[DTCs.columns[31]].ix[tes]))**2))
+
+plt.figure()
+plt.plot(yhat6, color = 'navy', marker = 'o')
+plt.plot(DTCs[DTCs.columns[31]].ix[tes].values.ravel(), color = 'coral')
+
+y6 = DTCs[DTCs.columns[31]].ix[tes].values.ravel()
+
+plt.figure()
+plt.plot(y6 - yhat6)
+(y6 - yhat6).ix[(y6 - yhat6).index.month >= 8].mean()
+(y6 - yhat6).ix[(y6 - yhat6).index.month < 8].mean()
+(y6 - yhat6).ix[(y6 - yhat6).index.month >= 8].std()
+(y6 - yhat6).ix[(y6 - yhat6).index.month < 8].std()
+
+np.mean(y6 - yhat6)
+np.median(y6 - yhat6)
+np.std(y6 - yhat6)
+
+###### Try MakeDatasetTSFixedCurve
+
+DTFC = MakeDatasetTSFixedCurve(cnord, fi)
+
+trs = np.random.randint(0, DTFC.shape[0], np.ceil(DTFC.shape[0] * 0.85))
+tes = list(set(range(DTFC.shape[0] )).difference(set(trs)))
+
+
+#rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+ffregr.fit(DTFC[DTFC.columns[:31]].ix[trs], DTFC[DTFC.columns[31]].ix[trs])
+fyhat = ffregr.predict(DTFC[DTFC.columns[:31]].ix[trs])
+
+fregrR2 = 1 - (np.sum((DTFC[DTFC.columns[31]].ix[trs] - fyhat)**2))/(np.sum((DTFC[DTFC.columns[31]].ix[trs] - np.mean(DTFC[DTFC.columns[31]].ix[trs]))**2))
+
+fyhat6 = ffregr.predict(DTFC[DTFC.columns[:31]].ix[tes])
+fregr6R2 = 1 - (np.sum((DTFC[DTFC.columns[31]].ix[tes] - fyhat6)**2))/(np.sum((DTFC[DTFC.columns[31]].ix[tes] - np.mean(DTFC[DTFC.columns[31]].ix[tes]))**2))
+
+plt.figure()
+plt.plot(fyhat6, color = 'blue', marker = 'o')
+plt.plot(DTFC[DTFC.columns[31]].ix[tes].values.ravel(), color = 'red')
+
+fy6 = DTFC[DTFC.columns[31]].ix[tes].values.ravel()
+
+
+np.mean(fy6 - fyhat6)
+np.median(fy6 - fyhat6)
+np.std(fy6 - fyhat6)
+np.max(fy6 - fyhat6)
+fMAE = np.abs(fy6 - fyhat6)/fy6
+
+plt.figure()
+plt.plot(fy6 - fyhat6)
+plt.axvline(x = fMAE.tolist().index(np.max(fMAE)), color = 'red')
+
+np.mean(fMAE)
+np.median(fMAE)
+np.max(fMAE)
+np.std(fMAE)
+scipy.stats.mstats.mquantiles(fMAE, prob = [0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
+
+Err = pd.DataFrame(fy6 - fyhat6)
+
+from pandas.tools import plotting
+plt.figure()
+plotting.autocorrelation_plot( Err)
