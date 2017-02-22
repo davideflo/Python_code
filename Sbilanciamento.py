@@ -378,7 +378,7 @@ DTFC = MakeDatasetTSFixedCurve(cnord, fi)
 trs = np.random.randint(0, DTFC.shape[0], np.ceil(DTFC.shape[0] * 0.85))
 tes = list(set(range(DTFC.shape[0] )).difference(set(trs)))
 
-
+## http://stackoverflow.com/questions/23118309/scikit-learn-randomforest-memory-error
 #rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
 ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
 ffregr.fit(DTFC[DTFC.columns[:31]].ix[trs], DTFC[DTFC.columns[31]].ix[trs])
