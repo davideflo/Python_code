@@ -16,7 +16,7 @@ from os.path import isfile, join
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 
-path = 'C:\Users\utente\Documents\PUN\curve domanda'
+path = 'C:\Users\utente\Documents\PUN\curve_domanda'
 
 
 #curves = pd.read_csv('C:\\Users\\utente\\Documents\\PUN\\curve domanda\\Default Dataset_2016-09-07.csv',sep=',', header=None)
@@ -35,6 +35,7 @@ def Extract_Dataset(path):
     rng = pd.date_range(start="2016-09-07", periods = DF.shape[0],freq = 'D')
     DF = DF.set_index(rng)
     DF.to_csv('C:\\Users\\utente\\Documents\\PUN\\demand_curves.csv', sep=',', header = True)
+    print 'dimensions of the updated dataset: {}'.format(DF.shape)
     return DF
 ###################################################################################################
 def get_InterpolatedCurves(path):
@@ -46,6 +47,7 @@ def get_InterpolatedCurves(path):
         fig = plt.figure()
         plt.plot(new_x, fhat(new_x))
         fig.suptitle('electric energy demand for {} '.format(str(DF.index[i])))
+        #plt.savefig('C:\Users\utente\Documents\PUN\curve domanda\plots\curve_demand for {} '.format(str(DF.index[i])))
 ###################################################################################################    
 #DF = Extract_Dataset(path)      
 #        
