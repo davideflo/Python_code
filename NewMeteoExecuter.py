@@ -15,6 +15,8 @@ import EE_interp
 
 schedule.every().day.at("11:35").do(NewMeteoExtractor.Extractor)
 
+NewMeteoExtractor.Extractor()
+
 print 'Extraction Forward Meteo Done'
 
 today = datetime.datetime.today()
@@ -38,3 +40,4 @@ path = 'C:/Users/utente/Documents/PUN/curve_domanda'
 
 schedule.every().day.at("12:00").do(EE_interp.Extract_Dataset, path)
 
+EE_interp.Extract_Dataset(path)
