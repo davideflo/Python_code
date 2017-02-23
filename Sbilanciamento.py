@@ -417,3 +417,84 @@ Err = pd.DataFrame(fy6 - fyhat6)
 from pandas.tools import plotting
 plt.figure()
 plotting.autocorrelation_plot( Err)
+
+dfy6 = np.diff(fy6)
+dfyhat6 = np.diff(fyhat6)
+
+plt.figure()
+plt.hist(dfy6, bins = 20)
+plt.figure()
+plt.hist(dfyhat6, bins = 20, color = 'green')
+scipy.stats.mstats.mquantiles(dfy6, prob = [0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
+scipy.stats.mstats.mquantiles(dfyhat6, prob = [0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
+plotting.autocorrelation_plot(dfy6)
+plotting.autocorrelation_plot(dfyhat6, color = 'green')
+
+###### TOT ORDERED DATA:
+YH = ffregr.predict(DTFC[DTFC.columns[:31]])
+
+R2 = 1 - (np.sum((DTFC[DTFC.columns[31]] - YH)**2))/(np.sum((DTFC[DTFC.columns[31]] - np.mean(DTFC[DTFC.columns[31]]))**2))
+Y = DTFC[DTFC.columns[31]].values.ravel()
+
+plt.figure()
+plt.plot(Y)
+plt.plot(YH, marker = 'o', color = 'grey')
+
+Err = Y - YH
+MAE = np.abs(Err)/Y
+
+plt.figure()
+plt.plot(Err, color = 'red')
+plt.figure()
+plt.plot(MAE, color = 'orange')
+plt.axhline(y = scipy.stats.mstats.mquantiles(MAE, prob = 0.99))
+
+scipy.stats.mstats.mquantiles(MAE, prob = [0.1,0.2,0.3,0.4,0.5,0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
+np.where(MAE >= scipy.stats.mstats.mquantiles(MAE, prob = 0.99))[0].size/MAE.size
+
+plt.figure()
+plotting.autocorrelation_plot(Err)
+plt.figure()
+plotting.autocorrelation_plot(Y)
+plt.figure()
+plotting.autocorrelation_plot(YH, color = 'green')
+
+import statsmodels.graphics
+statsmodels.graphics.tsaplots.plot_acf(Y, lags = 30*24)
+plotting.lag_plot(Y, lag = 30*24)
+plt.figure()
+plotting.autocorrelation_plot(YH, color = 'green')
+
+col1 = []
+col2 = []
+i = 0
+j = 30*24 
+while j < DTFC.shape[0]:
+    col1.append(DTFC[DTFC.columns[31]].ix[i])
+    col2.append(DTFC[DTFC.columns[31]].ix[j])
+    i += 1
+    j += 1
+    
+plt.figure()
+plt.plot(np.array(col1))
+plt.figure()
+plt.plot(np.array(col2), color = 'magenta')
+plt.figure()
+plt.plot(scipy.signal.correlate(col1,col2,mode="full")/np.var(scipy.signal.correlate(col1,col2,mode="full")))
+np.corrcoef(col1, col2)
+
+######## RANDOM FOREST
+rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
+rfregr.fit(DTFC[DTFC.columns[:31]].ix[trs], DTFC[DTFC.columns[31]].ix[trs])
+fyhat = rfregr.predict(DTFC[DTFC.columns[:31]].ix[trs])
+
+rfregrR2 = 1 - (np.sum((DTFC[DTFC.columns[31]].ix[trs] - fyhat)**2))/(np.sum((DTFC[DTFC.columns[31]].ix[trs] - np.mean(DTFC[DTFC.columns[31]].ix[trs]))**2))
+
+fyhat6 = ffregr.predict(DTFC[DTFC.columns[:31]].ix[tes])
+fregr6R2 = 1 - (np.sum((DTFC[DTFC.columns[31]].ix[tes] - fyhat6)**2))/(np.sum((DTFC[DTFC.columns[31]].ix[tes] - np.mean(DTFC[DTFC.columns[31]].ix[tes]))**2))
+
+plt.figure()
+plt.plot(fyhat6, color = 'blue', marker = 'o')
+plt.plot(DTFC[DTFC.columns[31]].ix[tes].values.ravel(), color = 'red')
+
+fy6 = DTFC[DTFC.columns[31]].ix[tes].values.ravel()
