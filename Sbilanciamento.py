@@ -9,6 +9,7 @@ Sbilanciamento Terna
 
 from __future__ import division
 import pandas as pd
+from pandas.tools import plotting
 import numpy as np
 import matplotlib.pyplot as plt
 import statsmodels.api
@@ -244,6 +245,8 @@ fi5 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2015.xlsx')
 fi5 = fi5.ix[:364].set_index(pd.date_range('2015-01-01', '2015-12-31', freq = 'D'))
 fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
 fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+fi = fi5.append(fi6)
+
 
 
 DT5 = MakeDatasetTS(cnord.ix[cnord.index.year == 2015], fi5)
@@ -326,7 +329,6 @@ plt.figure()
 ydiff.T.plot(legend = False)
 plt.axhline(y = 0)
 
-fi = fi5.append(fi6)
 
 DTC = MakeDatasetTSCurve(cnord, fi)
 
@@ -414,7 +416,7 @@ scipy.stats.mstats.mquantiles(fMAE, prob = [0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.9
 
 Err = pd.DataFrame(fy6 - fyhat6)
 
-from pandas.tools import plotting
+
 plt.figure()
 plotting.autocorrelation_plot( Err)
 
@@ -444,10 +446,51 @@ Err = Y - YH
 MAE = np.abs(Err)/Y
 
 plt.figure()
+plt.hist(Y, bins = 20)
+plt.figure()
+plt.hist(YH, bins = 20, color = "red")
+
+
+plt.figure()
 plt.plot(Err, color = 'red')
 plt.figure()
 plt.plot(MAE, color = 'orange')
 plt.axhline(y = scipy.stats.mstats.mquantiles(MAE, prob = 0.99))
+plt.figure()
+plt.hist(MAE, bins = 40, color = 'orange')
+
+### in what hours is MAE greater than 0.15?
+### if I put the 99% quantile the num of observation greater than it is 161 => the 99% quantile is < 0.15
+dfmae = pd.DataFrame(MAE)
+dfmae = dfmae.set_index(DTFC.index)
+
+over = dfmae.ix[dfmae[0] > 0.15].index
+hover = over.hour
+xh = [tuple([h]) for h in hover.tolist()]
+from collections import Counter
+
+freq_h = Counter(xh)
+
+
+########
+gen = scipy.stats.pareto.fit(MAE)
+pareto_sample = scipy.stats.pareto.rvs(gen[0], gen[1], gen[2], size = MAE.size)
+
+#### looks *very* similar to MAE
+plt.figure()
+plt.plot(pareto_sample)
+np.where(pareto_sample >= scipy.stats.mstats.mquantiles(pareto_sample, prob = 0.99))[0].size/pareto_sample.size ### same number!!!
+
+#### what is the distribution of the imbalance in 2015, 2016?
+imb = cnord['SBILANCIAMENTO FISICO [MWh]']
+measured_imb = np.abs(imb.values.ravel())/cnord['FABBISOGNO REALE'].values.ravel()
+
+plt.figure()
+plt.plot(measured_imb, color = 'red')
+plt.axhline(y = 0.15, color = 'black')
+plt.axhline(y = scipy.stats.mstats.mquantiles(measured_imb, prob = 0.90), color = 'purple')
+plt.figure()
+plotting.autocorrelation_plot(measured_imb)
 
 scipy.stats.mstats.mquantiles(MAE, prob = [0.1,0.2,0.3,0.4,0.5,0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
 np.where(MAE >= scipy.stats.mstats.mquantiles(MAE, prob = 0.99))[0].size/MAE.size
