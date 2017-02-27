@@ -19,6 +19,7 @@ from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
 from collections import OrderedDict
 import datetime
+from statsmodels.tsa.stattools import adfuller
 
 today = datetime.datetime.now()
 ####################################################################################################
@@ -165,7 +166,59 @@ def MakeDatasetTSFixedCurve(df, meteo):
         ll.extend([df['FABBISOGNO REALE'].ix[i]])
         dts[i] =  ll
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['weekday', 'hour', 'pday', 'Tmax', 'pioggia', 'vento', 'holiday', 
+                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
+                    '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23',
+                    'y']]
     return dts
+####################################################################################################
+def MakeDatasetTSLYFixedCurve(df, meteo):
+    dts = OrderedDict()
+    cm = GetMeanCurve(df,'FABBISOGNO REALE')
+    df = df.ix[df.index.year == 2016]
+    for i in df.index.tolist():
+        m = i.month
+        cmym = cm.ix[str(m) + '_' + str(2015)]
+        wd = i.weekday()
+        h = i.hour
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ll = [wd, h, dy, Tmax, rain, wind, hol]
+        ll.extend(cmym.tolist())
+        ll.extend([df['FABBISOGNO REALE'].ix[i]])
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['weekday', 'hour', 'pday', 'Tmax', 'pioggia', 'vento', 'holiday', 
+                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
+                    '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23',
+                    'y']]
+    return dts
+####################################################################################################
+def test_stationarity(timeseries):
+    
+    #Determing rolling statistics
+    rolmean = pd.rolling_mean(timeseries, window=12)
+    rolstd = pd.rolling_std(timeseries, window=12)
+    
+    #Plot rolling statistics:
+    fig = plt.figure(figsize=(12, 8))
+    orig = plt.plot(timeseries, color='blue',label='Original')
+    mean = plt.plot(rolmean, color='red', label='Rolling Mean')
+    std = plt.plot(rolstd, color='black', label = 'Rolling Std')
+    plt.legend(loc='best')
+    plt.title('Rolling Mean & Standard Deviation')
+    plt.show()
+        
+    #Perform Dickey-Fuller test:
+    print 'Results of Dickey-Fuller Test:'
+    dftest = adfuller(timeseries, autolag='AIC')
+    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic','p-value','#Lags Used','Number of Observations Used'])
+    for key,value in dftest[4].items():
+        dfoutput['Critical Value (%s)'%key] = value
+    print dfoutput 
 ####################################################################################################
 
 
@@ -376,10 +429,51 @@ np.std(y6 - yhat6)
 ###### Try MakeDatasetTSFixedCurve
 
 DTFC = MakeDatasetTSFixedCurve(cnord, fi)
+DTFC = MakeDatasetTSLYFixedCurve(cnord, fi)
 
+test_stationarity(DTFC['y'].values.ravel())
+
+import statsmodels.api as sm
+mod = sm.tsa.statespace.SARIMAX(DTFC['y'].values.ravel(), trend='n', order=(0,1,0), seasonal_order=(1,1,1,12))
+results = mod.fit()
+print results.summary()
+### shuffle the dataset and build a model leaveng the time dendence structure out
 trs = np.random.randint(0, DTFC.shape[0], np.ceil(DTFC.shape[0] * 0.85))
 tes = list(set(range(DTFC.shape[0] )).difference(set(trs)))
 
+### treat the dataset as a true time series
+trs = np.arange(int(np.ceil(DTFC.shape[0] * 0.85)))
+np.random.shuffle(trs)
+tes = list(set(range(DTFC.shape[0])).difference(set(trs.tolist())))
+
+wdtrs = DTFC.ix[trs]
+wdtrs = wdtrs.ix[wdtrs['holiday'] == 0]
+wdtrs = wdtrs.ix[wdtrs['weekday'] < 5]
+
+wdtes = DTFC.ix[tes]
+wdtes = wdtes.ix[wdtes['holiday'] == 0]
+wdtes = wdtes.ix[wdtes['weekday'] < 5]
+
+
+ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+ffregr.fit(wdtrs[wdtrs.columns[:31]], wdtrs[wdtrs.columns[31]])
+fyhat = ffregr.predict(wdtrs[wdtrs.columns[:31]])
+
+fregrR2 = 1 - (np.sum((wdtrs[wdtrs.columns[31]] - fyhat)**2))/(np.sum((wdtrs[wdtrs.columns[31]] - np.mean(wdtrs[wdtrs.columns[31]]))**2))
+
+fyhat6 = ffregr.predict(wdtes[wdtes.columns[:31]])
+fregr6R2 = 1 - (np.sum((wdtes[wdtes.columns[31]] - fyhat6)**2))/(np.sum((wdtes[wdtes.columns[31]] - np.mean(wdtes[wdtes.columns[31]]))**2))
+
+plt.figure()
+plt.plot(fyhat6, color = 'blue', marker = 'o')
+plt.plot(wdtes[wdtes.columns[31]].values.ravel(), color = 'red')
+
+wderr = wdtes[wdtes.columns[31]].values.ravel() - fyhat6
+plt.figure()
+plt.plot(wderr)
+wdmae = np.abs(wderr)/wdtes[wdtes.columns[31]].values.ravel()
+plt.figure()
+plt.plot(wdmae)
 ## http://stackoverflow.com/questions/23118309/scikit-learn-randomforest-memory-error
 #rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
 ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
