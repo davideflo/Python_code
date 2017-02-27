@@ -33,10 +33,10 @@ def FilterAttiva(tt, da):
     for d in da:
         iniziolinea = tt[d-2:d+3]
         if iniziolinea == 'ReAtt':
-            pass
+            print 'Reatt --> discard'
         else:
             res.append(d)
-        return res
+    return res
 ####################################################################################################
 def Estrai_Linea_Att(tt, string, da):
     inter = tt[da: da+70]
@@ -405,6 +405,9 @@ def A2A_Executer(prodotto):
         rea2 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f2')
         a3 = Estrai_Multiple_Att(capitolo, 'Att-f3')
         rea3 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f3')
+        rea1 = [item for sublist in rea1 for item in sublist]
+        rea2 = [item for sublist in rea2 for item in sublist]
+        rea3 = [item for sublist in rea3 for item in sublist]
         Rea1 = []
         Rea2 = []
         Rea3 = []
