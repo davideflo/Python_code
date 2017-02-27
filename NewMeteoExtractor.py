@@ -80,12 +80,10 @@ def Extractor():
         
         path2 = path + '/' + city + '.xlsx'
         
-        if os.path.isfile(path2):
-            df = pd.read_excel(path2)
-            df.append(domani)
-            df.to_excel(path2)
-        else:
-            domani.to_excel(path2)        
+        
+        df = pd.read_excel(path2)
+        df = df.append(domani)
+        df.to_excel(path2)
         
         print '{} DONE'.format(city)
         
