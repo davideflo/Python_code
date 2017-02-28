@@ -18,6 +18,9 @@ import pandas as pd
 import math
 
 ####################################################################################################
+def diff_month(d1, d2):
+    return (d1.year - d2.year)*12 + d1.month - d2.month
+####################################################################################################
 def IsLastDay(dtt):
     DAY = dtt.day
     MONTH = dtt.month
@@ -27,6 +30,34 @@ def IsLastDay(dtt):
         return True
     else:
         return False
+####################################################################################################
+def listmonth(dti, dtf):
+    months = [1,2,3,4,5,6,7,8,9,10,11,12]
+    resm = []
+    monthdiff = diff_month(dtf, dti)
+    ii = 0    
+    if IsLastDay(dti):
+        ii = months.index((dti + datetime.timedelta(days = 1)).month) 
+    else:
+        ii = months.index(dti.month)
+    for j in range(monthdiff):
+        ind = (ii+j)%12
+        resm.append(months[ind])
+    return resm
+####################################################################################################
+def listmonth2(dti, dtf):
+    resm = []    
+    if IsLastDay(dti):
+        dti = dti + datetime.timedelta(days = 1)
+    med = datetime.datetime(dti.year, dti.month, calendar.monthrange(dti.year, dti.month)[1])
+    resm.append((dti, med))
+    dff = datetime.datetime(dtf.year, dtf.month, calendar.monthrange(dtf.year, dtf.month)[1])
+    while med != dff:
+        medi = med + datetime.timedelta(days = 1)
+        dfi = datetime.datetime(medi.year, medi.month, calendar.monthrange(medi.year, medi.month)[1])
+        resm.append((medi, dfi))
+        med = dfi
+    return resm    
 ####################################################################################################
 def FilterAttiva(tt, da):
     res = []
@@ -101,27 +132,34 @@ def Estrai_Attiva(tt, d):
     condition = (dti.month != dtf.month)    
     
     if condition:
-        for dr in range(dti.month, dtf.month+1,1):
+        lm = listmonth2(dti, dtf)
+        for l in range(len(lm)):
+            dr = lm[l]
             print dr
-            if dr == dti.month:
-                dff = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1])
-                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
-                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
-                delta = (dff - dti).days
-                if not IsLastDay(dff):
-                    rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
-            elif dti.month < dr <dtf.month:
-                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
-                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
-                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
-                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
-                delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]
-                rea.append((datainizio2, datafine1, math.ceil((enf/deltad)*delta)))
-            else:
-                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
-                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
-                delta = (dtf - datetime.date(int(str(data_inizio2)[:4]),dr,1)).days + 1
-                rea.append((datainizio2, data_fine, math.ceil((enf/deltad)*delta)))
+            datainizio = str(dr[0].day) + '/' + str(dr[0].month) + '/' + str(dr[0].year)
+            datafine = str(dr[1].day) + '/' + str(dr[1].month) + '/' + str(dr[1].year)
+            valore = math.ceil((enf/deltad)*dr[1].day)
+            rea.append((datainizio, datafine, valore))
+#           
+#            if dr == dti.month:
+#                dff = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1])
+#                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
+#                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
+#                delta = (dff - dti).days
+#                if not IsLastDay(dff):
+#                    rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
+#            elif dti.month < dr <dtf.month:
+#                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
+#                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
+#                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
+#                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
+#                delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]
+#                rea.append((datainizio2, datafine1, math.ceil((enf/deltad)*delta)))
+#            else:
+#                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
+#                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
+#                delta = (dtf - datetime.date(int(str(data_inizio2)[:4]),dr,1)).days + 1
+#                rea.append((datainizio2, data_fine, math.ceil((enf/deltad)*delta)))
     
 #    elif (not condition) and condition2:
 #        rea.append((data_inizio, data_fine, enf))
@@ -229,27 +267,33 @@ def Estrai_Reattiva(tt, d):
     condition = (dti.month != dtf.month)    
     
     if condition:
-        for dr in range(dti.month, dtf.month+1,1):
+        lm = listmonth2(dti, dtf)
+        for l in range(len(lm)):
+            dr = lm[l]
             print dr
-            if dr == dti.month:
-                dff = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1])
-                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
-                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
-                delta = (dff - dti).days
-                if not IsLastDay(dff):
-                    rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
-            elif dti.month < dr <dtf.month:
-                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
-                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
-                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
-                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
-                delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]
-                rea.append((datainizio2, datafine1, math.ceil((enf/deltad)*delta)))
-            else:
-                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
-                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
-                delta = (dtf - datetime.date(int(str(data_inizio2)[:4]),dr,1)).days + 1
-                rea.append((datainizio2, data_fine, math.ceil((enf/deltad)*delta)))
+            datainizio = str(dr[0].day) + '/' + str(dr[0].month) + '/' + str(dr[0].year)
+            datafine = str(dr[1].day) + '/' + str(dr[1].month) + '/' + str(dr[1].year)
+            valore = math.ceil((enf/deltad)*dr[1].day)
+            rea.append((datainizio, datafine, valore))
+#            if dr == dti.month:
+#                dff = datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1])
+#                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),int(str(data_inizio)[3:5]),calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
+#                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
+#                delta = (dff - dti).days
+#                if not IsLastDay(dff):
+#                    rea.append((data_inizio, datafine1, math.ceil((enf/deltad)*delta)))
+#            elif dti.month < dr <dtf.month:
+#                data_fine1 = str(datetime.date(int(str(data_inizio)[6:]),dr,calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]))    
+#                datafine1 = data_fine1[8:10]+'/'+data_fine1[5:7]+'/'+data_fine1[:4]
+#                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
+#                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
+#                delta = calendar.monthrange(int(str(data_inizio)[6:]),dr)[1]
+#                rea.append((datainizio2, datafine1, math.ceil((enf/deltad)*delta)))
+#            else:
+#                data_inizio2 = str(datetime.date(int(str(data_fine)[6:]),dr,1))    
+#                datainizio2 = data_inizio2[8:10]+'/'+data_inizio2[5:7]+'/'+data_inizio2[:4] 
+#                delta = (dtf - datetime.date(int(str(data_inizio2)[:4]),dr,1)).days + 1
+#                rea.append((datainizio2, data_fine, math.ceil((enf/deltad)*delta)))
     
 #    elif (not condition) and condition2:
 #        rea.append((data_inizio, data_fine, enf))
@@ -405,26 +449,29 @@ def A2A_Executer(prodotto):
         rea2 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f2')
         a3 = Estrai_Multiple_Att(capitolo, 'Att-f3')
         rea3 = Estrai_Multiple_ReAtt(capitolo, 'ReAtt-f3')
-        rea1 = [item for sublist in rea1 for item in sublist]
-        rea2 = [item for sublist in rea2 for item in sublist]
-        rea3 = [item for sublist in rea3 for item in sublist]
+        if len(rea1) > 0 and isinstance(rea1[0], list):
+            rea1 = [item for sublist in rea1 for item in sublist]
+        if len(rea2) > 0 and isinstance(rea2[0], list):
+            rea2 = [item for sublist in rea2 for item in sublist]
+        if len(rea3) > 0 and isinstance(rea3[0], list):
+            rea3 = [item for sublist in rea3 for item in sublist]
         Rea1 = []
         Rea2 = []
         Rea3 = []
         Rea0 = []
-        if rea1 == '':
+        if len(rea1) == 0:
             for i in range(len(a1)):
                 Rea1.append(('', '', ''))            
                 rea1 = Rea1                
-        if rea2 == '':
+        if len(rea2) == 0:
             for i in range(len(a2)):
                 Rea2.append(('', '', ''))     
                 rea2 = Rea2                       
-        if rea3 == '':
+        if len(rea3) == 0:
             for i in range(len(a1)):
                 Rea3.append(('', '', ''))
                 rea3 = Rea3                            
-        if rea0 == '' and a0 != '':
+        if len(rea0) == 0 and a0 != '':
             for i in range(len(a0)):
                 Rea0.append(('', '', ''))                            
                 rea0 = Rea0
