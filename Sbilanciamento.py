@@ -454,9 +454,19 @@ wdtes = DTFC.ix[tes]
 wdtes = wdtes.ix[wdtes['holiday'] == 0]
 wdtes = wdtes.ix[wdtes['weekday'] < 5]
 
+wetrs = DTFC.ix[trs]
+wetrs = wetrs.ix[wetrs['holiday'] == 1].append(wetrs.ix[wetrs['weekday'] >= 5])
 
-ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+
+wetes = DTFC.ix[tes]
+wetes = wetes.ix[wetes['holiday'] == 1].append(wetes.ix[wetes['weekday'] >= 5])
+
+#ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+ffregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=1500) #not bad anyway
+#ffregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mae', max_depth = 24), n_estimators=1500)
+
 ffregr.fit(wdtrs[wdtrs.columns[:31]], wdtrs[wdtrs.columns[31]])
+########### weekdays ###############################################################################
 fyhat = ffregr.predict(wdtrs[wdtrs.columns[:31]])
 
 fregrR2 = 1 - (np.sum((wdtrs[wdtrs.columns[31]] - fyhat)**2))/(np.sum((wdtrs[wdtrs.columns[31]] - np.mean(wdtrs[wdtrs.columns[31]]))**2))
@@ -474,6 +484,60 @@ plt.plot(wderr)
 wdmae = np.abs(wderr)/wdtes[wdtes.columns[31]].values.ravel()
 plt.figure()
 plt.plot(wdmae)
+
+plt.figure()
+plt.hist(wdmae, bins = 20)
+
+dfyh = pd.DataFrame(fyhat6).set_index(wdtes.index)
+realmean = []
+hatmean = []
+for h in range(24):
+    realmean.append(wdtes['y'].ix[wdtes.index.hour == h].mean())
+    hatmean.append(dfyh.ix[dfyh.index.hour == h].mean())
+
+plt.figure()
+plt.plot(np.array(realmean))
+plt.plot(np.array(hatmean), color = 'red', marker = 'o')
+
+########################### weekends and holidays ##################################################
+
+ffregr.fit(wetrs[wetrs.columns[:31]], wetrs[wetrs.columns[31]])
+fyhat = ffregr.predict(wetrs[wetrs.columns[:31]])
+
+fregrR2 = 1 - (np.sum((wetrs[wetrs.columns[31]] - fyhat)**2))/(np.sum((wetrs[wetrs.columns[31]] - np.mean(wetrs[wetrs.columns[31]]))**2))
+
+fyhat6 = ffregr.predict(wetes[wetes.columns[:31]])
+fregr6R2 = 1 - (np.sum((wetes[wetes.columns[31]] - fyhat6)**2))/(np.sum((wetes[wetes.columns[31]] - np.mean(wetes[wetes.columns[31]]))**2))
+
+plt.figure()
+plt.plot(fyhat6, color = 'blue', marker = 'o')
+plt.plot(wetes[wetes.columns[31]].values.ravel(), color = 'red')
+
+weerr = wetes[wetes.columns[31]].values.ravel() - fyhat6
+plt.figure()
+plt.plot(weerr)
+wemae = np.abs(weerr)/wetes[wetes.columns[31]].values.ravel()
+plt.figure()
+plt.plot(wemae)
+
+plt.figure()
+plt.hist(wemae, bins = 20)
+
+dfyh = pd.DataFrame(fyhat6).set_index(wetes.index)
+realmean = []
+hatmean = []
+for h in range(24):
+    realmean.append(wetes['y'].ix[wetes.index.hour == h].mean())
+    hatmean.append(dfyh.ix[dfyh.index.hour == h].mean())
+
+plt.figure()
+plt.plot(np.array(realmean))
+plt.plot(np.array(hatmean), color = 'red', marker = 'o')
+
+
+
+
+
 ## http://stackoverflow.com/questions/23118309/scikit-learn-randomforest-memory-error
 #rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
 ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
