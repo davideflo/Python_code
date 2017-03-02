@@ -299,6 +299,8 @@ fi5 = fi5.ix[:364].set_index(pd.date_range('2015-01-01', '2015-12-31', freq = 'D
 fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
 fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 fi = fi5.append(fi6)
+sard = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SARD']
+sard.index = pd.date_range('2015-01-01', '2017-01-02', freq = 'H')[:sard.shape[0]]
 
 
 
@@ -461,8 +463,8 @@ wetrs = wetrs.ix[wetrs['holiday'] == 1].append(wetrs.ix[wetrs['weekday'] >= 5])
 wetes = DTFC.ix[tes]
 wetes = wetes.ix[wetes['holiday'] == 1].append(wetes.ix[wetes['weekday'] >= 5])
 
-#ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
-ffregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=1500) #not bad anyway
+ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+#ffregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=1500) #not bad anyway
 #ffregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mae', max_depth = 24), n_estimators=1500)
 
 ffregr.fit(wdtrs[wdtrs.columns[:31]], wdtrs[wdtrs.columns[31]])
