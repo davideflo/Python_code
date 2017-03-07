@@ -87,7 +87,7 @@ for y in years:
     
 ###############################################################################
 
-extracter = 'C:/Users/d_floriello/Desktop/tbe'
+extracter = 'C:/Users/d_floriello/Desktop/tbe2'
 onlyfiles = [f for f in listdir(extracter) if isfile(join(extracter, f))]
 
 for of in onlyfiles:
@@ -96,6 +96,31 @@ for of in onlyfiles:
         zip_ref.extractall(extracter)
         zip_ref.close()
         
+        
+cl = ['E', 'F']
+for h in range(24):
+    cl.append(str(h) + '.A')
+    cl.append(str(h) + '.B')
+    cl.append(str(h) + '.C')
+    cl.append(str(h) + '.D')
+        
+        
+y = 2016
+count = 0
+df = OrderedDict()
+for of in onlyfiles:
+    if 'T1' in of:
+        dt = datetime.datetime(y, int(of[2:4]), int(of[5:7]))
+        pod = of[of.find('_')+1:of.find('.csv')] 
+        t1df = pd.read_csv(extracter + '/' + of, sep = ';', dtype = object)
+        todiz = [pod, dt]
+        todiz.extend(t1df.ix[0].values.ravel().tolist()[:-1])
+        df[count] = todiz
+        count += 1
     
-    
-    
+df = pd.DataFrame.from_dict(df, orient = 'index')
+names = ['POD', 'date']    
+names.extend(cl)
+df.columns = names
+
+df.to_csv('orari_2016.csv', sep = ';')
