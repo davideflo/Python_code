@@ -43,3 +43,21 @@ def SimpleRedimensioniser(ph, mh, From, To):
     df.columns = [['pun', 'real']] 
     return df
 ####################################################################################################
+def ConstrainedRedimensioniser(ph, mh, odiz):
+    """
+    @param: odiz is an ordered dict with the months of the particular Q. The Q has to be complete. If a month
+    is missing, the component will be odiz['month'] = [0]. For Example:
+    odiz = {'Apr': 42, 'Mag':0, 'Giu': 45}
+    """
+    num_months = len(odiz.keys())
+    months = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+    index_months = [months.index(k) + 1 for k in odiz.keys()]
+    phb_months = []
+    for k in index_months:
+        perk = ph.ix[ph.index.month == k]        
+        phb_months.append(np.where(perk['real'].ix[perk['real'] == 1].size > 0, perk['pun'].ix[perk['real'] == 1].mean(), 0))
+    ok = [i for i in range(len(odiz.values())) if odiz.values()[i] > 0]
+    z_months = index_months[ok]
+    nz_months = list(set(index_months).difference(set(z_months)))        
+    
+    
