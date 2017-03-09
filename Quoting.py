@@ -7,8 +7,10 @@ Created on Tue Mar 07 14:47:04 2017
 Fast Quoting Updating
 """
 
+from __future__ import division
 import pandas as pd
 import numpy as np
+
 
 ####################################################################################################
 def Assembler(ph):
@@ -49,7 +51,12 @@ def ConstrainedRedimensioniser(ph, mh, odiz):
     is missing, the component will be odiz['month'] = [0]. For Example:
     odiz = {'Apr': 42, 'Mag':0, 'Giu': 45}
     """
-    num_months = len(odiz.keys())
+    if ph.shape[1] > 2:
+        ph = ph[ph.columns[2:]]
+    else:
+        pass
+    #num_months = len(odiz.keys())
+    df = pd.DataFrame()    
     months = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
     index_months = [months.index(k) + 1 for k in odiz.keys()]
     phb_months = []
@@ -57,7 +64,26 @@ def ConstrainedRedimensioniser(ph, mh, odiz):
         perk = ph.ix[ph.index.month == k]        
         phb_months.append(np.where(perk['real'].ix[perk['real'] == 1].size > 0, perk['pun'].ix[perk['real'] == 1].mean(), 0))
     ok = [i for i in range(len(odiz.values())) if odiz.values()[i] > 0]
-    z_months = index_months[ok]
-    nz_months = list(set(index_months).difference(set(z_months)))        
+    nz_months = [index_months[i] for i in ok]
+    z_months = list(set(index_months).difference(set(nz_months)))    
+    beta = 3*(mh - ((1/3)*sum(odiz.values()))) ##### remove the real values
+    den = 0
+    for i in range(len(z_months)):
+       den += ph['pun'].ix[ph.index.month == z_months[i]].mean()
+    beta = beta/den
+    #df = df.append(ph.ix[ph.index.month < min(index_months)])
+    for i in range(1,13):
+        if i in z_months:
+            dd = pd.DataFrame()
+            dd['pun'] = beta * ph['pun'].ix[ph.index.month == i].values.ravel()
+            dd['real'] = ph['real'].ix[ph.index.month == i].values.ravel()
+            dd = dd.set_index(ph.ix[ph.index.month == i].index)
+            df = df.append(dd)
+        else:
+            df = df.append(ph.ix[ph.index.month == i])
+    df['real'] = ph['real'].values.ravel()        
+    return df
+####################################################################################################
+    
     
     
