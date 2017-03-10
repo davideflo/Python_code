@@ -17,6 +17,7 @@ from collections import OrderedDict
 import pandas as pd
 import numpy as np
 import shutil
+import re
 
 ####################################################################################################
 def Aggregator(df):
@@ -26,6 +27,14 @@ def Aggregator(df):
     for k in range(1,25):
         v[k-1] += np.sum(np.array([x for x in df2[4*(k-1):4*k]], dtype = np.float64))
     return v
+####################################################################################################
+def Converter(s):
+    points = [m.start() for m in re.finditer('\.', s)]
+    if len(points) <= 1:
+        return float(np.where(np.isnan(float(s)), 0, float(s)))
+    else:
+        s2 = s[:points[len(points)-1]].replace('.','') + s[points[len(points)-1]:]
+        return float(np.where(np.isnan(float(s2)), 0, float(s2)))
 ####################################################################################################
 
 mypath = 'H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A'
@@ -124,3 +133,36 @@ names.extend(cl)
 df.columns = names
 
 df.to_csv('orari_2016.csv', sep = ';')
+
+
+##################### Elaborazione curve giornaliere ##########################
+
+df = pd.read_csv('orari_2015.csv', sep = ';', dtype = object)
+
+diz = OrderedDict()
+
+for i in range(df.shape[0]):
+    vec = np.repeat(0.0, 24)
+    td = []
+    for h in range(24):
+        ha = str(h) + '.A'
+        hb = str(h) + '.B'
+        hc = str(h) + '.C'
+        hd = str(h) + '.D'
+        va = Converter(str(df[ha].ix[i]))
+        vb = Converter(str(df[hb].ix[i]))
+        vc = Converter(str(df[hc].ix[i]))
+        vd = Converter(str(df[hd].ix[i]))
+        vec[h] = np.sum([va, vb, vc, vd], dtype = np.float64)
+    td.append(df['POD'].ix[i])
+    td.append(datetime.datetime(2015, int(df['date'].ix[i][3:5]), int(df['date'].ix[i][0:2])))
+    td.extend(vec.tolist())
+    diz[i] = td
+    
+diz = pd.DataFrame.from_dict(diz, orient = 'index')    
+
+    
+    
+    
+
+
