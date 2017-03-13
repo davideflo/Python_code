@@ -137,7 +137,7 @@ df.to_csv('orari_2016.csv', sep = ';')
 
 ##################### Elaborazione curve giornaliere ##########################
 
-df = pd.read_csv('orari_2015.csv', sep = ';', dtype = object)
+df = pd.read_csv('orari_2016.csv', sep = ';', dtype = object)
 
 diz = OrderedDict()
 
@@ -155,13 +155,18 @@ for i in range(df.shape[0]):
         vd = Converter(str(df[hd].ix[i]))
         vec[h] = np.sum([va, vb, vc, vd], dtype = np.float64)
     td.append(df['POD'].ix[i])
-    td.append(datetime.datetime(2015, int(df['date'].ix[i][3:5]), int(df['date'].ix[i][0:2])))
+    td.append(datetime.datetime(2016, int(df['date'].ix[i][5:7]), int(df['date'].ix[i][8:])))
     td.extend(vec.tolist())
     diz[i] = td
     
 diz = pd.DataFrame.from_dict(diz, orient = 'index')    
-
-    
+diz.columns = [['POD', 'Date', '1', '2', '3', '4', '5', '6',
+                '7', '8', '9', '10', '11', '12',
+                '13', '14', '15', '16', '17', '18',
+                '19', '20', '21', '22', '23', '24']]
+ 
+diz.to_csv('G_orari_2016.csv', sep = ';')   
+diz.to_excel('G_orari_2016.xlsx')   
     
     
 
