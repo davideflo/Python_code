@@ -8,7 +8,7 @@ PUN Pricing
 """
 
 import pandas as pd
-#import numpy as np
+import numpy as np
 from pandas.tools import plotting
 import matplotlib.pyplot as plt
 
@@ -18,7 +18,7 @@ data2 = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO
 
 data3 = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
 
-data4 = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2017/06. MI/DB_Borse_Elettriche_PER MI_17.xlsx", sheetname = 'DB_Dati')
+data4 = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2017/06. MI/DB_Borse_Elettriche_PER MI_17_conMacro - Copy.xlsm", sheetname = 'DB_Dati')
 
 
 pun = []
@@ -30,8 +30,8 @@ pun.append(data4['PUN [€/MWH]'].dropna().values.ravel())
 
 unlisted =  [item for sublist in pun for item in sublist]
 
-df = pd.DataFrame(unlisted) ######### to: 2 DAYS AHEAD OF TODAY
-df = df.set_index(pd.date_range('2014-01-01', '2017-01-18', freq = 'H')[:df.shape[0]])
+df = pd.DataFrame(unlisted) ######### to: 2 DAYS AHEAD OF LAST PUN
+df = df.set_index(pd.date_range('2014-01-01', '2018-01-02', freq = 'H')[:df.shape[0]])
 
 df.plot()
 df.resample('D').mean().plot()
@@ -88,4 +88,36 @@ import statsmodels.api
 
 fit = statsmodels.api.tsa.ARIMA(df.values.ravel(), (2,2,2)).fit()
 
+##########
+### remodulation
 
+years = [2014,2015,2016]
+months = list(range(1,13))
+
+mp = 49.04788936	
+sigmap = 14.69504823
+
+rem = []
+for y in years:
+    print(y)
+    dfy = df.ix[df.index.year == y]
+    for m in months:
+        print(m)
+        dfym = dfy.ix[dfy.index.month == m]
+        print((dfym.mean().values[0] - mp)/sigmap)
+        if (dfym.mean().values[0] - mp)/sigmap > 1:            
+            print('>1')
+            alpha = (sigmap + sigmap)/dfym.mean().values[0]
+            ll = alpha * dfym[dfym.columns[0]].values.ravel().tolist()
+            print(alpha)
+            rem.extend(ll)
+        else:
+            rem.extend(dfym[dfym.columns[0]].values.ravel().tolist())
+
+plt.figure()
+plt.plot(np.array(rem), color = 'red')
+
+dfr = pd.DataFrame(rem)
+dfr = dfr.set_index(pd.date_range('2014-01-01', '2018-01-02', freq = 'H')[:dfr.shape[0]])
+
+dfr.to_excel('redati_2014-2017.xlsx')
