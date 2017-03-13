@@ -26,8 +26,60 @@ data3 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2012.xlsx")
 data4 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2013.xlsx")
 data5 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2014.xlsx")
 data6 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2015.xlsx")
+data7 = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
 
-data7 = pd.read_excel("C:/Users/d_floriello/Documents/PUN/Anno 2016_07.xlsx", sheetname = 1)
+data = data.set_index(pd.date_range('01/01/2010', periods=8760, freq='H'))
+data2 = data2.set_index(pd.date_range('01/01/2011', periods=8760, freq='H'))
+data3 = data3.set_index(pd.date_range('2012-01-01', '2013-01-02', freq='H')[:data3.shape[0]])
+data4 = data4.set_index(pd.date_range('01/01/2013', periods=8760, freq='H'))
+data5 = data5.set_index(pd.date_range('01/01/2014', periods=8760, freq='H'))
+data6 = data6.set_index(pd.date_range('01/01/2015', periods=8760, freq='H'))
+data7 = data7.set_index(pd.date_range('01/01/2016', '02/01/2017', freq='H')[:data7.shape[0]])
+
+plt.figure()
+data['PUN'].plot()
+plt.figure()
+data2['PUN'].plot()
+plt.figure()
+data3['PUN'].plot()
+plt.figure()
+data4['PUN'].plot()
+plt.figure()
+data5['PUN'].plot()
+plt.figure()
+data6['PUN'].plot()
+plt.figure()
+data7['PUN [€/MWH]'].plot()
+
+mm = []
+mm.extend(data['PUN'].resample('M').mean())
+mm.extend(data2['PUN'].resample('M').mean())
+mm.extend(data3['PUN'].resample('M').mean())
+mm.extend(data4['PUN'].resample('M').mean())
+mm.extend(data5['PUN'].resample('M').mean())
+mm.extend(data6['PUN'].resample('M').mean())
+mm.extend(data7['PUN [€/MWH]'].resample('M').mean())
+
+mm = (np.array(mm) - np.mean(mm))/np.std(mm)
+lugs = np.array([6,18,30,42,54,66,78])
+
+plt.figure()
+plt.plot(mm)
+plt.plot(lugs, mm[lugs.tolist()], marker = 'o', color = 'black')
+
+ms = []
+ms.extend(data['PUN'].resample('M').std())
+ms.extend(data2['PUN'].resample('M').std())
+ms.extend(data3['PUN'].resample('M').std())
+ms.extend(data4['PUN'].resample('M').std())
+ms.extend(data5['PUN'].resample('M').std())
+ms.extend(data6['PUN'].resample('M').std())
+ms.extend(data7['PUN [€/MWH]'].resample('M').std())
+
+plt.plot(np.array(ms))
+
+
+
 
 pun = data["PUN"]
 pun = data["CSUD"]
@@ -470,7 +522,7 @@ for i in range(1,13,1):
     letter = letters[i]
     mese = ldf.ix[ldf['Letters'] == letter]
     yearly_mean = []
-    for j in range(2010,2016,1):
+    for j in range(2010,2017,1):
         year = mese.ix[mese.index.year == j]
         yearly_mean.append(np.mean(year['pun']))
     monthwise[letter] = yearly_mean
@@ -493,6 +545,10 @@ bymonth2 = bymonth2.set_index([['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul',
 
 bymonth2.transpose().plot(title='average prices behaviour along years')
 
+plt.figure()
+bymonth2.plot()
+
+bymonth2.to_excel('valori medi mensili anno per anno.xlsx', header = True, index = True)
 ### for bootstrap: do I sample only from the past year, same month?
 
 
