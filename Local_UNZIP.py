@@ -18,6 +18,8 @@ import pandas as pd
 import numpy as np
 import shutil
 import re
+import unidecode
+
 
 ####################################################################################################
 def Aggregator(df):
@@ -169,5 +171,39 @@ diz.to_csv('G_orari_2016.csv', sep = ';')
 diz.to_excel('G_orari_2016.xlsx')   
     
     
+########################### Elaborazione CRPP #################################
+    
+directory = 'H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2016'
 
+dirs = os.listdir(directory)
 
+diz5 = OrderedDict()
+ind = 0
+missed = []
+for d in dirs:
+    if '.xlsx' not in d and 'Thumbs' not in d:
+        files = os.listdir(directory + '/' + d)
+        for f in files:
+            if 'SII' not in f and '_All_CRPP' not in f and 'S.I.I' not in f:
+                try:
+                    df = pd.read_csv(directory + '/' + d + '/' + f, sep = ";")
+                    zona = df.columns[1]
+                    df = pd.read_csv(directory + '/' + d + '/' + f, sep = ";", skiprows = [0])
+                    for i in range(df.shape[0]):
+                        vals = []
+                        vals.append(df['POD'].ix[i])
+                        vals.append(zona)
+                        vals.append(df['CONSUMO_TOT'].ix[i])
+                        vals.append(df['CONSUMO_F1'].ix[i])
+                        vals.append(df['CONSUMO_F2'].ix[i])
+                        vals.append(df['CONSUMO_F3'].ix[i])
+                        diz5[ind] = vals
+                        ind += 1
+                except:
+                    missed.append(directory + '/' + d + '/' + f)
+                    
+DF5 = pd.DataFrame.from_dict(diz5, orient = 'index') 
+DF5.columns = [['POD', 'ZONA', 'CONSUMO_TOT', 'CONSUMO_F1', 'CONSUMO_F2', 'CONSUMO_F3']]          
+
+DF5.to_csv('CRPP_2016_aggregato.csv', sep =';')
+DF5.to_excel('CRPP_2016_aggregato.xlsx')
