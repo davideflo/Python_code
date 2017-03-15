@@ -20,6 +20,9 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import TextConverter
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
+import datetime
+import calendar
+import math
 #from textract import process
 #from tika import parser
 #import pdfrw #import PdfReader, PdfWriter, PageMerge
@@ -28,7 +31,16 @@ from pdfminer.pdfpage import PDFPage
 #text = parser.from_file('C:/Users/d_floriello/Documents/Aem_STAMPABOLLETTE.2016080540_61150650_Allegato_21_1.001.pdf')
 #text = process('C:/Users/d_floriello/Documents/Aem_STAMPABOLLETTE.2016080540_61150650_Allegato_21_1.001.pdf')
 #
-
+####################################################################################################
+def IsLastDay(dtt):
+    DAY = dtt.day
+    MONTH = dtt.month
+    YEAR = dtt.year
+    cal = calendar.monthrange(YEAR, MONTH)[1]
+    if DAY == cal:
+        return True
+    else:
+        return False
 ####################################################################################################
 def convert(fname, pages=None):
     if not pages:
@@ -87,12 +99,42 @@ def Attiva_Extracter(tt):
             minus = dts.find('-')
             di = dts[:minus]
             df = dts[minus+1:]
-            if F == 'F1':
-                res.append(di)
-                res.append(df)
-                res.append(enf)
+            dtdi = datetime.datetime(int(di[6:]), int(di[3:5]), int(di[:2]))
+            dtdf = datetime.datetime(int(df[6:]), int(df[3:5]), int(df[:2]))
+            deltad = (dtdf - dtdi).days
+            if dtdi.month == dtdf.month:
+                res.append((di,df,enf))
+#                    res.append(df)
+#                    res.append(enf)
             else:
-                res.append(enf)
+                for dr in range(dtdi.month, dtdf.month+1,1):
+                    print dr
+                    if dr == dtdi.month:
+                        dff = datetime.date(dtdi.year,dtdi.month,calendar.monthrange(dtdi.year,dr)[1])
+                        datafine1 = str(dff.day) +'/'+ str(dff.month) +'/'+ str(dff.year)
+                        delta = (dff - dtdi).days
+                        if not IsLastDay(dff):
+#                            res.append(di)
+#                            res.append(datafine1)
+                            res.append((di, datafine1,math.ceil((enf/deltad)*delta)))
+                            
+                    elif dtdi.month < dr <dtdf.month:
+                        dii = datetime.date(dtdi.year,dr,1)
+                        dff = datetime.date(dtdi.year,dr,calendar.monthrange(dtdi.year,dr)[1])
+                        datainizio2 = str(dii.day) +'/'+ str(dii.month) +'/'+ str(dii.year)
+                        datafine1 = str(dff.day) +'/'+ str(dff.month) +'/'+ str(dff.year)
+                        delta = calendar.monthrange(dff.year,dr)[1]
+#                        res.append(datainizio2)
+#                        res.append(datafine1)
+                        res.append((datainizio2,datafine1,math.ceil((enf/deltad)*delta)))
+                    else:
+                        dii =  datetime.date(dtdf.year,dr,1)    
+                        datainizio2 = str(dii.day) +'/'+ str(dii.month) +'/'+ str(dii.year)
+                        delta = (dtdf - dii).days
+#                        res.append(datainizio2)
+#                        res.append(df)
+                        res.append((datainizio2,df,math.ceil((enf/deltad)*delta)))
+                                
     return res
 ####################################################################################################
 def Attiva_Extracter2(tt):
@@ -125,12 +167,48 @@ def Attiva_Extracter2(tt):
             minus = dts.find('-')
             di = dts[:minus]
             df = dts[minus+1:]
-            if F == 'F1':
-                res.append(di)
-                res.append(df)
-                res.append(enf)
+#            if F == 'F1':
+#                res.append(di)
+#                res.append(df)
+#                res.append(enf)
+#            else:
+#                res.append(enf)
+            dtdi = datetime.datetime(int(di[6:]), int(di[3:5]), int(di[:2]))
+            dtdf = datetime.datetime(int(df[6:]), int(df[3:5]), int(df[:2]))
+            deltad = (dtdf - dtdi).days
+            if dtdi.month == dtdf.month:
+                res.append((di,df,enf))
+#                    res.append(df)
+#                    res.append(enf)
             else:
-                res.append(enf)
+                for dr in range(dtdi.month, dtdf.month+1,1):
+                    print dr
+                    if dr == dtdi.month:
+                        dff = datetime.date(dtdi.year,dtdi.month,calendar.monthrange(dtdi.year,dr)[1])
+                        datafine1 = str(dff.day) +'/'+ str(dff.month) +'/'+ str(dff.year)
+                        delta = (dff - dtdi).days
+                        if not IsLastDay(dff):
+#                            res.append(di)
+#                            res.append(datafine1)
+                            res.append((di, datafine1,math.ceil((enf/deltad)*delta)))
+                            
+                    elif dtdi.month < dr <dtdf.month:
+                        dii = datetime.date(dtdi.year,dr,1)
+                        dff = datetime.date(dtdi.year,dr,calendar.monthrange(dtdi.year,dr)[1])
+                        datainizio2 = str(dii.day) +'/'+ str(dii.month) +'/'+ str(dii.year)
+                        datafine1 = str(dff.day) +'/'+ str(dff.month) +'/'+ str(dff.year)
+                        delta = calendar.monthrange(dff.year,dr)[1]
+#                        res.append(datainizio2)
+#                        res.append(datafine1)
+                        res.append((datainizio2,datafine1,math.ceil((enf/deltad)*delta)))
+                    else:
+                        dii =  datetime.date(dtdf.year,dr,1)    
+                        datainizio2 = str(dii.day) +'/'+ str(dii.month) +'/'+ str(dii.year)
+                        delta = (dtdf - dii).days
+#                        res.append(datainizio2)
+#                        res.append(df)
+                        res.append((datainizio2,df,math.ceil((enf/deltad)*delta)))
+                                
     return res    
 ####################################################################################################
 def Reattiva_Extracter(tt):
@@ -154,18 +232,53 @@ def Reattiva_Extracter(tt):
             da = re.findall('(F3((?!F3).)*?Quadro)',tt,re.S)[0][0]
             da = re.sub('\  Quadro$', '', da)
         tts = da.replace('.',',')
-#        if 'ENERGIA REATTIVA' not in tts:
-#            print 'Not ENERGIA REATTIVA'
-#            raise ValueError                
-        en = ''
-        for j in range(len(tts)-1, 0, -1):
-            en += tts[j]
-            if tts[j] == ',':
-                break
-        en = en[::-1]                        
-        en = en[4:]
-        enf = float(en)
-        res.append(enf)
+        if 'ENERGIA REATTIVA' not in tts:
+            print 'Not ENERGIA REATTIVA'
+            res.append('')
+        else:              
+            en = ''
+            for j in range(len(tts)-1, 0, -1):
+                en += tts[j]
+                if tts[j] == ',':
+                    break
+            en = en[::-1]                        
+            en = en[4:]
+            enf = float(en)
+            minus = tts.find('-')
+            di = tts[minus-10:minus]
+            df = tts[minus+1:minus+11]
+            dtdi = datetime.datetime(int(di[6:]), int(di[3:5]), int(di[:2]))
+            dtdf = datetime.datetime(int(df[6:]), int(df[3:5]), int(df[:2]))
+            deltad = (dtdf - dtdi).days
+            if dtdi.month == dtdf.month:
+                if F == 'F1':
+                    res.append(di)
+                    res.append(df)
+                    res.append(enf)
+                else:
+                    res.append(enf)
+            else:
+                for dr in range(dtdi.month, dtdf.month+1,1):
+                    print dr
+                    if dr == dtdi.month:
+                        dff = datetime.date(dtdi.year,dtdi.month,calendar.monthrange(dtdi.year,dr)[1])
+    #                    datafine1 = str(dff.day) +'/'+ str(dff.month) +'/'+ str(dff.year)
+                        delta = (dff - dtdi).days
+                        res.append(math.ceil((enf/deltad)*delta))
+                        
+                    elif dtdi.month < dr <dtdf.month:
+                        dii = datetime.date(dtdi.year,dr,1)
+                        dff = datetime.date(dtdi.year,dr,calendar.monthrange(dtdi.year,dr)[1])
+    #                    datainizio2 = str(dii.day) +'/'+ str(dii.month) +'/'+ str(dii.year)
+    #                    datafine1 = str(dff.day) +'/'+ str(dff.month) +'/'+ str(dff.year)
+                        delta = calendar.monthrange(dff.year,dr)[1]
+                        res.append(math.ceil((enf/deltad)*delta))
+                    else:
+                        dii =  datetime.date(dtdf.year,dr,1)    
+    #                    datainizio2 = str(dii.day) +'/'+ str(dii.month) +'/'+ str(dii.year)
+                        delta = (dtdf - dii).days
+                        res.append(math.ceil((enf/deltad)*delta))
+                    
     return res
 ####################################################################################################
 def Potenza_Extractor(tt):
@@ -202,7 +315,7 @@ def IRETI_Executer(prodotto):
     
     fatt_n = text[text.find('Fattura n.')+10:text.find('Fattura n.')+17]
     em = text.find('Emessa il')
-    EM = text[em+9:em+25]
+    EM = text[em+9:em+26]
     
     
     list_pod = []
@@ -220,11 +333,41 @@ def IRETI_Executer(prodotto):
         try:
             ae = GetType(capitolo)
             ree = Reattiva_Extracter(capitolo)
+            ree = [ree[i] for i in range(len(ree)) if not isinstance(ree[i], str)]
             pe = Potenza_Extractor(capitolo)
             al = [fatt_n, EM, codpod]
-            al.extend(ae)
-            al.extend(ree)
-            al.extend([pe])
+            if len(ae) <= 3:
+                ae2 = []
+                for t in range(len(ae)):
+                    if t == 0:
+                        ae2.extend([ae[t][0],ae[t][1],ae[t][2]])
+                    else:
+                        ae2.extend([ae[t][2]])
+                al.extend(ae2)
+                if len(ree) == 0:
+                    ree = ['','','']
+                al.extend(ree)
+                al.extend([pe])
+            else:
+                #### CODICE PER TRATTARE + MESI
+                print 'more months'
+                mesi = []
+                for t in range(len(ae)):
+                    mesi.append(ae[t][0])
+                mesi = list(set(mesi))
+
+                for m in mesi:
+                    if mesi.index(m) > 0:
+                        ae3 = [ae[n][2] for n in range(len(ae)) if ae[n][0] == m]
+                    else:
+                        ae3 = [ae[0][0], ae[0][1]]
+                        ae3.extend([ae[n][2] for m in mesi if ae[n][0] == m])
+                    al.extend(ae3)
+                    if ree != '':
+                        al.extend(ree)
+                    else:
+                        al.extend([ree])
+                    al.extend([pe])
             diz[index] = al
         except:
             not_proc[index] = codpod
@@ -267,6 +410,8 @@ dirs = os.walk(mypath)
 dirs = [x[0] for x in os.walk(mypath)]
 
 dirs = [os.path.join(mypath,o) for o in os.listdir(mypath) if os.path.isdir(os.path.join(mypath,o))]
+dirs = dirs[:5]
+
 
 mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/2. IRETI/'
 
