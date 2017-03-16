@@ -121,3 +121,73 @@ dfr = pd.DataFrame(rem)
 dfr = dfr.set_index(pd.date_range('2014-01-01', '2018-01-02', freq = 'H')[:dfr.shape[0]])
 
 dfr.to_excel('redati_2014-2017.xlsx')
+
+####################
+
+df = df.set_index(pd.date_range('2015-01-01', '2018-01-02', freq = 'H')[:df.shape[0]])
+df.plot()
+
+df.resample('M').std()
+df.resample('M').std().plot()
+
+ore2015 = pd.read_excel('H:/Energy Management/SUDDIVISIONE_ORE_ANNO.xlsx', sheetname = '2015')
+ore2016 = pd.read_excel('H:/Energy Management/SUDDIVISIONE_ORE_ANNO.xlsx', sheetname = '2016')
+
+pkop = []
+pkop.extend(ore2015['PK-OP'].values.ravel().tolist())
+pkop.extend(ore2016['PK-OP'].values.ravel().tolist())
+fasce  = []
+fasce.extend(ore2015['AEEG 181/06'].values.ravel().tolist())
+fasce.extend(ore2016['AEEG 181/06'].values.ravel().tolist())
+
+df['PK-OP'] = pkop
+df['fasce'] = fasce
+
+df.groupby('PK-OP').resample('M').agg(np.mean)
+df.groupby('PK-OP').resample('M').agg(np.std)
+
+df.groupby('PK-OP').resample('M').agg(np.mean).ix['PK'] - df.resample('M').mean()
+df.resample('M').mean() - df.groupby('PK-OP').resample('M').agg(np.mean).ix['OP']
+
+dfpk = df.groupby('PK-OP').resample('M').agg(np.mean).ix['PK'] - df.resample('M').mean()
+dfop = df.resample('M').mean() - df.groupby('PK-OP').resample('M').agg(np.mean).ix['OP']
+
+spread_pk = []
+for m in range(1,13):
+    print('mean in month {} = {}'.format(m, dfpk.ix[dfpk.index.month == m].mean()))
+    spread_pk.append(dfpk.ix[dfpk.index.month == m].mean().values.ravel()[0])
+
+spread_op = []
+for m in range(1,13):
+    print('mean in month {} = {}'.format(m, dfop.ix[dfpk.index.month == m].mean()))
+    spread_op.append(dfop.ix[dfop.index.month == m].mean().values.ravel()[0])
+
+spread = pd.DataFrame({'spread_pk': spread_pk, 'spread_op': spread_op})
+spread.to_excel('historical_spreads.xlsx')
+
+
+dff = df.groupby('fasce').resample('M').agg(np.mean)
+dff = df.groupby('fasce').resample('M').agg(np.std)
+
+F1 = df.groupby('fasce').resample('M').agg(np.mean).ix['F1']
+F2 = df.groupby('fasce').resample('M').agg(np.mean).ix['F2']
+F3 = df.groupby('fasce').resample('M').agg(np.mean).ix['F3']
+
+for m in range(1,13):
+    print('mean in month {} = {}'.format(m, (F1.ix[F1.index.month == m] - F2.ix[F2.index.month == m]).mean()))
+
+for m in range(1,13):
+    print('mean in month {} = {}'.format(m, (F2.ix[F2.index.month == m] - F3.ix[F3.index.month == m]).mean()))
+
+diffF1 = F1.values.ravel() - df[df.columns[0]].resample('M').mean()
+diffF2 = F2.values.ravel() - df[df.columns[0]].resample('M').mean()
+diffF3 = F3.values.ravel() - df[df.columns[0]].resample('M').mean()
+
+for m in range(1,13):
+    print('mean diff F1 from BSL in month {} = {}'.format(m, diffF1.ix[diffF1.index.month == m].mean() ))
+
+for m in range(1,13):
+    print('mean diff F2 from BSL in month {} = {}'.format(m, diffF2.ix[diffF2.index.month == m].mean() ))
+
+for m in range(1,13):
+    print('mean diff F3 from BSL in month {} = {}'.format(m, diffF3.ix[diffF3.index.month == m].mean() ))
