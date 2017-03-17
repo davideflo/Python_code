@@ -191,3 +191,37 @@ for m in range(1,13):
 
 for m in range(1,13):
     print('mean diff F3 from BSL in month {} = {}'.format(m, diffF3.ix[diffF3.index.month == m].mean() ))
+
+
+###### Historical STD  of the spreads ######
+dfspk = df.groupby('PK-OP').agg(np.mean).ix['PK'] - df.resample('M').mean()
+dfsop = df.resample('M').mean() - df.groupby('PK-OP').resample('M').agg(np.mean).ix['OP']
+
+
+Spk = []
+for m in range(1,13):
+    dfspk = df.ix[df['PK-OP'] == 'PK']
+    days = dfspk[dfspk.columns[0]].ix[dfspk.index.month == m].index.day
+    dfspk = dfspk[dfspk.columns[0]].ix[dfspk.index.month == m].values.ravel()
+    mm = df[df.columns[0]].ix[df.index.month == m].mean()
+    print('mean in month {} = {}'.format(m, np.mean(dfspk - mm)))
+    print('std in month {} = {}'.format(m, np.std(dfspk - mm)))
+    print('##########################################################')
+    plt.figure()
+    plt.scatter(days,dfspk - mm)   
+    plt.title('mese {}'.format(m))
+    #spread_pk.append(dfpk.ix[dfpk.index.month == m].mean().values.ravel()[0])
+
+
+Sp = []
+for m in range(1,13):
+    print('mean in month {} = {}'.format(m, dfop.ix[dfpk.index.month == m].mean()))
+    spread_op.append(dfop.ix[dfop.index.month == m].mean().values.ravel()[0])
+
+spread = pd.DataFrame({'spread_pk': spread_pk, 'spread_op': spread_op})
+spread.to_excel('historical_spreads.xlsx')
+
+
+
+
+
