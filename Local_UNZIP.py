@@ -18,7 +18,7 @@ import pandas as pd
 import numpy as np
 import shutil
 import re
-import unidecode
+#import unidecode
 
 
 ####################################################################################################
@@ -37,6 +37,19 @@ def Converter(s):
     else:
         s2 = s[:points[len(points)-1]].replace('.','') + s[points[len(points)-1]:]
         return float(np.where(np.isnan(float(s2)), 0, float(s2)))
+####################################################################################################
+def MeasureExtractor(s):
+    mis = []
+    E = [m.start() for m in re.finditer('=', s)]
+    for e in E:
+        se = ''
+        for i in range(2, 50):
+            if s[e+i] != '"':
+                se += s[e+i]
+            else:
+                break
+        mis.append(float(se.replace(',','.')))
+    return mis
 ####################################################################################################
 
 mypath = 'H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A'
@@ -207,3 +220,42 @@ DF5.columns = [['POD', 'ZONA', 'CONSUMO_TOT', 'CONSUMO_F1', 'CONSUMO_F2', 'CONSU
 
 DF5.to_csv('CRPP_2016_aggregato.csv', sep =';')
 DF5.to_excel('CRPP_2016_aggregato.xlsx')
+
+###############################################################################
+
+from bs4 import BeautifulSoup
+pdo = open('C:/Users/d_floriello/Documenti/PDO_prova.xml').read()
+bs = BeautifulSoup(pdo, "xml")
+print(bs.prettify())
+bs.find_all("DatiPod")
+x = bs.find_all("DatiPod")[0]
+x.find_all("Er")
+
+directory = 'C:/Users/d_floriello/Desktop/PDO2015'
+files = os.listdir(directory)
+
+dix = OrderedDict()
+count = 0
+for f in files:
+    pdo = BeautifulSoup(open(directory + '/' + f).read(), "xml")
+    bs = pdo.find_all('DatiPod')
+    for b in bs:
+        pod = b.find_all('Pod')
+        M = b.find_all('MeseAnno')[:2]
+        Er = b.find_all('Er')
+        for er in Er:
+            tbi = []
+            day = Er.index(er)
+            mis = MeasureExtractor(str(er))
+            tbi.append(pod[0])
+            tbi.append(day)
+            tbi.append(M)
+            tbi.append(2015)
+            tbi.extend(mis)
+            dix[count] = tbi
+            count += 1
+            
+    
+    
+
+
