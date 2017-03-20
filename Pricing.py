@@ -206,6 +206,7 @@ for m in range(1,13):
     mm = df[df.columns[0]].ix[df.index.month == m].mean()
     print('mean in month {} = {}'.format(m, np.mean(dfspk - mm)))
     print('std in month {} = {}'.format(m, np.std(dfspk - mm)))
+    Spk.append(np.std(dfspk - mm))
     print('##########################################################')
     plt.figure()
     plt.scatter(days,dfspk - mm)   
@@ -221,7 +222,7 @@ for m in range(1,13):
 spread = pd.DataFrame({'spread_pk': spread_pk, 'spread_op': spread_op})
 spread.to_excel('historical_spreads.xlsx')
 
-
-
+Spk = pd.DataFrame(Spk)
+Spk.to_excel('historical_std.xlsx')
 
 
