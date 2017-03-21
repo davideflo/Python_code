@@ -255,7 +255,8 @@ for f in files:
             dix[count] = tbi
             count += 1
             
-    
+dix = pd.DataFrame.from_dict(dix, orient = 'index')
+dix.to_excel('PDO_2015.xlsx')    
     
 
 
