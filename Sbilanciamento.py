@@ -435,11 +435,13 @@ DTFC = MakeDatasetTSLYFixedCurve(cnord, fi)
 
 test_stationarity(DTFC['y'].values.ravel())
 
-import statsmodels.api as sm
-mod = sm.tsa.statespace.SARIMAX(DTFC['y'].values.ravel(), trend='n', order=(0,1,0), seasonal_order=(1,1,1,12))
+import statsmodels
+
+mod = statsmodels.api.tsa.statespace.SARIMAX(DTFC['y'].values.ravel(), exog = DTFC[DTFC.columns[:31]], trend='n', order=(0,1,0), seasonal_order=(1,1,1,12))
+
 results = mod.fit()
 print results.summary()
-### shuffle the dataset and build a model leaveng the time dendence structure out
+### shuffle the dataset and build a model leaving the time dendence structure out
 trs = np.random.randint(0, DTFC.shape[0], np.ceil(DTFC.shape[0] * 0.85))
 tes = list(set(range(DTFC.shape[0] )).difference(set(trs)))
 
