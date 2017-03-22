@@ -437,11 +437,17 @@ test_stationarity(DTFC['y'].values.ravel())
 
 import statsmodels
 
-mod = statsmodels.api.tsa.statespace.SARIMAX(DTFC['y'].values.ravel(), exog = DTFC[DTFC.columns[:31]], trend='n', order=(0,1,0), seasonal_order=(1,1,1,12))
+mod = statsmodels.api.tsa.statespace.SARIMAX(DTFC['y'].values.ravel(), exog = DTFC[DTFC.columns[:31]], trend='n', order=(24,0,24), seasonal_order=(1,1,1,24), enforce_stationarity = False, enforce_invertibility = False)
 
 results = mod.fit()
 print results.summary()
-### shuffle the dataset and build a model leaving the time dendence structure out
+results.plot_diagnostics()
+res = results.resid
+##### http://www.statsmodels.org/dev/generated/statsmodels.tsa.statespace.sarimax.SARIMAXResults.html#statsmodels.tsa.statespace.sarimax.SARIMAXResults
+#####ake dataset for 2017 (Jan) and try this model on it 
+
+
+### shuffle the dataset and build a model leaving the time dependence structure out
 trs = np.random.randint(0, DTFC.shape[0], np.ceil(DTFC.shape[0] * 0.85))
 tes = list(set(range(DTFC.shape[0] )).difference(set(trs)))
 
