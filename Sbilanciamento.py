@@ -50,8 +50,8 @@ def AddHolidaysDate(vd):
   ## Ferragosto = 8, 1 Novembre = 9
   ## 8 Dicembre = 10, Natale = 11, S.Stefano = 12, S.Silvestro = 13
     holidays = 0
-    pasquetta = [datetime.datetime(2015,4,6), datetime.datetime(2016,3,28)]
-    pasqua = [datetime.datetime(2015,4,5), datetime.datetime(2016,3,27)]
+    pasquetta = [datetime.datetime(2015,4,6), datetime.datetime(2016,3,28), datetime.datetime(2017,4,17)]
+    pasqua = [datetime.datetime(2015,4,5), datetime.datetime(2016,3,27), datetime.datetime(2017,4,16)]
   
     if vd.month == 1 and vd.day == 1:
         holidays = 1
