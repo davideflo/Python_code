@@ -175,10 +175,11 @@ def MakeDatasetTSFixedCurve(df, meteo):
 def MakeDatasetTSLYFixedCurve(df, meteo):
     dts = OrderedDict()
     cm = GetMeanCurve(df,'FABBISOGNO REALE')
-    df = df.ix[df.index.year == 2016]
+    df = df.ix[df.index.year >= 2016]
     for i in df.index.tolist():
         m = i.month
-        cmym = cm.ix[str(m) + '_' + str(2015)]
+        y = 2015 if i.year == 2016 else 2016
+        cmym = cm.ix[str(m) + '_' + str(y)]
         wd = i.weekday()
         h = i.hour
         dy = i.timetuple().tm_yday
@@ -293,11 +294,14 @@ plt.plot(diff)
 
 ##### experiment AdaBoost + Decision Trees 2015 to 2016
 cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
-cnord.index = pd.date_range('2015-01-01', '2017-01-02', freq = 'H')[:cnord.shape[0]]
+cnord.index = pd.date_range('2015-01-01', '2017-02-02', freq = 'H')[:cnord.shape[0]]
 fi5 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2015.xlsx')
 fi5 = fi5.ix[:364].set_index(pd.date_range('2015-01-01', '2015-12-31', freq = 'D'))
 fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
 fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+fi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2017.xlsx')
+fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-01-31', freq = 'D'))
+fi6 = fi6.append(fi7)
 fi = fi5.append(fi6)
 sard = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SARD']
 sard.index = pd.date_range('2015-01-01', '2017-01-02', freq = 'H')[:sard.shape[0]]
@@ -437,6 +441,9 @@ test_stationarity(DTFC['y'].values.ravel())
 
 import statsmodels
 
+DTFC2 = DTFC.ix[DTFC.index.year == 2017]
+DTFC = DTFC.ix[DTFC.index.year < 2017]
+
 mod = statsmodels.api.tsa.statespace.SARIMAX(DTFC['y'].values.ravel(), exog = DTFC[DTFC.columns[:31]], trend='n', order=(24,0,24), seasonal_order=(1,1,1,24), enforce_stationarity = False, enforce_invertibility = False)
 
 results = mod.fit()
@@ -445,7 +452,11 @@ results.plot_diagnostics()
 res = results.resid
 ##### http://www.statsmodels.org/dev/generated/statsmodels.tsa.statespace.sarimax.SARIMAXResults.html#statsmodels.tsa.statespace.sarimax.SARIMAXResults
 #####ake dataset for 2017 (Jan) and try this model on it 
+s_prediction = results.forecast(steps = 31*24, exog = DTFC2[DTFC2.columns[:31]])
 
+plt.figure()
+plt.plot(s_prediction.values.ravel())
+plt.plot(DTFC2['y'].values.ravel())
 
 ### shuffle the dataset and build a model leaving the time dependence structure out
 trs = np.random.randint(0, DTFC.shape[0], np.ceil(DTFC.shape[0] * 0.85))
