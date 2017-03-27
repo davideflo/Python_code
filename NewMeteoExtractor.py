@@ -8,7 +8,7 @@ New scheduled meteo extractor
 """
 
 #import sys
-import os
+#import os
 import requests
 from selenium import webdriver
 import BeautifulSoup
@@ -26,7 +26,8 @@ from collections import OrderedDict
 
 
 def Extractor():
-    cities = ['Milano', 'Firenze', 'Roma', 'Bari', 'Palermo', 'Cagliari']
+    cities = ['Milano-domani-15146', 'Firenze-domani-48017', 'Roma-domani-58091', 
+    'Bari-domani-72006', 'Palermo-domani-82053', 'Cagliari-domani-92009']
     
     for city in cities:
         
@@ -36,7 +37,7 @@ def Extractor():
         
         browser = webdriver.Chrome(cromepath)
         
-        target_url = 'http://www.meteo.it/meteo/' + city + '-domani-15146'
+        target_url = 'http://www.meteo.it/meteo/' + city
         
         browser.get(target_url)
             
@@ -56,7 +57,7 @@ def Extractor():
         davento = deg.index('VentoKm/hMph Nodi')
         dapioggia = deg.index('Precipit.mm/cminches')
         
-        gradi = [float(deg[i][0].replace(',','.')) for i in range(dagradi+1, dagradi+25)]
+        gradi = [float(deg[i][:deg[i].find('&')].replace(',','.')) for i in range(dagradi+1, dagradi+25)]
         vento = [float(deg[i].replace(',','.')) for i in range(davento+1, davento+25)]
         pioggia = [float(deg[i][:-2].replace(',','.')) for i in range(dapioggia+1, dapioggia+25)]
         
