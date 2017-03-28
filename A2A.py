@@ -523,14 +523,14 @@ def A2A_Executer(prodotto):
         Diz.columns = [['data emissione','pod','lettura rilevata il','lettura rilevata il','Att-f0','Att-f1','Att-f2','Att-f3','ReAtt-f0',
                    'ReAtt-f1','ReAtt-f2','ReAtt-f3','potenza']]
 
-        Diz.to_excel('fatture/'+numero_fattura+'_A2A.xlsx')        
+        Diz.to_excel('C:/Users/d_floriello/fatture/'+numero_fattura+'_A2A.xlsx')        
     
     not_processed[''] = OrderedDict()
     NP = pd.DataFrame.from_dict(not_processed, orient = 'index')
     
     if NP.shape[0] > 0:                
         NP.columns = [['Pagina']]
-        NP.to_excel('fatture/'+numero_fattura+'_manuale_A2A.xlsx')
+        NP.to_excel('C:/Users/d_floriello/fatture/'+numero_fattura+'_manuale_A2A.xlsx')
     else:
         print 'Tutto finito'
     return 1
@@ -548,7 +548,8 @@ onlyfiles = onlyfiles[:len(onlyfiles)-1]
 
 mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/'
 
-prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/201690110007324_Dettaglio.pdf'
+prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/201790100016136_Dettaglio.pdf'
+prodotto = 'Z:/AREA BO&B/00000.File Distribuzione/1. UNARETI/201770100001052_Dettaglio.pdf'
 A2A_Executer(prodotto)
 
 for FILE in onlyfiles:
