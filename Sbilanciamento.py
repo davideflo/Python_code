@@ -1,722 +1,1394 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Feb 15 14:42:29 2017
+Created on Fri Nov 25 11:34:42 2016
 
-@author: utente
+@author: d_floriello
 
-Sbilanciamento Terna
+Analisi Sbilanciamento
 """
 
-from __future__ import division
 import pandas as pd
-from pandas.tools import plotting
+from os import listdir
+from os.path import isfile, join
 import numpy as np
-import matplotlib.pyplot as plt
 import statsmodels.api
-import calendar
+import matplotlib.pyplot as plt
+from pandas.tools import plotting
 import scipy
-from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
-from sklearn.tree import DecisionTreeRegressor
+import dateutil
 from collections import OrderedDict
 import datetime
-from statsmodels.tsa.stattools import adfuller
+#import sklearn
+import time
 
-today = datetime.datetime.now()
-####################################################################################################
-### @param: y1 and y2 are the years to be compared; y1 < y2 and y1 will bw taken as reference, unless it is a leap year
-def SimilarDaysError(df, y1, y2):
-    errors = []
-    y = y1
-    if y % 4 == 0:
-        y = y2
-    for m in range(1,13,1):
-        dim = calendar.monthrange(y, m)[1]
-        dfm = df.ix[df.index.month == m]
-        dfm5 = dfm.ix[dfm.index.year == y]
-        dfm6 = dfm.ix[dfm.index.year == y2]
-        for d in range(1, dim, 1):
-            ddfm5 = dfm5.ix[dfm5.index.day == d]
-            ddfm6 = dfm6.ix[dfm6.index.day == d]
-            if ddfm5.shape[0] == ddfm6.shape[0]:
-                errors.extend(ddfm6['FABBISOGNO REALE'].values.ravel() - ddfm5['FABBISOGNO REALE'].values.ravel().tolist())
-    return errors
-####################################################################################################
-def AddHolidaysDate(vd):
-    
-  ##### codifica numerica delle vacanze
-  ## 1 Gennaio = 1, Epifania = 2
-  ## Pasqua = 3, Pasquetta = 4
-  ## 25 Aprile = 5, 1 Maggio = 6, 2 Giugno = 7,
-  ## Ferragosto = 8, 1 Novembre = 9
-  ## 8 Dicembre = 10, Natale = 11, S.Stefano = 12, S.Silvestro = 13
-    holidays = 0
-    pasquetta = [datetime.datetime(2015,4,6), datetime.datetime(2016,3,28), datetime.datetime(2017,4,17)]
-    pasqua = [datetime.datetime(2015,4,5), datetime.datetime(2016,3,27), datetime.datetime(2017,4,16)]
-  
-    if vd.month == 1 and vd.day == 1:
-        holidays = 1
-    if vd.month  == 1 and vd.day == 6: 
-        holidays = 1
-    if vd.month  == 4 and vd.day == 25: 
-        holidays = 1
-    if vd.month  == 5 and vd.day == 1: 
-        holidays = 1
-    if vd.month  == 6 and vd.day == 2: 
-        holidays = 1
-    if vd.month  == 8 and vd.day == 15: 
-        holidays = 1
-    if vd.month  == 11 and vd.day == 1: 
-        holidays = 1
-    if vd.month  == 12 and vd.day == 8: 
-        holidays = 1
-    if vd.month  == 12 and vd.day == 25: 
-        holidays = 1
-    if vd.month  == 12 and vd.day == 26: 
-        holidays = 1
-    if vd.month  == 12 and vd.day == 31: 
-        holidays = 1
-    if vd in pasqua:
-        holidays = 1
-    if vd in pasquetta:
-        holidays = 1
-  
-    return holidays
-####################################################################################################
-def GetMeanCurve(df, var):
-    mc = OrderedDict()
-    for y in [2015, 2016]:
-        dfy = df[var].ix[df.index.year == y]
-        for m in range(1,13,1):
-            dfym = dfy.ix[dfy.index.month == m]
-            Mean = []
-            for h in range(24):
-                dfymh = dfym.ix[dfym.index.hour == h].mean()
-                Mean.append(dfymh)
-            mc[str(m) + '_' + str(y)] = Mean
-    mc = pd.DataFrame.from_dict(mc, orient = 'index')
-    return mc
-####################################################################################################
-def MakeDatasetTS(df, meteo):
-    dts = OrderedDict()
-    #mc = GetMeanCurve(df, 'FABBISOGNO REALE')
-    for i in df.index.tolist():
-        wd = i.weekday()
-        h = i.hour
-        dy = i.timetuple().tm_yday
-        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        hol = AddHolidaysDate(i.date())
-        dts[i] = [wd, h, dy, Tmax, rain, wind, hol, df['FABBISOGNO REALE'].ix[i]]
-    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+###############################################################################
+def DateParser(dt):
+    dto = datetime.datetime(year = int(dt[6:10]), month = int(dt[3:5]), day = int(dt[:2]), hour = int(dt[11:13]))
+    return dto
+###############################################################################
+def ConvertDates(df):
+    dts = []
+    for i in range(df.shape[0]):
+        dts.append(DateParser(df.ix[i]))
     return dts
-####################################################################################################
-def MakeDatasetTSCurve(df, meteo):
-    dts = OrderedDict()
-    for i in df.index.tolist():
-        m = i.month
-        y = i.year
-        dfm = df.ix[df.index.month == m]
-        dfmy = dfm.ix[dfm.index.year == y]
-        wd = i.weekday()
-        h = i.hour
-        dy = i.timetuple().tm_yday
-        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        hol = AddHolidaysDate(i.date())
-        cm = GetMeanCurve(dfmy.ix[dfmy.index.date <= pd.to_datetime(i).date()],'FABBISOGNO REALE').dropna().values.ravel()
-        ll = [wd, h, dy, Tmax, rain, wind, hol]
-        ll.extend(cm.tolist())
-        ll.extend([df['FABBISOGNO REALE'].ix[i]])
-        dts[i] =  ll
-    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+###############################################################################
+###############################################################################
+def DateParser2(dt):
+    dto = datetime.datetime(year = int(dt[6:10]), month = int(dt[3:5]), day = int(dt[:2]))
+    return dto
+###############################################################################
+def ConvertDates2(df):
+    dts = []
+    for i in range(df.shape[0]):
+        dts.append(DateParser2(df.ix[i]))
     return dts
-####################################################################################################
-def getindex(m, y):
-    if y == 2016:
-        if m == 1:
-            return '11_2015'
-        elif m == 2:
-            return '12_2015'
+###############################################################################
+def Ricalendar(df, ric):
+    rdf = OrderedDict()
+    for i in range(ric.shape[0]):
+        #print(i)
+        pa = ric["Anno precedente"].ix[i]
+        h = ric["Ora anno precedente"].ix[i] - 1
+        if h < 24:
+            dfi = df.ix[df.index.to_pydatetime() == pa.to_pydatetime().replace(hour = h)]
+            if dfi.shape[0] > 0:
+                dfih = dfi.ix[dfi.index.hour == h]
+                rdf[ric["Prossimo anno"].to_pydatetime().replace(hour = h)] = [dfih["MO [MWh]"].values.ravel()[0], dfih["PV [MWh]"].values.ravel()[0]]
+            else:
+                pass
+    rdf = pd.DataFrame.from_dict(rdf, orient = "index")
+    rdf.columns = [["MO [MWh]", "PV [MWh]"]]
+    return rdf
+###############################################################################    
+
+
+#path2 = "H:/Energy Management/04. WHOLESALE/18. FATTURAZIONE WHOLESALE/2016/TERNA_2016/01_TERNA_2016_SETTLEMENT/TERNA_2016.09/FP/2016.09_Sbilanciamento_UC_2016761743A.csv"
+
+#sbil = pd.read_csv(path2,sep = ';', skiprows = [0,1], error_bad_lines=False)
+
+mon = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+years = [2015, 2016, 2017]
+
+#path = "H:/Energy Management/04. WHOLESALE/18. FATTURAZIONE WHOLESALE/"
+path = 'H:/Energy Management/Davide_per_sbilanciamento/'
+
+sbil_tot = pd.DataFrame()
+for y in years:    
+    for m in mon:
+        print(m)
+        if y == 2017 and m in ['03', '04', '05', '06', '07', '08', '09', '10', '11', '12']:
+            break
         else:
-            return str(m-2) + '_' + str(y)
-    else:
-        return str(m-2) + '_' + str(y)
-####################################################################################################
-def MakeDatasetTSFixedCurve(df, meteo):
-    dts = OrderedDict()
-    cm = GetMeanCurve(df,'FABBISOGNO REALE')
-    df5 = df.ix[df.index.year == 2015]
-    df6 = df.ix[df.index.year == 2016]
-    df = df5.ix[df5.index.month > 2].append(df6)
-    for i in df.index.tolist():
-        m = i.month
-        y = i.year
-        cmym = cm.ix[getindex(m, y)]
-        wd = i.weekday()
-        h = i.hour
-        dy = i.timetuple().tm_yday
-        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        hol = AddHolidaysDate(i.date())
-        ll = [wd, h, dy, Tmax, rain, wind, hol]
-        ll.extend(cmym.tolist())
-        ll.extend([df['FABBISOGNO REALE'].ix[i]])
-        dts[i] =  ll
-    dts = pd.DataFrame.from_dict(dts, orient = 'index')
-    dts.columns = [['weekday', 'hour', 'pday', 'Tmax', 'pioggia', 'vento', 'holiday', 
-                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
-                    '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23',
-                    'y']]
-    return dts
-####################################################################################################
-def MakeDatasetTSLYFixedCurve(df, meteo):
-    dts = OrderedDict()
-    cm = GetMeanCurve(df,'FABBISOGNO REALE')
-    df = df.ix[df.index.year >= 2016]
-    for i in df.index.tolist():
-        m = i.month
-        y = 2015 if i.year == 2016 else 2016
-        cmym = cm.ix[str(m) + '_' + str(y)]
-        wd = i.weekday()
-        h = i.hour
-        dy = i.timetuple().tm_yday
-        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        hol = AddHolidaysDate(i.date())
-        ll = [wd, h, dy, Tmax, rain, wind, hol]
-        ll.extend(cmym.tolist())
-        ll.extend([df['FABBISOGNO REALE'].ix[i]])
-        dts[i] =  ll
-    dts = pd.DataFrame.from_dict(dts, orient = 'index')
-    dts.columns = [['weekday', 'hour', 'pday', 'Tmax', 'pioggia', 'vento', 'holiday', 
-                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
-                    '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23',
-                    'y']]
-    return dts
-####################################################################################################
-def test_stationarity(timeseries):
-    
-    #Determing rolling statistics
-    rolmean = pd.rolling_mean(timeseries, window=12)
-    rolstd = pd.rolling_std(timeseries, window=12)
-    
-    #Plot rolling statistics:
-    fig = plt.figure(figsize=(12, 8))
-    orig = plt.plot(timeseries, color='blue',label='Original')
-    mean = plt.plot(rolmean, color='red', label='Rolling Mean')
-    std = plt.plot(rolstd, color='black', label = 'Rolling Std')
-    plt.legend(loc='best')
-    plt.title('Rolling Mean & Standard Deviation')
-    plt.show()
+            #pp = path+str(y)+'/TERNA_'+str(y)+'/01_TERNA_'+str(y)+'_SETTLEMENT/TERNA_'+str(y)+'.'+m+'/FA/'
+            onlyfiles = [f for f in listdir(path) if isfile(join(path, f))]
+            nof = [onlyfiles[i] for i in range(len(onlyfiles)) if onlyfiles[i].startswith(str(y)+'.'+str(m)+'_Sbilanciamento_UC_'+str(y))]
+            #nof2 = [nof[i] for i in range(len(nof)) if nof[i].endswith('.csv')]        
+            sbil = pd.read_csv(path+nof[0], sep = ';', skiprows = [0,1], error_bad_lines=False)
+            sbil_tot = sbil_tot.append(sbil[['CODICE RUC', 'DATA RIFERIMENTO CORRISPETTIVO', 'MO [MWh]', 'PV [MWh]','IP [MWh]', 'SBILANCIAMENTO FISICO [MWh]','SEGNO SBILANCIAMENTO AGGREGATO ZONALE']], ignore_index = True)                
         
-    #Perform Dickey-Fuller test:
-    print 'Results of Dickey-Fuller Test:'
-    dftest = adfuller(timeseries, autolag='AIC')
-    dfoutput = pd.Series(dftest[0:4], index=['Test Statistic','p-value','#Lags Used','Number of Observations Used'])
-    for key,value in dftest[4].items():
-        dfoutput['Critical Value (%s)'%key] = value
-    print dfoutput 
-####################################################################################################
+sbil_tot.to_excel('aggregato_sbilanciamento.xlsx')        
+
+ST = pd.read_excel('aggregato_sbilanciamento.xlsx')
+#ST = ST.set_index(pd.date_range('2015-01-01', '2016-09-30', freq = 'H'))
+######## 2009
+path2009 = 'H:/Energy Management/Davide_per_sbilanciamento/2009/'
+
+sbil_tot = pd.DataFrame()
+y = 2009  
+for m in mon:
+    print(m)
+    onlyfiles = [f for f in listdir(path2009) if isfile(join(path2009, f))]
+    nof = [onlyfiles[i] for i in range(len(onlyfiles)) if onlyfiles[i].startswith(str(y)+'.'+str(m)+'_Sbilanciamento_UC_'+str(y))]
+    sbil = pd.read_csv(path2009+nof[0], sep = ';', skiprows = [0,1], error_bad_lines=False)
+    sbil_tot = sbil_tot.append(sbil[['CODICE RUC', 'DATA DI RIFERIMENTO CORRISPETTIVO', 'ENERGIA MISURATA (MWh)', 'PROGRAMMA VINCOLANTE (MWh)', "(sbil) SBILANCIAMENTO UNITA' (MWh)",'SEGNO SBILANCIAMENTO AGGREGATO ZONALE']], ignore_index = True)                
+        
+sbil_tot.to_excel('aggregato_sbilanciamento2009.xlsx')        
 
 
-sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento.xlsx')
-nord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_NORD']
-nord.index = pd.date_range('2015-01-01', '2017-01-02', freq = 'H')[:nord.shape[0]]
+
+cnlist = (ST[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()
+cnor = ST.ix[cnlist]
+cnor = cnor.reset_index(drop = True)
 
 
-nord['FABBISOGNO REALE'].plot()
+###############################################################################
+def get_cons_hours(ts):
+    ch = []
+    locc = 0
+    for i in range(ts.size-1):
+        if ts[i+1] == ts[i] and ts[i] < 0:
+            locc -=1
+        elif ts[i+1] == ts[i] and ts[i] > 0:
+            locc +=1
+        else:
+            ch.append(locc)
+            locc = 0
+    return ch
+###############################################################################
+chcnor = get_cons_hours(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel())   
 
-nord['FABBISOGNO REALE'].resample('D').max()
-nord['FABBISOGNO REALE'].resample('D').min()
-nord['FABBISOGNO REALE'].resample('D').std()
-
-nrange = nord['FABBISOGNO REALE'].resample('D').max() - nord['FABBISOGNO REALE'].resample('D').min()
-
+   
 plt.figure()
-plt.plot(nrange)
+plt.plot(np.array(chcnor))
+plt.axhline(y = scipy.stats.mstats.mquantiles(chcnor, prob = 0.95))    
+plt.axhline(y = scipy.stats.mstats.mquantiles(chcnor, prob = 0.025))    
 
-dec = statsmodels.api.tsa.seasonal_decompose(nord['FABBISOGNO REALE'].values.ravel(), freq = 24)
-dec.plot()
 
-errn = SimilarDaysError(nord)
-
-plt.figure()
-plt.plot(np.array(errn), color = 'red')
-plt.axhline(y = np.mean(errn), color = 'navy')
-plt.axhline(y = np.median(errn), color = 'gold')
-plt.axhline(y = scipy.stats.mstats.mquantiles(errn, prob = 0.025), color = 'black')
-plt.axhline(y = scipy.stats.mstats.mquantiles(errn, prob = 0.975), color = 'black')
-
-
-np.mean(errn)
-np.median(errn)
-np.std(errn)
-
-
-wderrn = np.array(errn)[np.array(errn) <= 20]
-wderrn = wderrn[wderrn >= -20]
-wderrn.size/len(errn)
-
-np.median(wderrn)
-np.mean(wderrn)
-
-plt.figure()
-plt.plot(wderrn)
-
-x = np.linspace(0, 8760, num = 8760)[:, np.newaxis]
-y = nord['FABBISOGNO REALE'].ix[nord.index.year == 2015].values.ravel()
-regr = AdaBoostRegressor(DecisionTreeRegressor(max_depth = 24),n_estimators=3000)
-
-regr.fit(x, y)
-yhat = regr.predict(x)
-
-plt.figure()
-plt.plot(yhat, color = 'blue', marker = 'o')
-plt.plot(y, color = 'red')
-
-plt.figure()
-plt.plot(y - yhat)
-
-#### fabbisogno 2009
-sbil2009 = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento2009.xlsx')
-nord2009 = sbil2009.ix[sbil2009['CODICE RUC'] == 'UC_DP1608_NORD']
-nord2009.index = pd.date_range('2009-01-01', '2010-01-02', freq = 'H')[:nord2009.shape[0]]
-
-#### difference between 2015 and 2009 since they were identical years (same days were on the same days)
-diff = nord['FABBISOGNO REALE'].ix[nord.index.year == 2015].values.ravel() - nord2009['FABBISOGNO REALE'].values.ravel()
-
-plt.figure()
-plt.plot(diff)
-
-##### experiment AdaBoost + Decision Trees 2015 to 2016
-cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
-cnord.index = pd.date_range('2015-01-01', '2017-02-02', freq = 'H')[:cnord.shape[0]]
-fi5 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2015.xlsx')
-fi5 = fi5.ix[:364].set_index(pd.date_range('2015-01-01', '2015-12-31', freq = 'D'))
-fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
-fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
-fi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2017.xlsx')
-fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-01-31', freq = 'D'))
-fi6 = fi6.append(fi7)
-fi = fi5.append(fi6)
-sard = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SARD']
-sard.index = pd.date_range('2015-01-01', '2017-01-02', freq = 'H')[:sard.shape[0]]
-
-
-
-DT5 = MakeDatasetTS(cnord.ix[cnord.index.year == 2015], fi5)
-DT6 = MakeDatasetTS(cnord.ix[cnord.index.year == 2016], fi6)
-
-regr = AdaBoostRegressor(DecisionTreeRegressor(max_depth = 24),n_estimators=5000)
-
-DT5s = DT5.sample(frac = 1).reset_index(drop = True)
-
-x = DT5[DT5.columns[:7]]
-y = DT5[DT5.columns[7]]
-xs = DT5s[DT5s.columns[:7]]
-ys = DT5s[DT5s.columns[7]]
-x6 = DT6[DT6.columns[:7]]
-y6 = DT6[DT6.columns[7]]
-
-regr.fit(xs, ys)
-yhat = regr.predict(x)
-
-regrR2 = 1 - (np.sum((y - yhat)**2))/(np.sum((y - np.mean(y))**2))
-
-plt.figure()
-plt.plot(yhat, color = 'blue', marker = 'o')
-plt.plot(y.values.ravel(), color = 'red')
-
-plt.figure()
-plt.plot(y - yhat)
-
-yhat6 = regr.predict(x6)
-
-regr6R2 = 1 - (np.sum((y6 - yhat6)**2))/(np.sum((y6 - np.mean(y6))**2))
-
-
-plt.figure()
-plt.plot(yhat6, color = 'navy', marker = 'o')
-plt.plot(y6.values.ravel(), color = 'coral')
-
-plt.figure()
-plt.plot(y6 - yhat6)
-(y6 - yhat6).ix[(y6 - yhat6).index.month >= 8].mean()
-(y6 - yhat6).ix[(y6 - yhat6).index.month < 8].mean()
-(y6 - yhat6).ix[(y6 - yhat6).index.month >= 8].mean()
-(y6 - yhat6).ix[(y6 - yhat6).index.month < 8].mean()
-
-
-rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
-rfregr.fit(xs, ys)
-yhat = rfregr.predict(x)
-
-regrR2 = 1 - (np.sum((y - yhat)**2))/(np.sum((y - np.mean(y))**2))
-
-yhat6 = rfregr.predict(x6)
-regr6R2 = 1 - (np.sum((y6 - yhat6)**2))/(np.sum((y6 - np.mean(y6))**2))
-
-plt.figure()
-plt.plot(yhat6, color = 'navy', marker = 'o')
-plt.plot(y6.values.ravel(), color = 'coral')
-
-plt.figure()
-plt.plot(y6 - yhat6)
-(y6 - yhat6).ix[(y6 - yhat6).index.month >= 8].mean()
-(y6 - yhat6).ix[(y6 - yhat6).index.month < 8].mean()
-(y6 - yhat6).ix[(y6 - yhat6).index.month >= 8].std()
-(y6 - yhat6).ix[(y6 - yhat6).index.month < 8].std()
-
-mc = GetMeanCurve(cnord, 'FABBISOGNO REALE')
-
-mc15 = mc.ix[mc.index[:12]]
-mc16 = mc.ix[mc.index[12:]]
-
-mc15.T.plot(legend = False)
-mc16.T.plot(legend = False)
-ydiff = mc16.reset_index(drop = True) - mc15.reset_index(drop = True)
-ytdiff = fi6['Tmedia'].resample('M').mean().values.ravel() - fi5['Tmedia'].resample('M').mean().values.ravel()
-
-plt.figure()
-plt.plot(ytdiff)
-
-plt.figure()
-ydiff.T.plot(legend = False)
-plt.axhline(y = 0)
-
-
-DTC = MakeDatasetTSCurve(cnord, fi)
-
-DTC.to_excel('DTC.xlsx') #### in Users/utente
-
-DTC = pd.read_excel('C:/Users/utente/DTC.xlsx')
-
-DTCs = DTC.sample(frac = 1).reset_index(drop = True)
-trs = np.random.randint(0, DTC.shape[0], np.ceil(DTC.shape[0] * 0.85))
-tes = list(set(range(DTC.shape[0] )).difference(set(trs)))
-
-
-x = DTC[DTC.columns[:31]]
-y = DTC[DTC.columns[31]]
-xs = DTCs[DTCs.columns[:31]]
-ys = DTCs[DTCs.columns[31]]
-
-rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
-rfregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
-rfregr.fit(DTCs[DTCs.columns[:31]].ix[trs], DTCs[DTCs.columns[31]].ix[trs])
-yhat = rfregr.predict(DTCs[DTCs.columns[:31]].ix[trs])
-
-regrR2 = 1 - (np.sum((DTCs[DTCs.columns[31]].ix[trs] - yhat)**2))/(np.sum((DTCs[DTCs.columns[31]].ix[trs] - np.mean(DTCs[DTCs.columns[31]].ix[trs]))**2))
-
-yhat6 = rfregr.predict(DTCs[DTCs.columns[:31]].ix[tes])
-regr6R2 = 1 - (np.sum((DTCs[DTCs.columns[31]].ix[tes] - yhat6)**2))/(np.sum((DTCs[DTCs.columns[31]].ix[tes] - np.mean(DTCs[DTCs.columns[31]].ix[tes]))**2))
-
-plt.figure()
-plt.plot(yhat6, color = 'navy', marker = 'o')
-plt.plot(DTCs[DTCs.columns[31]].ix[tes].values.ravel(), color = 'coral')
-
-y6 = DTCs[DTCs.columns[31]].ix[tes].values.ravel()
-
-plt.figure()
-plt.plot(y6 - yhat6)
-(y6 - yhat6).ix[(y6 - yhat6).index.month >= 8].mean()
-(y6 - yhat6).ix[(y6 - yhat6).index.month < 8].mean()
-(y6 - yhat6).ix[(y6 - yhat6).index.month >= 8].std()
-(y6 - yhat6).ix[(y6 - yhat6).index.month < 8].std()
-
-np.mean(y6 - yhat6)
-np.median(y6 - yhat6)
-np.std(y6 - yhat6)
-
-###### Try MakeDatasetTSFixedCurve
-
-DTFC = MakeDatasetTSFixedCurve(cnord, fi)
-DTFC = MakeDatasetTSLYFixedCurve(cnord, fi)
-
-test_stationarity(DTFC['y'].values.ravel())
-
-import statsmodels
-
-DTFC2 = DTFC.ix[DTFC.index.year == 2017]
-DTFC = DTFC.ix[DTFC.index.year < 2017]
-
-mod = statsmodels.api.tsa.statespace.SARIMAX(DTFC['y'].values.ravel(), exog = DTFC[DTFC.columns[:31]], trend='n', order=(24,0,24), seasonal_order=(1,1,1,24), enforce_stationarity = False, enforce_invertibility = False)
-
-results = mod.fit()
-print results.summary()
-results.plot_diagnostics()
-res = results.resid
-##### http://www.statsmodels.org/dev/generated/statsmodels.tsa.statespace.sarimax.SARIMAXResults.html#statsmodels.tsa.statespace.sarimax.SARIMAXResults
-#####ake dataset for 2017 (Jan) and try this model on it 
-s_prediction = results.forecast(steps = 31*24, exog = DTFC2[DTFC2.columns[:31]])
-
-plt.figure()
-plt.plot(s_prediction.values.ravel())
-plt.plot(DTFC2['y'].values.ravel())
-
-### shuffle the dataset and build a model leaving the time dependence structure out
-trs = np.random.randint(0, DTFC.shape[0], np.ceil(DTFC.shape[0] * 0.85))
-tes = list(set(range(DTFC.shape[0] )).difference(set(trs)))
-
-### treat the dataset as a true time series
-trs = np.arange(int(np.ceil(DTFC.shape[0] * 0.85)))
-np.random.shuffle(trs)
-tes = list(set(range(DTFC.shape[0])).difference(set(trs.tolist())))
-
-wdtrs = DTFC.ix[trs]
-wdtrs = wdtrs.ix[wdtrs['holiday'] == 0]
-wdtrs = wdtrs.ix[wdtrs['weekday'] < 5]
-
-wdtes = DTFC.ix[tes]
-wdtes = wdtes.ix[wdtes['holiday'] == 0]
-wdtes = wdtes.ix[wdtes['weekday'] < 5]
-
-wetrs = DTFC.ix[trs]
-wetrs = wetrs.ix[wetrs['holiday'] == 1].append(wetrs.ix[wetrs['weekday'] >= 5])
-
-
-wetes = DTFC.ix[tes]
-wetes = wetes.ix[wetes['holiday'] == 1].append(wetes.ix[wetes['weekday'] >= 5])
-
-ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
-#ffregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=1500) #not bad anyway
-#ffregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mae', max_depth = 24), n_estimators=1500)
-
-ffregr.fit(wdtrs[wdtrs.columns[:31]], wdtrs[wdtrs.columns[31]])
-########### weekdays ###############################################################################
-fyhat = ffregr.predict(wdtrs[wdtrs.columns[:31]])
-
-fregrR2 = 1 - (np.sum((wdtrs[wdtrs.columns[31]] - fyhat)**2))/(np.sum((wdtrs[wdtrs.columns[31]] - np.mean(wdtrs[wdtrs.columns[31]]))**2))
-
-fyhat6 = ffregr.predict(wdtes[wdtes.columns[:31]])
-fregr6R2 = 1 - (np.sum((wdtes[wdtes.columns[31]] - fyhat6)**2))/(np.sum((wdtes[wdtes.columns[31]] - np.mean(wdtes[wdtes.columns[31]]))**2))
-
-plt.figure()
-plt.plot(fyhat6, color = 'blue', marker = 'o')
-plt.plot(wdtes[wdtes.columns[31]].values.ravel(), color = 'red')
-
-wderr = wdtes[wdtes.columns[31]].values.ravel() - fyhat6
-plt.figure()
-plt.plot(wderr)
-wdmae = np.abs(wderr)/wdtes[wdtes.columns[31]].values.ravel()
-plt.figure()
-plt.plot(wdmae)
-
-plt.figure()
-plt.hist(wdmae, bins = 20)
-
-dfyh = pd.DataFrame(fyhat6).set_index(wdtes.index)
-realmean = []
-hatmean = []
-for h in range(24):
-    realmean.append(wdtes['y'].ix[wdtes.index.hour == h].mean())
-    hatmean.append(dfyh.ix[dfyh.index.hour == h].mean())
-
-plt.figure()
-plt.plot(np.array(realmean))
-plt.plot(np.array(hatmean), color = 'red', marker = 'o')
-
-########################### weekends and holidays ##################################################
-
-ffregr.fit(wetrs[wetrs.columns[:31]], wetrs[wetrs.columns[31]])
-fyhat = ffregr.predict(wetrs[wetrs.columns[:31]])
-
-fregrR2 = 1 - (np.sum((wetrs[wetrs.columns[31]] - fyhat)**2))/(np.sum((wetrs[wetrs.columns[31]] - np.mean(wetrs[wetrs.columns[31]]))**2))
-
-fyhat6 = ffregr.predict(wetes[wetes.columns[:31]])
-fregr6R2 = 1 - (np.sum((wetes[wetes.columns[31]] - fyhat6)**2))/(np.sum((wetes[wetes.columns[31]] - np.mean(wetes[wetes.columns[31]]))**2))
-
-plt.figure()
-plt.plot(fyhat6, color = 'blue', marker = 'o')
-plt.plot(wetes[wetes.columns[31]].values.ravel(), color = 'red')
-
-weerr = wetes[wetes.columns[31]].values.ravel() - fyhat6
-plt.figure()
-plt.plot(weerr)
-wemae = np.abs(weerr)/wetes[wetes.columns[31]].values.ravel()
-plt.figure()
-plt.plot(wemae)
-
-plt.figure()
-plt.hist(wemae, bins = 20)
-
-dfyh = pd.DataFrame(fyhat6).set_index(wetes.index)
-realmean = []
-hatmean = []
-for h in range(24):
-    realmean.append(wetes['y'].ix[wetes.index.hour == h].mean())
-    hatmean.append(dfyh.ix[dfyh.index.hour == h].mean())
-
-plt.figure()
-plt.plot(np.array(realmean))
-plt.plot(np.array(hatmean), color = 'red', marker = 'o')
-
-
-
-
-
-## http://stackoverflow.com/questions/23118309/scikit-learn-randomforest-memory-error
-#rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
-ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
-ffregr.fit(DTFC[DTFC.columns[:31]].ix[trs], DTFC[DTFC.columns[31]].ix[trs])
-fyhat = ffregr.predict(DTFC[DTFC.columns[:31]].ix[trs])
-
-fregrR2 = 1 - (np.sum((DTFC[DTFC.columns[31]].ix[trs] - fyhat)**2))/(np.sum((DTFC[DTFC.columns[31]].ix[trs] - np.mean(DTFC[DTFC.columns[31]].ix[trs]))**2))
-
-fyhat6 = ffregr.predict(DTFC[DTFC.columns[:31]].ix[tes])
-fregr6R2 = 1 - (np.sum((DTFC[DTFC.columns[31]].ix[tes] - fyhat6)**2))/(np.sum((DTFC[DTFC.columns[31]].ix[tes] - np.mean(DTFC[DTFC.columns[31]].ix[tes]))**2))
-
-plt.figure()
-plt.plot(fyhat6, color = 'blue', marker = 'o')
-plt.plot(DTFC[DTFC.columns[31]].ix[tes].values.ravel(), color = 'red')
-
-fy6 = DTFC[DTFC.columns[31]].ix[tes].values.ravel()
-
-
-np.mean(fy6 - fyhat6)
-np.median(fy6 - fyhat6)
-np.std(fy6 - fyhat6)
-np.max(fy6 - fyhat6)
-fMAE = np.abs(fy6 - fyhat6)/fy6
-
-plt.figure()
-plt.plot(fy6 - fyhat6)
-plt.axvline(x = fMAE.tolist().index(np.max(fMAE)), color = 'red')
-
-np.mean(fMAE)
-np.median(fMAE)
-np.max(fMAE)
-np.std(fMAE)
-scipy.stats.mstats.mquantiles(fMAE, prob = [0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
-
-Err = pd.DataFrame(fy6 - fyhat6)
-
-
-plt.figure()
-plotting.autocorrelation_plot( Err)
-
-dfy6 = np.diff(fy6)
-dfyhat6 = np.diff(fyhat6)
-
-plt.figure()
-plt.hist(dfy6, bins = 20)
-plt.figure()
-plt.hist(dfyhat6, bins = 20, color = 'green')
-scipy.stats.mstats.mquantiles(dfy6, prob = [0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
-scipy.stats.mstats.mquantiles(dfyhat6, prob = [0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
-plotting.autocorrelation_plot(dfy6)
-plotting.autocorrelation_plot(dfyhat6, color = 'green')
-
-###### TOT ORDERED DATA:
-YH = ffregr.predict(DTFC[DTFC.columns[:31]])
-
-R2 = 1 - (np.sum((DTFC[DTFC.columns[31]] - YH)**2))/(np.sum((DTFC[DTFC.columns[31]] - np.mean(DTFC[DTFC.columns[31]]))**2))
-Y = DTFC[DTFC.columns[31]].values.ravel()
-
-plt.figure()
-plt.plot(Y)
-plt.plot(YH, marker = 'o', color = 'grey')
-
-Err = Y - YH
-MAE = np.abs(Err)/Y
-
-plt.figure()
-plt.hist(Y, bins = 20)
-plt.figure()
-plt.hist(YH, bins = 20, color = "red")
-
-
-plt.figure()
-plt.plot(Err, color = 'red')
-plt.figure()
-plt.plot(MAE, color = 'orange')
-plt.axhline(y = scipy.stats.mstats.mquantiles(MAE, prob = 0.99))
-plt.figure()
-plt.hist(MAE, bins = 40, color = 'orange')
-
-### in what hours is MAE greater than 0.15?
-### if I put the 99% quantile the num of observation greater than it is 161 => the 99% quantile is < 0.15
-dfmae = pd.DataFrame(MAE)
-dfmae = dfmae.set_index(DTFC.index)
-
-over = dfmae.ix[dfmae[0] > 0.15].index
-hover = over.hour
-xh = [tuple([h]) for h in hover.tolist()]
-from collections import Counter
-
-freq_h = Counter(xh)
-
-
-########
-gen = scipy.stats.pareto.fit(MAE)
-pareto_sample = scipy.stats.pareto.rvs(gen[0], gen[1], gen[2], size = MAE.size)
-
-#### looks *very* similar to MAE
-plt.figure()
-plt.plot(pareto_sample)
-np.where(pareto_sample >= scipy.stats.mstats.mquantiles(pareto_sample, prob = 0.99))[0].size/pareto_sample.size ### same number!!!
-
-#### what is the distribution of the imbalance in 2015, 2016?
-imb = cnord['SBILANCIAMENTO FISICO [MWh]']
-measured_imb = np.abs(imb.values.ravel())/cnord['FABBISOGNO REALE'].values.ravel()
-
-plt.figure()
-plt.plot(measured_imb, color = 'red')
-plt.axhline(y = 0.15, color = 'black')
-plt.axhline(y = scipy.stats.mstats.mquantiles(measured_imb, prob = 0.90), color = 'purple')
-plt.figure()
-plotting.autocorrelation_plot(measured_imb)
-
-scipy.stats.mstats.mquantiles(MAE, prob = [0.1,0.2,0.3,0.4,0.5,0.6, 0.7, 0.8, 0.9, 0.95, 0.975, 0.98, 0.99])
-np.where(MAE >= scipy.stats.mstats.mquantiles(MAE, prob = 0.99))[0].size/MAE.size
-
-plt.figure()
-plotting.autocorrelation_plot(Err)
-plt.figure()
-plotting.autocorrelation_plot(Y)
-plt.figure()
-plotting.autocorrelation_plot(YH, color = 'green')
-
-import statsmodels.graphics
-statsmodels.graphics.tsaplots.plot_acf(Y, lags = 30*24)
-plotting.lag_plot(Y, lag = 30*24)
-plt.figure()
-plotting.autocorrelation_plot(YH, color = 'green')
-
-col1 = []
-col2 = []
-i = 0
-j = 30*24 
-while j < DTFC.shape[0]:
-    col1.append(DTFC[DTFC.columns[31]].ix[i])
-    col2.append(DTFC[DTFC.columns[31]].ix[j])
-    i += 1
-    j += 1
+np.mean(chcnor)
+np.median(chcnor)
+np.std(chcnor)
     
 plt.figure()
-plt.plot(np.array(col1))
+plt.plot(statsmodels.api.tsa.acf(chcnor))
+    
 plt.figure()
-plt.plot(np.array(col2), color = 'magenta')
+plt.hist(np.array(chcnor))
+
+scipy.stats.shapiro(np.array(chcnor))
+
+np.where(np.logical_and(0 < np.array(chcnor), np.array(chcnor) <= 14))[0].size/len(chcnor)
+np.where(np.logical_and(-17 < np.array(chcnor), np.array(chcnor) <= 0))[0].size/len(chcnor)
+
+dt = dateutil.parser.parse(cnor[cnor.columns[1]].ix[0])
+
+si = []
+for i in range(cnor.shape[0]):
+    si.append(dateutil.parser.parse(cnor[cnor.columns[1]].ix[i]))
+
+cnor = cnor.set_index(pd.to_datetime(si))
+
+for h in range(24):
+    cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cnor.index.hour == h].hist()
+    plt.title(h)
+
+
+
+
+diz5 = OrderedDict()
+diz6 = OrderedDict()
+cn5 = cnor.ix[cnor.index.year == 2015]
+cn6 = cnor.ix[cnor.index.year == 2016]
+for h in range(24):
+    diz5[h] = cn5[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn5.index.hour == h].values.ravel()
+    diz6[h] = cn6[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn6.index.hour == h].values.ravel()
+
+CN5 = pd.DataFrame.from_dict(diz5, orient = 'index')
+CN6 = pd.DataFrame.from_dict(diz6, orient = 'index')
+
+CN5.mean().plot(ylim = (-2,2))
+
 plt.figure()
-plt.plot(scipy.signal.correlate(col1,col2,mode="full")/np.var(scipy.signal.correlate(col1,col2,mode="full")))
-np.corrcoef(col1, col2)
-
-######## RANDOM FOREST
-rfregr = AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
-rfregr.fit(DTFC[DTFC.columns[:31]].ix[trs], DTFC[DTFC.columns[31]].ix[trs])
-fyhat = rfregr.predict(DTFC[DTFC.columns[:31]].ix[trs])
-
-rfregrR2 = 1 - (np.sum((DTFC[DTFC.columns[31]].ix[trs] - fyhat)**2))/(np.sum((DTFC[DTFC.columns[31]].ix[trs] - np.mean(DTFC[DTFC.columns[31]].ix[trs]))**2))
-
-fyhat6 = ffregr.predict(DTFC[DTFC.columns[:31]].ix[tes])
-fregr6R2 = 1 - (np.sum((DTFC[DTFC.columns[31]].ix[tes] - fyhat6)**2))/(np.sum((DTFC[DTFC.columns[31]].ix[tes] - np.mean(DTFC[DTFC.columns[31]].ix[tes]))**2))
+CN6.mean().plot(color = 'red',ylim = (-2,2))
 
 plt.figure()
-plt.plot(fyhat6, color = 'blue', marker = 'o')
-plt.plot(DTFC[DTFC.columns[31]].ix[tes].values.ravel(), color = 'red')
+CN5.mean(axis = 1).plot()
+CN6.mean(axis = 1).plot(color = 'black')
 
-fy6 = DTFC[DTFC.columns[31]].ix[tes].values.ravel()
+CN6.mean().size
+
+plt.figure()
+plt.scatter(CN5.mean()[:274],CN6.mean())
+
+np.corrcoef(CN5.mean()[:274],CN6.mean())
+
+
+f, axarr = plt.subplots(2, sharex=True)
+axarr[0].plot(CN5.mean()[:274], lw = 2)
+axarr[1].plot(CN6.mean(), color = 'red', lw = 2)
+
+f, axarr = plt.subplots(2, sharex=True)
+axarr[0].plot(CN5.std()[:274], lw = 2)
+axarr[1].plot(CN6.std(), color = 'red', lw = 2)
+
+CN6.std().max()
+CN5.std().max()
+
+f, axarr = plt.subplots(2, sharex=True)
+axarr[0].plot(np.diff(CN5.mean()[:274]), lw = 2)
+axarr[1].plot(np.diff(CN6.mean()), color = 'red', lw = 2)
+
+###############################################################################
+def hurst(ts, n=100):
+	"""Returns the Hurst Exponent of the time series vector ts"""
+	# Create the range of lag values
+	lags = range(2, n)
+
+	# Calculate the array of the variances of the lagged differences
+	tau = [np.sqrt(np.std(np.subtract(ts[lag:], ts[:-lag]))) for lag in lags]
+
+	# Use a linear fit to estimate the Hurst Exponent
+	poly = np.polyfit(np.log(lags), np.log(tau), 1)
+
+	# Return the Hurst exponent from the polyfit output
+	return poly[0]*2.0
+###############################################################################
+hurst(CN5.mean()) 
+hurst(CN6.mean()) 
+
+###############################################################################
+def conditionalDistribution(df, h1, h2):
+    cdiz = OrderedDict()
+    df = df.T
+    dfp = df.ix[df[df.columns[h1]] > 0]
+    dfn = df.ix[df[df.columns[h1]] < 0]
+    cdiz[str(h1)+'pos'] = dfp[dfp.columns[h2]].values.ravel()
+    cdiz[str(h1)+'neg'] = dfn[dfn.columns[h2]].values.ravel()
+    return pd.DataFrame.from_dict(cdiz, orient = 'index')
+###############################################################################
+    
+H2 = conditionalDistribution(CN5, 1, 2)    
+    
+plt.figure()
+plt.hist(np.array(H2.ix['1pos'].dropna()))    
+plt.hist(np.array(0.5 + H2.ix['1neg']), color = 'red')    
+
+###############################################################################    
+def Influence(df):
+    inf = []
+    df = df.T
+    for h in range(24):
+        condcorr = 0
+        if h < 23:
+            dfp = df.ix[df[df.columns[h]] > 0]
+            dfn = df.ix[df[df.columns[h]] < 0]
+            psize = dfp.shape[0]
+            nsize = dfn.shape[0]
+            condcorr += (np.sum(np.abs(dfp[dfp.columns[h]].values.ravel() - dfp[dfp.columns[(h+1)]].values.ravel()))/2)/psize
+            condcorr += (np.sum(np.abs(dfn[dfn.columns[h]].values.ravel(),dfn[dfn.columns[(h+1)]].values.ravel()))/2)/nsize
+            inf.append(condcorr)
+        else:
+            dfp = df.ix[df[df.columns[h]] > 0]
+            dfn = df.ix[df[df.columns[h]] < 0]
+            psize = dfp.shape[0]
+            nsize = dfn.shape[0]
+            condcorr += (np.sum(np.abs(dfp[dfp.columns[h]].values.ravel()-dfp[dfp.columns[0]].values.ravel()))/2)/psize
+            condcorr += (np.sum(np.abs(dfn[dfn.columns[h]].values.ravel(),dfn[dfn.columns[0]].values.ravel()))/2)/nsize
+            inf.append(condcorr)
+    return np.array(inf)
+###############################################################################
+
+for h in range(23):
+    H2 = conditionalDistribution(CN6, h, h+1)    
+    plt.figure()
+    plt.hist(np.array(H2.ix[str(h)+'pos'].dropna()))    
+    plt.hist(np.array(0.5 + H2.ix[str(h)+'neg'].dropna()), color = 'red')    
+    plt.title(str(h) + ' --> ' + str(h+1))
+
+sm15 = CN5.mean().values.ravel()
+sm16 = CN6.mean().values.ravel()
+
+np.where(sm15 > 0)[0].size/sm15.size
+np.where(sm16 > 0)[0].size/sm16.size
+
+
+sd15 = CN5.std().values.ravel()
+sd16 = CN6.std().values.ravel()
+
+print(np.mean(sd15))
+print(np.mean(sd16))
+print(np.std(sd15))
+print(np.std(sd16))
+
+
+P5 = np.poly1d(np.polyfit(np.linspace(1,sm15.size,sm15.size), sm15, 3))
+P6 = np.poly1d(np.polyfit(np.linspace(1,sm16.size,sm16.size), sm16, 3))
+
+plt.figure()
+plt.plot(sm15)
+plt.plot(np.linspace(1,sm15.size,1000), P5(np.linspace(1,sm15.size,1000)))
+
+plt.figure()
+plt.plot(sm16, color = 'red')
+plt.plot(np.linspace(1,sm16.size,1000), P6(np.linspace(1,sm16.size,1000)), color = 'black')
+
+#################################################################################################################
+def getStatistics(zona):
+    cnlist = (ST[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()
+    cnor = ST.ix[cnlist]
+    cnor = cnor.reset_index(drop = True)
+
+
+    #plt.plot(np.diff(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+    chcnor = get_cons_hours(cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel())   
+
+   
+    plt.figure()
+    plt.plot(np.array(chcnor))
+    plt.axhline(y = scipy.stats.mstats.mquantiles(chcnor, prob = 0.95))    
+    plt.axhline(y = scipy.stats.mstats.mquantiles(chcnor, prob = 0.025))    
+
+
+    print('mean consecutive days with same sign: {}'.format(np.mean(chcnor)))
+    print('median consecutive days with same sign: {}'.format(np.median(chcnor)))
+    print('std consecutive days with same sign: {}'.format(np.std(chcnor)))    
+
+    
+    plt.figure()
+    plt.hist(np.array(chcnor))
+
+    print('shapiro t4est: {}'.format(scipy.stats.shapiro(np.array(chcnor))))
+
+    print('#########################################################################################')
+    print(np.where(np.logical_and(0 < np.array(chcnor), np.array(chcnor) <= scipy.stats.mstats.mquantiles(chcnor, prob = 0.95)))[0].size/len(chcnor))
+    print(np.where(np.logical_and(scipy.stats.mstats.mquantiles(chcnor, prob = 0.025) < np.array(chcnor), np.array(chcnor) <= 0))[0].size/len(chcnor))
+    print('#########################################################################################')
+
+
+    cnor = cnor.set_index(pd.to_datetime(ConvertDates(cnor[cnor.columns[1]])))
+
+#    for h in range(24):
+#        cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cnor.index.hour == h].hist()
+#        plt.title(h)
+
+
+#    cnor.ix[cnor.index.year == 2015].plot(ylim = (-2,2))
+#    cnor.ix[cnor.index.year == 2016].plot(ylim = (-2,2))
+#    
+    #cnor.ix[cnor.index.year == 2015].hist()
+    #cnor.ix[cnor.index.year == 2016].hist()
+
+
+    diz5 = OrderedDict()
+    diz6 = OrderedDict()
+    cn5 = cnor.ix[cnor.index.year == 2015]
+    cn6 = cnor.ix[cnor.index.year == 2016]
+    for h in range(24):
+        diz5[h] = cn5[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn5.index.hour == h].values.ravel()
+        diz6[h] = cn6[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn6.index.hour == h].values.ravel()
+    
+    CN5 = pd.DataFrame.from_dict(diz5, orient = 'index')
+    CN6 = pd.DataFrame.from_dict(diz6, orient = 'index')
+
+    plt.figure()
+    CN5.mean().plot(ylim = (-2,2))
+
+    plt.figure()
+    CN6.mean().plot(color = 'red',ylim = (-2,2))
+
+    plt.figure()
+    CN5.mean(axis = 1).plot()
+    CN6.mean(axis = 1).plot(color = 'black')
+    
+    f, axarr = plt.subplots(2, sharex=True)
+    axarr[0].plot(CN5.mean()[:274], lw = 2)
+    axarr[1].plot(CN6.mean(), color = 'red', lw = 2)
+    
+    f, axarr = plt.subplots(2, sharex=True)
+    axarr[0].plot(CN5.std()[:274], lw = 2)
+    axarr[1].plot(CN6.std(), color = 'red', lw = 2)
+
+    f, axarr = plt.subplots(2, sharex=True)
+    axarr[0].plot(np.diff(CN5.mean()[:274]), lw = 2)
+    axarr[1].plot(np.diff(CN6.mean()), color = 'red', lw = 2)
+    
+    H2 = conditionalDistribution(CN5, 1, 2)    
+    
+    plt.figure()
+    plt.hist(np.array(H2.ix['1pos'].dropna()))    
+    plt.hist(np.array(0.5 + H2.ix['1neg']), color = 'red')    
+    
+#    for h in range(23):
+#        H2 = conditionalDistribution(CN6, h, h+1)    
+#        plt.figure()
+#        plt.hist(np.array(H2.ix[str(h)+'pos'].dropna()))    
+#        plt.hist(np.array(0.5 + H2.ix[str(h)+'neg'].dropna()), color = 'red')    
+#        plt.title(str(h) + ' --> ' + str(h+1))
+#    
+    sm15 = CN5.mean().values.ravel()
+    sm16 = CN6.mean().values.ravel()
+    
+    np.where(sm15 > 0)[0].size/sm15.size
+    np.where(sm16 > 0)[0].size/sm16.size
+    
+    
+    sd15 = CN5.std().values.ravel()
+    sd16 = CN6.std().values.ravel()
+    
+    print(np.mean(sd15))
+    print(np.mean(sd16))
+    print(np.std(sd15))
+    print(np.std(sd16))
+
+
+    P5 = np.poly1d(np.polyfit(np.linspace(1,sm15.size,sm15.size), sm15, 3))
+    P6 = np.poly1d(np.polyfit(np.linspace(1,sm16.size,sm16.size), sm16, 3))
+    
+    plt.figure()
+    plt.plot(sm15)
+    plt.plot(np.linspace(1,sm15.size,1000), P5(np.linspace(1,sm15.size,1000)))
+    
+    plt.figure()
+    plt.plot(sm16, color = 'red')
+    plt.plot(np.linspace(1,sm16.size,1000), P6(np.linspace(1,sm16.size,1000)), color = 'black')
+    return 0
+################################################################################################################    
+
+getStatistics('NORD')
+getStatistics('CSUD')
+getStatistics('SUD')
+getStatistics('SICI')
+getStatistics('SARD')
+
+######### independence of non overlapping days?
+###############################################################################
+def TestIndipendence(st, zona):
+    
+    cnlist = (st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()
+    cnor = st.ix[cnlist]
+    cnor = cnor.reset_index(drop = True)     
+    d = np.random.randint(cnor.shape[0], size = 50)
+    rem = set(range(cnor.shape[0])).difference(d)
+    sam1 = cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[d]
+    sam2 = cnor[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[np.random.choice(list(rem), size = 50)]
+    plt.figure()
+    plt.hist(sam1.values.ravel())
+    plt.title('sample 1')
+    plt.figure()
+    plt.hist(sam2.values.ravel())
+    plt.title('sample 2')
+
+    si = []
+    for i in range(cnor.shape[0]):
+        si.append(dateutil.parser.parse(cnor[cnor.columns[1]].ix[i]))
+    
+    CN = cnor.set_index(pd.to_datetime(si))
+    
+    sm = CN[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].resample('D').mean()    
+    
+    d = np.random.randint(sm.shape[0], size = 50)
+    rem = set(range(sm.shape[0])).difference(d)
+    sam1 = sm.ix[d].dropna()
+    sam2 = sm.ix[np.random.choice(list(rem), size = 50)].dropna()
+    plt.figure()
+    plt.hist(sam1.values.ravel())
+    plt.title('sample 1')
+    plt.figure()
+    plt.hist(sam2.values.ravel())
+    plt.title('sample 2')
+
+    plt.figure()
+    plotting.lag_plot(sm)
+    plt.title('lag = 1')
+    plt.figure()
+    plotting.lag_plot(sm, lag = 2)
+    plt.title('lag = 2')
+    plt.figure()
+    plotting.lag_plot(sm, lag = 5)
+    plt.title('lag = 5')
+    plt.figure()
+    plotting.lag_plot(sm, lag = 10)
+    plt.title('lag = 10')
+    plt.figure()
+    plotting.lag_plot(sm, lag = 30)
+    plt.title('lag = 30')
+
+    
+    return 0
+###############################################################################
+
+ST_2 = ST.set_index(pd.to_datetime(ConvertDates(ST[ST.columns[1]])))
+
+ST16 = ST_2.ix[ST_2.index.year == 2016]
+ST15 = ST_2.ix[ST_2.index.year == 2015]
+
+#ConvertDates(ST[ST.columns[1]])
+ST16['FABBISOGNO REALE'].ix[ST16['CODICE RUC'] == 'UC_DP1608_NORD'].plot()
+plt.figure()
+ST15['FABBISOGNO REALE'].ix[ST15['CODICE RUC'] == 'UC_DP1608_NORD'].plot(color = 'red')
+
+###############################################################################
+#### dataset to be used in R ####
+def ToDataFrame(st, zona):
+    stz = st.ix[(st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    diz = OrderedDict()
+    rng = pd.date_range(start = '2015-01-01', end = '2016-11-01', freq = 'D')
+    for r in rng:
+        hl = []
+        hl2 = 0
+        sub1 = stz.ix[stz.index.year == r.year]
+        sub2 = sub1.ix[sub1.index.month == r.month]
+        sub3 = sub2.ix[sub2.index.day == r.day]
+        for h in range(24):
+            if sub3['FABBISOGNO REALE'].ix[sub3.index.hour == h].values.ravel().size == 0:
+                hl.append(0)
+            elif sub3['FABBISOGNO REALE'].ix[sub3.index.hour == h].values.ravel().size == 2:
+                hl.append([np.sum(sub3['FABBISOGNO REALE'].ix[sub3.index.hour == h].values.ravel())])
+            else:
+                hl.append(sub3['FABBISOGNO REALE'].ix[sub3.index.hour == h].values.ravel())
+        if isinstance(hl[0], list):
+            hl2 = [float(item) for sublist in hl for item in sublist]
+        else:
+            hl2 = hl
+        diz[r] = np.array(hl2).ravel()
+    df = pd.DataFrame.from_dict(diz, orient = 'index')
+    df.columns = ['1','2','3','4','5','6','7','8','9','10','11','12',
+                  '13','14','15','16','17','18','19','20','21','22','23','24']
+    return df
+###############################################################################
+def ToDataFrameMO(st, zona):
+    stz = st.ix[(st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    diz = OrderedDict()
+    rng = pd.date_range(start = '2015-01-01', end = '2016-11-01', freq = 'D')
+    for r in rng:
+        hl = []
+        hl2 = 0
+        sub1 = stz.ix[stz.index.year == r.year]
+        sub2 = sub1.ix[sub1.index.month == r.month]
+        sub3 = sub2.ix[sub2.index.day == r.day]
+        for h in range(24):
+            if sub3['MO [MWh]'].ix[sub3.index.hour == h].values.ravel().size == 0:
+                hl.append(0)
+            elif sub3['MO [MWh]'].ix[sub3.index.hour == h].values.ravel().size == 2:
+                hl.append([np.sum(float(sub3['MO [MWh]'].ix[sub3.index.hour == h].values.ravel()[0].replace(',','.')) )])
+            else:
+                hl.append(float(sub3['MO [MWh]'].ix[sub3.index.hour == h].values.ravel()[0].replace(',','.')))
+        if isinstance(hl[0], list):
+            hl2 = [float(item) for sublist in hl for item in sublist]
+        else:
+            hl2 = hl
+        diz[r] = hl2
+    df = pd.DataFrame.from_dict(diz, orient = 'index')
+    df.columns = ['1','2','3','4','5','6','7','8','9','10','11','12',
+                  '13','14','15','16','17','18','19','20','21','22','23','24']
+    return df
+###############################################################################
+ex = ToDataFrame(ST_2, 'CNOR')
+ex2 = ToDataFrame(ST_2, 'NORD')
+ex3 = ToDataFrame(ST_2, 'CSUD')
+ex4 = ToDataFrame(ST_2, 'SUD')
+ex5 = ToDataFrame(ST_2, 'SICI')
+ex6 = ToDataFrame(ST_2, 'SARD')
+
+exmo = ToDataFrameMO(ST_2, 'CNOR')
+ex2 = ToDataFrameMO(ST_2, 'NORD')
+
+exmo.to_excel('MOcnord2.xlsx')
+
+ex.to_csv('cnord.csv', sep = ';')
+ex.to_excel('cnord.xlsx')
+ex2.to_excel('nord.xlsx')
+
+
+TestIndipendence(ST16, 'NORD')
+TestIndipendence(ST15, 'NORD')
+TestIndipendence(ST16, 'CNOR')
+TestIndipendence(ST15, 'CNOR')
+TestIndipendence(ST16, 'CSUD')
+TestIndipendence(ST15, 'CSUD')
+TestIndipendence(ST16, 'SUD')
+TestIndipendence(ST15, 'SUD')
+TestIndipendence(ST16, 'SICI')
+TestIndipendence(ST15, 'SICI')
+TestIndipendence(ST16, 'SARD')
+TestIndipendence(ST15, 'SARD')
+
+#### qualitativamente: NORD non sembra troppo indipendente: chiaro cluster attorno a (1,1)
+#### le altre zone sembrano un po' piu indipendenti (gli sbilanciamenti medi giornalieri)
+#### reminder: 24*media_giornaliera_segni_sbilanciamento_orari ~ Binomiale
+
+##### distribution 0-variance days #####
+
+###############################################################################
+def CountZeroVariance(st, zona):    
+    
+    cnlist = (st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()
+    cnor = st.ix[cnlist]
+    cnor = cnor.reset_index(drop = True)  
+
+    CN = cnor.set_index(pd.to_datetime(ConvertDates(cnor[cnor.columns[1]])))
+    
+    CV = CN.resample('D').std()
+    
+    counter = []    
+    
+    for m in range(1,13,1):
+        print(m)
+        print('there are {} days'.format(np.sum(st.index.month == m)))
+        lm = CV.ix[CV.index.month == m].values.ravel()
+        counter.append(np.where(lm == 0)[0].size)
+    
+    return counter
+###############################################################################
+def DistBetweenZeroVarDays(vec):
+    dist = []
+    x = 0
+    for i in range(vec.size):
+        if vec[i] == 0:
+            dist.append(i - x)
+            x = i
+    return dist
+###############################################################################
+            
+    
+CountZeroVariance(ST16, 'NORD')
+CountZeroVariance(ST15, 'NORD')
+CountZeroVariance(ST16, 'CNOR')
+CountZeroVariance(ST15, 'CNOR')
+CountZeroVariance(ST16, 'CSUD')
+CountZeroVariance(ST15, 'CSUD')
+CountZeroVariance(ST16, 'SUD')
+CountZeroVariance(ST15, 'SUD')
+CountZeroVariance(ST16, 'SICI')
+CountZeroVariance(ST15, 'SICI')
+CountZeroVariance(ST16, 'SARD')
+CountZeroVariance(ST15, 'SARD')
+
+nord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
+nord15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
+
+f, axarr = plt.subplots(2)
+axarr[0].plot(nord16.resample('D').mean(), lw = 2)
+axarr[1].plot(nord15.resample('D').mean(), color = 'red', lw = 2)
+
+f, axarr = plt.subplots(2)
+axarr[0].plot(nord16.resample('D').std(), lw = 2)
+axarr[1].plot(nord15.resample('D').std(), color = 'red', lw = 2)
+
+var_nord16 = np.array(nord16.resample('D').std()).ravel()
+var_nord15 = np.array(nord15.resample('D').std()).ravel()
+
+plt.figure()
+plt.hist(np.array(var_nord16), bins = 20)
+plt.figure()
+plotting.autocorrelation_plot(pd.Series(var_nord16))
+plt.figure()
+plotting.autocorrelation_plot(pd.Series(np.random.sample(size = len(var_nord16))))
+
+d16nord = DistBetweenZeroVarDays(var_nord16)
+d15nord = DistBetweenZeroVarDays(var_nord15)
+
+plt.figure()
+plt.hist(np.array(d16nord))
+plt.figure()
+plt.hist(np.array(d15nord))
+
+np.mean(d16nord)
+np.mean(d15nord)
+np.std(d16nord)
+np.std(d15nord)
+np.median(d16nord)
+np.median(d15nord)
+
+import Fourier
+
+plt.figure()
+plt.plot(np.array(var_nord16), lw = 2)
+plt.plot(Fourier.fourierExtrapolation(var_nord16, 0), lw = 2, color = 'black')
+
+data = pd.read_excel("H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx", sheetname = 'DB_Dati')
+data = data.set_index(data['Date'])
+data = data.ix[data.index.month <= 9]
+pnord = data['MGP NORD [€/MWh]']
+pnord = pnord.ix[:pnord.shape[0]-1]
+cnord = data['MGP CNOR [€/MWh]']
+cnord = cnord.ix[:pnord.shape[0]-1]
+csud = data['MGP CSUD [€/MWh]']
+csud = csud.ix[:csud.shape[0]-1]
+sud = data['MGP SUD [€/MWh]']
+sud = sud.ix[:sud.shape[0]-1]
+sici = data['MGP SICI [€/MWh]']
+sici = sici.ix[:sici.shape[0]-1]
+sard = data['MGP SARD [€/MWh]']
+csud = sard.ix[:sard.shape[0]-1]
+
+pun = data['PUN [€/MWH]']
+#pun = data['PUN [€/MWH]'].dropna().resample('D').mean()
+
+pd.Series(pnord.values.ravel()).corr(pd.Series(nord16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+pind = pnord.index.tolist()
+cind = nord16.index.tolist()
+
+plt.figure()
+plt.scatter(np.array(pnord.resample('D').mean()), np.array(nord16.resample('D').mean()))
+plt.figure()
+plt.scatter(np.array(pnord.resample('D').mean()), np.array(nord16.resample('D').std()), color = 'red')
+plt.figure()
+plt.scatter(np.array(pnord.resample('D').std()), np.array(nord16.resample('D').std()), color = 'green')
+    
+
+
+cnord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_CNOR').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(cnord.resample('D').mean()), np.array(cnord16.resample('D').mean()))
+
+pd.Series(cnord.values.ravel()).corr(pd.Series(cnord16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+csud16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_CSUD').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(csud.resample('D').mean()), np.array(csud16.resample('D').mean()))
+
+pd.Series(csud.values.ravel()).corr(pd.Series(csud16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+sud16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_SUD').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(sud.resample('D').mean()), np.array(sud16.resample('D').mean()))
+
+pd.Series(csud.values.ravel()).corr(pd.Series(csud16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+sici16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_SICI').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(sici.resample('D').mean()), np.array(sici16.resample('D').mean()))
+
+pd.Series(sici.values.ravel()).corr(pd.Series(sici16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+sard16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_SARD').ravel().tolist()]
+
+plt.figure()
+plt.scatter(np.array(sard.resample('D').mean()), np.array(sard16.resample('D').mean()))
+
+pd.Series(sard.values.ravel()).corr(pd.Series(sard16[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].values.ravel()))
+
+###############################################################################
+def RBinomialTree(st, zona, B):
+    dix = OrderedDict()
+    #######################
+    diz = OrderedDict()
+    stz = st.ix[(st[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    cn = stz.ix[stz.index.year == 2016]
+    for h in range(24):
+        diz[h] = cn[['SEGNO SBILANCIAMENTO AGGREGATO ZONALE']].ix[cn.index.hour == h].values.ravel()
+    
+    CN = pd.DataFrame.from_dict(diz, orient = 'index')
+    #######################
+    pstart = np.where(CN.ix[0] == 1)[0].size/CN.shape[1]
+    
+    for b in range(B):
+        r = scipy.stats.bernoulli.rvs(pstart, size=1)
+        tree = [r[0]]
+        for h in range(1, 23, 1):
+            H = conditionalDistribution(CN, h, h+1)
+            ph = np.where(H.ix[0] == 1)[0].size/H.shape[1]
+            tree.append(scipy.stats.bernoulli.rvs(ph, size=1)[0])
+        dix[b] = tree
+    
+    return pd.DataFrame.from_dict(dix, orient = 'index')
+###############################################################################
+import time
+    
+start = time.time()
+t1 = RBinomialTree(ST16, 'NORD', 1000)    
+(time.time() - start)/60    
+    
+###############################################################################
+def converter(ser):
+    res = []
+    for i in range(ser.size):
+        x = float(ser.ix[i].replace(',', '.'))
+        res.append(x)
+    return np.array(res).ravel()
+###############################################################################
+def PlotImbalance(st15, st16, zona):
+    df16 = st16.ix[(st16[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    df15 = st15.ix[(st15[['CODICE RUC']].values == 'UC_DP1608_'+zona).ravel().tolist()]
+    plt.figure()
+    (-df16[['PV [MWh]']]).plot()
+    plt.figure()
+    df16[['SBILANCIAMENTO FISICO [MWh]']].plot()
+    plt.figure()
+    (-df15[['PV [MWh]']]).plot(color = 'black')
+    plt.figure()
+    df15[['SBILANCIAMENTO FISICO [MWh]']].plot(color = 'black')
+    
+    psdf15 = df15[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(df15[['PV [MWh]']].values.ravel())
+    plt.figure()
+    plt.plot(psdf15,color = 'green')
+    plt.axhline(y=0, color = 'black')
+    plt.title(zona+' Imbalance Percentage 2015')
+    
+    psdf16 = df16[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(df16[['PV [MWh]']].values.ravel())
+    plt.figure()
+    plt.plot(psdf16,color = 'indigo')
+    plt.axhline(y=0, color = 'black')
+    plt.title(zona+' Imbalance Percentage 2016')        
+    return 0
+###############################################################################    
+    
+plt.figure()
+plt.plot(converter(nord16[nord16.columns[2]]))
+plt.figure()
+plt.plot(converter(cnord16[cnord16.columns[2]]))
+plt.figure()
+plt.plot(converter(csud16[csud16.columns[2]]))
+plt.figure()
+plt.plot(converter(sud16[sud16.columns[2]]))
+plt.figure()
+plt.plot(converter(sici16[sici16.columns[2]]))
+plt.figure()
+plt.plot(converter(sard16[sard16.columns[2]]))
+
+plt.figure()
+(-nord16[['PV [MWh]']]).plot()
+plt.figure()
+nord16[['SBILANCIAMENTO FISICO [MWh]']].plot()
+plt.figure()
+(-nord15[['PV [MWh]']]).plot(color = 'black')
+plt.figure()
+nord15[['SBILANCIAMENTO FISICO [MWh]']].plot(color = 'black')
+
+psnord15 = nord15[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(nord15[['PV [MWh]']].values.ravel())
+plt.figure()
+plt.plot(psnord15,color = 'green')
+plt.axhline(y=0, color = 'black')
+
+psnord16 = nord16[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(nord16[['PV [MWh]']].values.ravel())
+plt.figure()
+plt.plot(psnord16,color = 'indigo')
+plt.axhline(y=0, color = 'black')
+
+
+psnord15ts = pd.Series(psnord15, index = nord15.index)
+dec = statsmodels.api.tsa.seasonal_decompose(psnord15ts, freq = 24)
+plt.figure()
+dec.plot()
+plt.figure()
+plt.plot(dec.seasonal[0:23])
+
+plotting.autocorrelation_plot(psnord15ts)
+
+scipy.stats.kurtosis(psnord15)
+scipy.stats.skew(psnord15)
+scipy.stats.kurtosis(psnord16)
+scipy.stats.skew(psnord16)
+
+###############################################################################
+def BestApproximatingPolynomial(vec):
+    best_d = 0
+    P1 = np.mean(vec)
+    qerr1 = np.mean((vec - P1)**2)
+    best_error = qerr1
+    print('0-degree error: {}'.format(qerr1))
+    for d in range(1, 11, 1):
+        BP = np.poly1d(np.polyfit(np.linspace(1,vec.size,vec.size), vec, d))
+        qerr = np.mean((vec - BP(np.linspace(1,vec.size,vec.size)))**2)
+        print(str(d)+'-degree error: {}'.format(qerr))
+        if qerr < best_error:
+            best_d = d
+            best_error = qerr
+    return best_d
+###############################################################################
+def exponential_smoothing(series, alpha):
+    result = [series[0]] # first value is same as series
+    for n in range(1, len(series)):
+        result.append(alpha * series[n] + (1 - alpha) * result[n-1])
+    return result
+###############################################################################
+def deseasonalise(hts): ## TS with temporal timestamp
+    dix = OrderedDict()
+    for h in range(24):
+        dix[h] = hts.ix[hts.index.hour == h].values.ravel()
+    return pd.DataFrame.from_dict(dix, orient = 'columns')
+###############################################################################
+def deseasonalised(hts, seas):
+    res = []
+    for i in range(0, hts.shape[0]-24, 24):
+        day = hts[i:i+24].values.ravel()
+        res.append(day - seas)
+    day = hts[hts.shape[0] - 24:].values.ravel()
+    res.append(day - seas)
+    return np.array(res).ravel()
+###############################################################################
+
+psnord15ts = pd.DataFrame(psnord15ts)
+trend = psnord15ts.rolling(24).mean()
+
+BestApproximatingPolynomial(psnord15)
+
+Ptrend = np.poly1d(np.polyfit(np.linspace(1,psnord15.size,psnord15.size), psnord15, 6))
+
+plt.figure()
+plt.plot(trend.values.ravel())
+plt.plot(np.linspace(1,psnord15.size,1000), Ptrend(np.linspace(1,psnord15.size,1000)),lw=2, color = 'black')
+
+trendN15 = Ptrend(np.linspace(1,psnord15.size,psnord15.size))
+
+det_psnord15 = psnord15 + trendN15
+
+plt.figure()
+plt.plot(psnord15)
+plt.plot(exponential_smoothing(psnord15,0.9), color = 'black')
+
+Ds = deseasonalise(psnord15ts)
+Ds.plot()
+plt.figure()
+Ds.mean().plot()
+
+plt.figure()
+plt.plot(deseasonalised(psnord15,Ds.mean()))
+
+np.mean(deseasonalised(psnord15,Ds.mean()))
+np.mean(psnord15)
+
+############ Kalman - filter toy usage ########################################
+n_iter = psnord15.size
+sz = (n_iter,) # size of array
+x = 0.0 # truth value
+z = psnord15 # observations 
+
+Q = 1e-5 # process variance
+
+# allocate space for arrays
+xhat=np.zeros(n_iter)      # a posteri estimate of x
+P=np.zeros(n_iter)         # a posteri error estimate
+xhatminus=np.zeros(n_iter) # a priori estimate of x
+Pminus=np.zeros(n_iter)    # a priori error estimate
+K=np.zeros(n_iter)         # gain or blending factor
+
+R = 0.1**2 # estimate of measurement variance, change to see effect
+
+# intial guesses
+xhat[0] = 0.0
+P[0] = 1.0
+
+for k in range(1,n_iter):
+    # time update
+    xhatminus[k] = xhat[k-1]
+    Pminus[k] = P[k-1]+Q
+
+    # measurement update
+    K[k] = Pminus[k]/( Pminus[k]+R )
+    xhat[k] = xhatminus[k]+K[k]*(z[k]-xhatminus[k])
+    P[k] = (1-K[k])*Pminus[k]
+
+plt.figure()
+plt.plot(z,'k-o',label='noisy measurements')
+plt.plot(xhat,'b-',label='a posteri estimate')
+plt.axhline(x,color='g')
+plt.legend()
+plt.title('Estimate vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('Percentage Imbalance')
+
+plt.figure()
+valid_iter = range(1,n_iter) # Pminus not valid at step 0
+plt.plot(valid_iter,Pminus[valid_iter],label='a priori error estimate')
+plt.title('Estimated $\it{\mathbf{a \ priori}}$ error vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('$(Voltage)^2$')
+plt.setp(plt.gca(),'ylim',[0,.01])
+plt.show()
+
+plt.figure()
+plt.plot(dec.trend.values.ravel(), color = 'navy')
+plt.plot(xhat, color = 'coral')
+plt.title('difference of estimations')
+###############################################################################
+
+des = deseasonalised(psnord15ts, dec.seasonal[0:24])
+
+residuals = des - dec.trend.values.ravel() 
+
+plt.figure()
+plt.plot(residuals)
+
+np.nanmean(residuals)
+np.nanstd(residuals)
+np.nanmax(residuals)/np.nanstd(residuals)
+np.nanmin(residuals)/np.nanstd(residuals)
+scipy.stats.skew(residuals[np.logical_not(np.isnan(residuals))])
+scipy.stats.kurtosis(residuals[np.logical_not(np.isnan(residuals))])
+scipy.stats.shapiro(residuals[np.logical_not(np.isnan(residuals))])
+
+
+plt.figure()
+plt.hist(residuals[np.logical_not(np.isnan(residuals))])
+
+meteo = pd.read_excel('C:/Users/d_floriello/Documents/PUN/Milano 2016.xlsx')
+meteo = meteo.set_index(pd.to_datetime(ConvertDates2(meteo['DATA'])))
+
+nlug16 = nord16.ix[nord16.index.month <= 7]
+
+snlug16 = nlug16['SBILANCIAMENTO FISICO [MWh]'].resample('D').sum()
+snlug16.plot()
+plt.figure()
+meteo['Tmedia'].plot()
+
+mnlug16 = nlug16['SBILANCIAMENTO FISICO [MWh]'].resample('D').mean()
+plt.figure()
+mnlug16.plot()
+
+plt.figure()
+plt.scatter(meteo['Tmedia'].values.ravel(), snlug16.values.ravel())
+plt.scatter(meteo['Tmedia'].values.ravel(), mnlug16.values.ravel(), color = 'red')
+
+Mnlug16 = nlug16['SBILANCIAMENTO FISICO [MWh]'].resample('D').max()
+plt.figure()
+Mnlug16.plot()
+
+psnordlug16 = nord16[['SBILANCIAMENTO FISICO [MWh]']].ix[nord16.index.month <= 7].resample('D').sum().values.ravel()/np.abs(nord16[['PV [MWh]']].ix[nord16.index.month <= 7].resample('D').sum().values.ravel())
+psnordlug16 = pd.Series(nord16[['SBILANCIAMENTO FISICO [MWh]']].ix[nord16.index.month <= 7].values.ravel()/np.abs(nord16[['PV [MWh]']].ix[nord16.index.month <= 7].values.ravel()), index = nord16.index[nord16.index.month <= 7])
+psnordlug16 = psnordlug16.resample('D').sum().values.ravel()
+
+plt.figure()
+plt.scatter(meteo['Tmedia'].values.ravel(), psnordlug16, color = 'green')
+plt.axhline(y = scipy.stats.mstats.mquantiles(psnordlug16, prob = 0.95), color = 'turquoise')
+plt.axhline(y = scipy.stats.mstats.mquantiles(psnordlug16, prob = 0.025), color = 'turquoise')
+plt.axvline(x = scipy.stats.mstats.mquantiles(meteo['Tmedia'].values.ravel(), prob = 0.95), color = 'yellow')
+plt.axvline(x = scipy.stats.mstats.mquantiles(meteo['Tmedia'].values.ravel(), prob = 0.025), color = 'yellow')
+
+P2 = np.poly1d(np.polyfit(meteo['Tmedia'].values.ravel(), psnordlug16, 2))
+#X = np.array([meteo['Tmedia'].values.ravel(), meteo['Tmedia'].values.ravel()**2])
+#ols_model = statsmodels.regression.linear_model.OLS(psnordlug16, X.T)
+#res = ols_model.fit()
+#res.params
+
+plt.figure()
+plt.scatter(meteo['Tmedia'].values.ravel(), psnordlug16, color = 'green')
+plt.plot(np.linspace(-5,35,1000), P2(np.linspace(-5,35,1000)))
+
+## R2 with outliers
+R2 = 1 - np.sum((psnordlug16 - P2(meteo['Tmedia'].values.ravel()))**2)/np.sum((psnordlug16 - np.mean(psnordlug16))**2)
+
+np.mean(psnordlug16 - P2(meteo['Tmedia'].values.ravel()))
+np.std(psnordlug16 - P2(meteo['Tmedia'].values.ravel()))
+
+## R2 without outliers
+
+less = np.where(psnordlug16 < scipy.stats.mstats.mquantiles(psnordlug16, prob = 0.025))[0]
+
+nooutlug16 = psnordlug16[list(set(list(range(psnordlug16.size))).difference(less))]
+nooutmeteo = meteo['Tmedia'].values.ravel()[list(set(list(range(meteo['Tmedia'].values.ravel().size))).difference(less))]
+
+P2out = np.poly1d(np.polyfit(nooutmeteo, nooutlug16, 2))
+R2out = 1 - np.sum((nooutlug16 - P2(nooutmeteo))**2)/np.sum((nooutlug16 - np.mean(nooutlug16))**2)
+
+plt.figure()
+plt.scatter(nooutmeteo, nooutlug16, color = 'gold')
+plt.plot(np.linspace(-5,35,1000), P2(np.linspace(-5,35,1000)))
+plt.figure()
+plt.plot(psnordlug16)
+
+################### correlation meteo 2015
+
+met15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_milano_aggiornato.txt')
+met15 = met15.set_index(pd.to_datetime(ConvertDates2(met15['Data'])))
+
+met15 = met15.ix[met15.index.year == 2015]
+
+plt.figure()
+plt.scatter(met15['Tmedia'].values.ravel(), psnord15ts.resample('D').sum().values.ravel())
+
+plt.figure()
+plt.plot(met15['Tmedia'].values.ravel())
+plt.figure()
+plt.plot(psnord15ts.resample('D').sum().values.ravel())
+
+plt.figure()
+plt.plot(met15['Tmedia'].values.ravel())
+plt.plot(psnord15ts.resample('D').sum().values.ravel())
+
+
+n_iter = psnord15ts.resample('D').sum().values.ravel().size
+sz = (n_iter,) # size of array
+x = 0.0 # truth value
+z = psnord15ts.resample('D').sum().values.ravel() # observations 
+
+Q = 1e-5 # process variance
+
+# allocate space for arrays
+xhat=np.zeros(n_iter)      # a posteri estimate of x
+P=np.zeros(n_iter)         # a posteri error estimate
+xhatminus=np.zeros(n_iter) # a priori estimate of x
+Pminus=np.zeros(n_iter)    # a priori error estimate
+K=np.zeros(n_iter)         # gain or blending factor
+
+R = 0.1**2 # estimate of measurement variance, change to see effect
+
+# intial guesses
+xhat[0] = 0.0
+P[0] = 1.0
+
+for k in range(1,n_iter):
+    # time update
+    xhatminus[k] = xhat[k-1]
+    Pminus[k] = P[k-1]+Q
+
+    # measurement update
+    K[k] = Pminus[k]/( Pminus[k]+R )
+    xhat[k] = xhatminus[k]+K[k]*(z[k]-xhatminus[k])
+    P[k] = (1-K[k])*Pminus[k]
+
+plt.figure()
+plt.plot(z,'k-o',label='noisy measurements')
+plt.plot(xhat,'b-',label='a posteri estimate')
+plt.axhline(x,color='g')
+plt.legend()
+plt.title('Estimate vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('Percentage Imbalance')
+
+
+###############################################################################
+
+plt.figure()
+plt.scatter(met15['Tmedia'].values.ravel(), xhat)
+
+
+n_iter = met15['Tmedia'].values.ravel().size
+sz = (n_iter,) # size of array
+x = 0.0 # truth value
+z = met15['Tmedia'].values.ravel() # observations 
+
+Q = 1e-5 # process variance
+
+# allocate space for arrays
+yhat=np.zeros(n_iter)      # a posteri estimate of x
+P=np.zeros(n_iter)         # a posteri error estimate
+yhatminus=np.zeros(n_iter) # a priori estimate of x
+Pminus=np.zeros(n_iter)    # a priori error estimate
+K=np.zeros(n_iter)         # gain or blending factor
+
+R = 0.1**2 # estimate of measurement variance, change to see effect
+
+# intial guesses
+yhat[0] = 0.0
+P[0] = 1.0
+
+for k in range(1,n_iter):
+    # time update
+    yhatminus[k] = yhat[k-1]
+    Pminus[k] = P[k-1]+Q
+
+    # measurement update
+    K[k] = Pminus[k]/( Pminus[k]+R )
+    yhat[k] = yhatminus[k]+K[k]*(z[k]-yhatminus[k])
+    P[k] = (1-K[k])*Pminus[k]
+
+plt.figure()
+plt.plot(z,'k-o',label='noisy measurements')
+plt.plot(yhat,'b-',label='a posteri estimate')
+plt.axhline(x,color='g')
+plt.legend()
+plt.title('Estimate vs. iteration step', fontweight='bold')
+plt.xlabel('Iteration')
+plt.ylabel('Percentage Imbalance')
+
+
+###############################################################################
+
+plt.figure()
+plt.scatter(yhat, xhat, color = 'crimson')
+
+##### correlation with meteo 2015 CSUD
+
+roma15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_roma.txt')
+roma15 = roma15.set_index(pd.to_datetime(ConvertDates2(roma15['Data'])))
+
+roma15 = roma15.ix[roma15.index.year == 2015]
+
+csud16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_CSUD').ravel().tolist()]
+csud15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_CSUD').ravel().tolist()]
+pcsud15 = csud15[['SBILANCIAMENTO FISICO [MWh]']].values.ravel()/np.abs(csud15[['PV [MWh]']].values.ravel())
+pcsud15 = pd.Series(pcsud15, index = csud15.index)
+
+plt.figure()
+roma15['Tmedia'].plot()
+plt.figure()
+pcsud15.resample('D').sum().plot()
+
+corrs = []
+for h in range(24):
+    ath = csud15['SBILANCIAMENTO FISICO [MWh]'].ix[csud15.index.hour == h]
+    corrs.append(np.corrcoef(ath.values.ravel(), roma15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), roma15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs), color = 'yellow')
+
+corrs2 = []
+for h in range(24):
+    ath = (-1)*csud15['PV [MWh]'].ix[csud15.index.hour == h]
+    corrs2.append(np.corrcoef(ath.values.ravel(), roma15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), roma15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs2), color = 'gold')
+
+##### NORD ######
+
+mi15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_milano_aggiornato.txt')
+mi15 = mi15.set_index(pd.to_datetime(ConvertDates2(mi15['Data'])))
+
+mi15 = mi15.ix[mi15.index.year == 2015]
+
+nord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
+nord15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_NORD').ravel().tolist()]
+
+
+corrs = []
+for h in range(24):
+    ath = nord15['SBILANCIAMENTO FISICO [MWh]'].ix[nord15.index.hour == h]
+    corrs.append(np.corrcoef(ath.values.ravel(), mi15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), mi15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs), color = 'lime')
+
+corrs2 = []
+for h in range(24):
+    ath = (-1)*nord15['PV [MWh]'].ix[nord15.index.hour == h]
+    corrs2.append(np.corrcoef(ath.values.ravel(), mi15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), mi15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs2), color = 'silver')
+
+###############################################################################
+
+PlotImbalance(ST15, ST16, 'CNOR')
+PlotImbalance(ST15, ST16, 'CSUD')
+PlotImbalance(ST15, ST16, 'SUD')
+PlotImbalance(ST15, ST16, 'SICI')
+PlotImbalance(ST15, ST16, 'SARD')
+
+###### SARD ####
+
+sard16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_SARD').ravel().tolist()]
+sard15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_SARD').ravel().tolist()]
+
+(-sard15['PV [MWh]']).plot()
+plt.figure()
+sard15['SBILANCIAMENTO FISICO [MWh]'].plot()
+
+ca15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_cagliari_aggiornato.txt')
+ca15 = ca15.set_index(pd.to_datetime(ConvertDates2(ca15['Data'])))
+
+ca15 = ca15.ix[ca15.index.year == 2015]
+
+corrs = []
+for h in range(24):
+    ath = sard15['SBILANCIAMENTO FISICO [MWh]'].ix[sard15.index.hour == h]
+    corrs.append(np.corrcoef(ath.values.ravel(), ca15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), ca15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs))
+
+corrs2 = []
+for h in range(24):
+    ath = (-1)*sard15['PV [MWh]'].ix[sard15.index.hour == h]
+    corrs2.append(np.corrcoef(ath.values.ravel(), ca15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), ca15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs2), color = 'coral')
+
+ca16 = pd.read_excel('C:/Users/d_floriello/Documents/PUN/Cagliari 2016.xlsx')
+ca16 = ca16.set_index(pd.date_range('2016-01-01', '2016-10-31', freq = 'D'))
+ca16 = ca16.ix[ca16.index.month <= 9]
+
+corrs6 = []
+for h in range(24):
+    ath = sard16['SBILANCIAMENTO FISICO [MWh]'].ix[sard16.index.hour == h]
+    if h == 2: 
+        corrs6.append(np.corrcoef(ath.values.ravel(), np.delete(ca16['Tmedia'].values.ravel(),57))[0,1])
+        print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), np.delete(ca16['Tmedia'].values.ravel(),57))[0,1]))
+    else:
+        corrs6.append(np.corrcoef(ath.values.ravel(), ca16['Tmedia'].values.ravel())[0,1])
+        print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), ca16['Tmedia'].values.ravel())[0,1]))
+
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs6), color = 'turquoise')
+
+
+###### CNORD #######
+
+fi15 = pd.read_table('C:/Users/d_floriello/Documents/PUN/storico_firenze_aggiornato.txt')
+fi15 = fi15.set_index(pd.to_datetime(ConvertDates2(fi15['Data'])))
+
+fi15 = fi15.ix[fi15.index.year == 2015]
+
+cnord15 = ST15.ix[(ST15[['CODICE RUC']].values == 'UC_DP1608_CNOR').ravel().tolist()]
+cnord16 = ST16.ix[(ST16[['CODICE RUC']].values == 'UC_DP1608_CNOR').ravel().tolist()]
+
+
+corrs = []
+for h in range(24):
+    ath = cnord15['SBILANCIAMENTO FISICO [MWh]'].ix[cnord15.index.hour == h]
+    corrs.append(np.corrcoef(ath.values.ravel(), fi15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), fi15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs), color = 'darkturquoise')
+
+corrs2 = []
+for h in range(24):
+    ath = (-1)*cnord15['PV [MWh]'].ix[cnord15.index.hour == h]
+    corrs2.append(np.corrcoef(ath.values.ravel(), fi15['Tmedia'].values.ravel())[0,1])
+    print('correlation between ith hour and mean Temp: {}'. format(np.corrcoef(ath.values.ravel(), fi15['Tmedia'].values.ravel())[0,1]))
+#    plt.figure()
+#    plt.scatter(ca15['Tmedia'].values.ravel(), ath.values.ravel())
+#    plt.title('correlation ' + str(h) + 'th hour')
+
+plt.figure()
+plt.bar(list(range(24)),np.array(corrs2), color = 'deepskyblue')
+
+
+cnord15['SBILANCIAMENTO FISICO [MWh]'].plot()
+cnord16['SBILANCIAMENTO FISICO [MWh]'].plot()
+
+cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('D').mean().plot()
+cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('M').mean().plot()
+cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('D').std().plot()
+cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('M').std().plot()
+
+
+cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('D').mean().plot(lw = 2)
+cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('M').mean().plot(lw = 2)
+cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('D').std().plot(lw = 2)
+cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('M').std().plot(lw = 2)
+
+np.sign(np.diff(cnord15['SBILANCIAMENTO FISICO [MWh]'].resample('M').mean()))
+np.sign(np.diff(cnord16['SBILANCIAMENTO FISICO [MWh]'].resample('M').mean()))
+
+###############################################################################
+
+dt = pd.read_excel("aggregato_sbilanciamento.xlsx")
+#dt = dt.set_index(ConvertDates(dt["DATA RIFERIMENTO CORRISPETTIVO"]))
+dt = dt.set_index(dt["DATA RIFERIMENTO CORRISPETTIVO"])
+
+smae = dt['SignedMAE'].ix[dt["CODICE RUC"] == "UC_DP1608_NORD"].values.ravel()
+plt.plot(smae)
+
+from pandas.tools import plotting
+plt.figure()
+plotting.autocorrelation_plot(smae)
+
+ric = pd.read_excel("ric_mappa.xlsx")
+
+nord = dt.ix[dt["CODICE RUC"] == "UC_DP1608_NORD"]
+nord = nord.set_index(pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:nord.shape[0]])
+
+rdtnord = Ricalendar(nord, ric)
+
+nordfeb = nord["MO [MWh]"].ix[nord.index >= datetime.datetime(2017,1,1)]
+
+plt.figure()
+plt.plot(rdtnord["MO [MWh]"].values.ravel())
