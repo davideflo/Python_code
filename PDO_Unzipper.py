@@ -27,11 +27,12 @@ import time
 ####################################################################################################
 def Aggregator(df):
     v = np.repeat(0.0, 24)    
-    df2 = df[df.columns[2:98]]
-    df2 = df2.values.ravel().astype(float)
+    df3 = df.values.ravel()[:4].tolist()
+    df2 = df.values.ravel()[4:100]
     for k in range(1,25):
         v[k-1] += np.sum(np.array([x for x in df2[4*(k-1):4*k]], dtype = np.float64))
-    return v
+    df3.extend(v.tolist())
+    return df3
 ####################################################################################################
 def Converter(s):
     points = [m.start() for m in re.finditer('\.', s)]
@@ -56,17 +57,18 @@ def MeasureExtractor(s):
 ####################################################################################################
     
 
-directory = 'C:/Users/d_floriello/Desktop/PDO2015'
+#directory = 'C:/Users/d_floriello/Desktop/PDO2015'
+directory = 'H:/Energy Management/12. Aggregatore/Aggregatore consumi orari/Mensili/DB XML/2017/17Q1'
 files = os.listdir(directory)
 
-destinationfile = 'C:/Users/d_floriello/Desktop/FTP_PDO_2015'
-destinationDF = 'C:/Users/d_floriello/Desktop/DF_PDO_2015'
+destinationfile = 'C:/Users/d_floriello/Desktop/DF_PDO_2017'
+destinationDF = 'C:/Users/d_floriello/Desktop/DF_PDO_2017'
 
-#files2 = files[:5]
+files = files[:-2]
 
 filecounter = 0
 count = 0
-while filecounter < 500:
+while filecounter < 170:
     files = os.listdir(directory)
     if len(files) > 0:
         files2 = files[:10]
@@ -92,7 +94,7 @@ while filecounter < 500:
                     dix[count] = tbi
                     count += 1
             filecounter += 1
-            shutil.move(directory + '/' + f, destinationfile + '/' + f)            
+            #shutil.move(directory + '/' + f, destinationfile + '/' + f)            
         dix = pd.DataFrame.from_dict(dix, orient = 'index')
         dix.to_excel(destinationDF + '/df_' + str(filecounter) + '.xlsx')    
         print("--- %s seconds ---" % (time.time() - start_time))
@@ -101,11 +103,26 @@ while filecounter < 500:
             
 
 filesdf = os.listdir(destinationDF)
+#fdf = filesdf[0]
 DF = pd.DataFrame()
 for fdf in filesdf:
-    DF = DF.append(pd.read_excel(destinationDF + '/' + fdf), ignore_index = True)
+    print fdf
+    od = OrderedDict()
+    start_time = time.time()    
+    dft = pd.read_excel(destinationDF + '/' + fdf).reset_index(drop = True)
+    for i in range(dft.shape[0]):
+        vl = []
+        vl.extend(dft[dft.columns[:4]].ix[i].values.ravel().tolist())
+        v = np.repeat(0.0, 24)    
+        df2 = dft.ix[i].values.ravel()[4:100]
+        for k in range(1,25):
+            v[k-1] += np.sum(np.array([x for x in df2[4*(k-1):4*k]], dtype = np.float64))
+        vl.extend(v.tolist())
+        od[i] = vl
+    DF = DF.append(pd.DataFrame.from_dict(od, orient = 'index'), ignore_index = True)
+    print("--- %s seconds ---" % (time.time() - start_time))
 
-DF.to_excel('C:/Users/d_floriello/PDO2015_estratti.xlsx')
+DF.to_excel('C:/Users/d_floriello/PDO2017_estratti.xlsx')
 DF.to_csv('C:/Users/d_floriello/Desktop/PDO2015_estratti.csv', sep = ';')
 DF.to_pickle('C:/Users/d_floriello/Desktop/PDO2015_estratti.pkl')
 DF.to_hdf('C:/Users/d_floriello/Desktop/PDO2015_estratti.h5', 'DF')
