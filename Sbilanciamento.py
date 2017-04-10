@@ -45,6 +45,7 @@ def ConvertDates2(df):
 ###############################################################################
 def Ricalendar(df, ric):
     rdf = OrderedDict()
+    ric["Prossimo anno"] = pd.to_datetime(ric["Prossimo anno"])
     for i in range(ric.shape[0]):
         #print(i)
         pa = ric["Anno precedente"].ix[i]
@@ -53,7 +54,7 @@ def Ricalendar(df, ric):
             dfi = df.ix[df.index.to_pydatetime() == pa.to_pydatetime().replace(hour = h)]
             if dfi.shape[0] > 0:
                 dfih = dfi.ix[dfi.index.hour == h]
-                rdf[ric["Prossimo anno"].to_pydatetime().replace(hour = h)] = [dfih["MO [MWh]"].values.ravel()[0], dfih["PV [MWh]"].values.ravel()[0]]
+                rdf[ric["Prossimo anno"].ix[i].to_pydatetime().replace(hour = h)] = [dfih["MO [MWh]"].values.ravel()[0], dfih["PV [MWh]"].values.ravel()[0]]
             else:
                 pass
     rdf = pd.DataFrame.from_dict(rdf, orient = "index")
@@ -1374,8 +1375,7 @@ dt = pd.read_excel("aggregato_sbilanciamento.xlsx")
 #dt = dt.set_index(ConvertDates(dt["DATA RIFERIMENTO CORRISPETTIVO"]))
 dt = dt.set_index(dt["DATA RIFERIMENTO CORRISPETTIVO"])
 
-smae = dt['SignedMAE'].ix[dt["CODICE RUC"] == "UC_DP1608_NORD"].values.ravel()
-plt.plot(smae)
+smae = dt['SignedMAE'].ix[dt["CODICE RUC"] == "UC_DP1608_NORD"]
 
 from pandas.tools import plotting
 plt.figure()
@@ -1389,6 +1389,53 @@ nord = nord.set_index(pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:nor
 rdtnord = Ricalendar(nord, ric)
 
 nordfeb = nord["MO [MWh]"].ix[nord.index >= datetime.datetime(2017,1,1)]
+ricfeb = rdtnord.ix[rdtnord.index < datetime.datetime(2017, 3, 1)]
+
+ricfeb.plot()
 
 plt.figure()
-plt.plot(rdtnord["MO [MWh]"].values.ravel())
+plt.plot(ricfeb["MO [MWh]"].values.ravel() - nordfeb.values.ravel())
+
+ricsmae = (ricfeb["MO [MWh]"].values.ravel() - nordfeb.values.ravel())/nord["PV [MWh]"].ix[nord.index >= datetime.datetime(2017,1,1)].values.ravel()
+
+plt.figure()
+plt.plot(ricsmae, color = "red")
+
+scipy.stats.mstats.mquantiles(ricsmae, prob = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9])
+
+plt.figure()
+plt.hist(ricsmae, bins = 20)
+
+smae = pd.DataFrame(smae).set_index(pd.date_range('2015-01-01','2017-12-31',freq = 'H')[:smae.shape[0]])
+smaefeb = smae.ix[smae.index >= datetime.datetime(2017,1,1)]
+
+plt.figure()
+plt.plot(smaefeb, color = 'green')
+plt.figure()
+plt.hist(smaefeb.values.ravel(), bins = 20, color = 'green')
+plt.figure()
+plotting.autocorrelation_plot(smaefeb, color = 'green')
+
+###############################################################################
+def DrawACFplot(zona):    
+    smae = dt['SignedMAE'].ix[dt["CODICE RUC"] == "UC_DP1608_" + zona]
+    smae = pd.DataFrame(smae).set_index(pd.date_range('2015-01-01','2017-12-31',freq = 'H')[:smae.shape[0]])
+    smaefeb = smae.ix[smae.index >= datetime.datetime(2017,1,1)]
+    plt.figure()
+    plt.plot(smaefeb, color = 'green')
+    plt.title("AV " + zona)
+    plt.figure()
+    plt.hist(smaefeb.values.ravel(), bins = 20, color = 'green')
+    plt.title(zona + 'histogram')
+    plt.figure()
+    plotting.autocorrelation_plot(smaefeb, color = 'green')
+    plt.title("autocorrelation " + zona)
+###############################################################################
+    
+    
+DrawACFplot("CNOR")
+DrawACFplot("CSUD")
+DrawACFplot("SUD")
+DrawACFplot("SICI")
+DrawACFplot("SARD")
+
