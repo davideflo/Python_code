@@ -68,14 +68,15 @@ files = files[:-2]
 
 filecounter = 0
 count = 0
-while filecounter < 170:
+while filecounter < 500:
     files = os.listdir(directory)
     if len(files) > 0:
-        files2 = files[:10]
+#        files2 = files[:10]
         dix = OrderedDict()
-        print 'done {} files'.format(filecounter)
         start_time = time.time()
-        for f in files2:        
+#        print 'done {} files'.format(filecounter)
+        for f in files:        
+            print 'done {} files'.format(files.index(f) + 1)
             pdo = BeautifulSoup(open(directory + '/' + f).read(), "xml")
             bs = pdo.find_all('DatiPod')
             for b in bs:
@@ -109,8 +110,9 @@ for fdf in filesdf:
     print fdf
     od = OrderedDict()
     start_time = time.time()    
-    dft = pd.read_excel(destinationDF + '/' + fdf).reset_index(drop = True)
-    for i in range(dft.shape[0]):
+    dft = pd.read_excel(destinationDF + '/' + fdf)
+    for i in dft.index.tolist():
+        print i
         vl = []
         vl.extend(dft[dft.columns[:4]].ix[i].values.ravel().tolist())
         v = np.repeat(0.0, 24)    
@@ -119,10 +121,15 @@ for fdf in filesdf:
             v[k-1] += np.sum(np.array([x for x in df2[4*(k-1):4*k]], dtype = np.float64))
         vl.extend(v.tolist())
         od[i] = vl
-    DF = DF.append(pd.DataFrame.from_dict(od, orient = 'index'), ignore_index = True)
+    DF = DF.append(pd.DataFrame.from_dict(od, orient = 'index'))#, ignore_index = True)
     print("--- %s seconds ---" % (time.time() - start_time))
 
-DF.to_excel('C:/Users/d_floriello/PDO2017_estratti.xlsx')
+writer = pd.ExcelWriter(r'C:/Users/d_floriello/Desktop/PDO_2017_estratti.xlsx', engine = 'xlsxwriter')
+DF.to_excel(writer)
+writer.save()
+
+
+
 DF.to_csv('C:/Users/d_floriello/Desktop/PDO2015_estratti.csv', sep = ';')
 DF.to_pickle('C:/Users/d_floriello/Desktop/PDO2015_estratti.pkl')
 DF.to_hdf('C:/Users/d_floriello/Desktop/PDO2015_estratti.h5', 'DF')
