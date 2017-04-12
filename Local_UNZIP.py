@@ -112,6 +112,7 @@ for y in years:
 ###############################################################################
 
 extracter = 'C:/Users/d_floriello/Desktop/tbe2'
+extracter = 'H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/2017-03/giornalieri/csv'
 onlyfiles = [f for f in listdir(extracter) if isfile(join(extracter, f))]
 
 for of in onlyfiles:
@@ -129,7 +130,7 @@ for h in range(24):
     cl.append(str(h) + '.D')
         
         
-y = 2016
+y = 2017
 count = 0
 df = OrderedDict()
 for of in onlyfiles:
@@ -147,12 +148,12 @@ names = ['POD', 'date']
 names.extend(cl)
 df.columns = names
 
-df.to_csv('orari_2016.csv', sep = ';')
+df.to_csv('orari_2017_mar.csv', sep = ';')
 
 
 ##################### Elaborazione curve giornaliere ##########################
 
-df = pd.read_csv('orari_2016.csv', sep = ';', dtype = object)
+df = pd.read_csv('orari_2017_mar.csv', sep = ';', dtype = object)
 
 diz = OrderedDict()
 
@@ -180,8 +181,8 @@ diz.columns = [['POD', 'Date', '1', '2', '3', '4', '5', '6',
                 '13', '14', '15', '16', '17', '18',
                 '19', '20', '21', '22', '23', '24']]
  
-diz.to_csv('G_orari_2016.csv', sep = ';')   
-diz.to_excel('G_orari_2016.xlsx')   
+diz.to_csv('orari_2017_mar.csv', sep = ';')   
+diz.to_excel('orari_2017_mar.xlsx')   
     
     
 ########################### Elaborazione CRPP #################################
@@ -224,6 +225,7 @@ DF5.to_excel('CRPP_2016_aggregato.xlsx')
 ###############################################################################
 
 from bs4 import BeautifulSoup
+import time
 pdo = open('C:/Users/d_floriello/Documenti/PDO_prova.xml').read()
 bs = BeautifulSoup(pdo, "xml")
 print(bs.prettify())
@@ -234,9 +236,12 @@ x.find_all("Er")
 directory = 'C:/Users/d_floriello/Desktop/PDO2015'
 files = os.listdir(directory)
 
+files2 = files[:5]
+
 dix = OrderedDict()
 count = 0
-for f in files:
+start_time = time.time()
+for f in files2:        
     pdo = BeautifulSoup(open(directory + '/' + f).read(), "xml")
     bs = pdo.find_all('DatiPod')
     for b in bs:
@@ -254,6 +259,8 @@ for f in files:
             tbi.extend(mis)
             dix[count] = tbi
             count += 1
+print("--- %s seconds ---" % (time.time() - start_time))
+
             
 dix = pd.DataFrame.from_dict(dix, orient = 'index')
 dix.to_excel('PDO_2015.xlsx')    
