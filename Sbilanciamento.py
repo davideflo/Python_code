@@ -177,7 +177,7 @@ def percentageConsumption(db, All, zona):
     diz = OrderedDict()
     dbz = db.ix[db["Area"] == zona]
     for d in dr:
-        pods = dbz["Pod"].ix[dbz["Giorno"] == d].values.ravel().tolist()
+        pods = dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()
         All2 = All.ix[All["Trattamento_01"] == 'O']
         totd = np.sum(np.nan_to_num([All2["CONSUMO_TOT"].ix[y] for y in All2.index if All2["POD"].ix[y] in pods]))/1000
         #totd = All2["CONSUMO_TOT"].ix[All2["POD"].values.ravel() in pods].sum()
@@ -211,6 +211,32 @@ def MakeDatasetTSLYFixedCurve(df, meteo):
                     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
                     '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23',
                     'y']]
+    return dts
+####################################################################################################
+def MakeDatasetWithSampleCurve(df, db, meteo, All, zona):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+    psample = percentageConsumption(db, All, zona)
+    psample = psample.set_index(pd.date_range('2017-01-01', '2017-03-01', freq = 'D'))
+    dts = OrderedDict()
+    df = df.ix[df.index.date >= datetime.date(2017,1,3)]
+    for i in df.index.tolist():
+        cmym = db[db.columns[10:34]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = 2))].sum(axis = 0).values.ravel()/1000
+        wd = i.weekday()
+        h = i.hour
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ps = psample.ix[psample.index.date == i.date()]
+        ll = [wd, h, dy, Tmax, rain, wind, hol, ps[0].values[0]]
+        ll.extend(cmym.tolist())
+        ll.extend([df['MO [MWh]'].ix[i]])
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['weekday','hour','pday','tmax','pioggia','vento','holiday','perc',
+    '0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','y']]
     return dts
 ####################################################################################################
 #def test_stationarity(timeseries):
@@ -743,8 +769,76 @@ db["Giorno"] = pd.to_datetime(db["Giorno"].values)
 dt = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregatore_orari - 17_03.xlsm",
                    skiprows = [0], sheetname = "Consumi base 24")
 
+dt.columns = [str(i) for i in dt.columns]
 
+db = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Agg_consumiGG.xlsx")
 All = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_01_2017.xlsx")
 
-pJan = percentageConsumption(db, All, "NORD")
+pJan = percentageConsumption(dt, All, "NORD")
 
+
+sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento.xlsx')
+nord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_NORD']
+nord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:nord.shape[0]]
+mi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2016.xlsx')
+mi6 = mi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+mi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2017.xlsx')
+mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
+mi = mi6.append(mi7)
+#mi = fi5.append(fi6)
+
+DB = MakeDatasetWithSampleCurve(nord, dt, mi, All, "NORD")
+
+train = DB.ix[:int(np.ceil(0.8*DB.shape[0]))].sample(frac = 1)
+test = DB.ix[1 + int(np.ceil(0.8*DB.shape[0])):]
+
+ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+ffregr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
+ffregr.fit(train[train.columns[:32]], train[train.columns[32]])
+yhat_train = ffregr.predict(train[train.columns[:32]])
+
+fregrR2 = 1 - (np.sum((train[train.columns[32]] - yhat_train)**2))/(np.sum((train[train.columns[32]] - np.mean(train[train.columns[32]]))**2))
+
+plt.figure()
+plt.plot(yhat_train, color = 'skyblue', marker = 'o')
+plt.plot(train[train.columns[32]].values.ravel(), color = 'orange', marker = '+')
+
+
+yhat_test = ffregr.predict(test[test.columns[:32]])
+fregrR2_test = 1 - (np.sum((test[test.columns[32]] - yhat_test)**2))/(np.sum((test[test.columns[32]] - np.mean(test[test.columns[32]]))**2))
+
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o')
+plt.plot(test[test.columns[32]].values.ravel(), color = 'red', marker = '+')
+
+ABdiff = yhat_test - test[test.columns[32]].values.ravel()
+
+plt.figure()
+plt.plot(ABdiff, color = 'coral')
+
+np.mean(ABdiff)
+np.median(ABdiff)
+np.std(ABdiff)
+scipy.stats.skew(ABdiff)
+scipy.stats.kurtosis(ABdiff)
+
+plt.figure()
+plt.hist(ABdiff, bins = 20)
+
+MAE = np.abs(ABdiff)/test[test.columns[32]].values.ravel()
+
+plt.figure()
+plt.plot(MAE, color = 'pink')
+plt.figure()
+plt.hist(MAE, bins = 20, color = "pink")
+plt.figure()
+plt.bar(np.arange(MAE.size), MAE, color = 'pink')
+plt.figure()
+plotting.autocorrelation_plot(MAE)
+
+
+train.ix[train.index.date == datetime.date(2017,1,19)]
+train.ix[train.index.date == datetime.date(2017,1,20)]
+
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(ffregr, X = train[train.columns[:32]], y = train[train.columns[32]], cv = 5)
