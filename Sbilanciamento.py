@@ -478,7 +478,7 @@ np.std(y6 - yhat6)
 DTFC = MakeDatasetTSFixedCurve(cnord, fi)
 DTFC = MakeDatasetTSLYFixedCurve(cnord, fi)
 
-test_stationarity(DTFC['y'].values.ravel())
+#test_stationarity(DTFC['y'].values.ravel())
 
 import statsmodels
 
@@ -840,5 +840,44 @@ plotting.autocorrelation_plot(MAE)
 train.ix[train.index.date == datetime.date(2017,1,19)]
 train.ix[train.index.date == datetime.date(2017,1,20)]
 
+### http://scikit-learn.org/stable/modules/cross_validation.html
 from sklearn.model_selection import cross_val_score
-scores = cross_val_score(ffregr, X = train[train.columns[:32]], y = train[train.columns[32]], cv = 5)
+from sklearn import model_selection
+scores5 = cross_val_score(ffregr, X = train[train.columns[:32]], y = train[train.columns[32]], cv = 5)
+
+parameters = {'n_estimators': [24, 50, 100, 500], 'max_depth': [24, 48, 168] }
+ABRF = AdaBoostRegressor(RandomForestRegressor(n_jobs = 1))
+RF = RandomForestRegressor(criterion = 'mse', n_jobs = 1)
+
+grid_RF = model_selection.GridSearchCV(RF, parameters, cv = 5)
+grid_RF.fit(X = train[train.columns[:32]], y = train[train.columns[32]])
+
+brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+
+brf.fit(train[train.columns[:32]], train[train.columns[32]])
+yhat_train = brf.predict(train[train.columns[:32]])
+
+rfR2 = 1 - (np.sum((train[train.columns[32]] - yhat_train)**2))/(np.sum((train[train.columns[32]] - np.mean(train[train.columns[32]]))**2))
+
+plt.figure()
+plt.plot(yhat_train, color = 'skyblue', marker = 'o')
+plt.plot(train[train.columns[32]].values.ravel(), color = 'orange', marker = '+')
+
+yhat_test = brf.predict(test[test.columns[:32]])
+rfR2_test = 1 - (np.sum((test[test.columns[32]] - yhat_test)**2))/(np.sum((test[test.columns[32]] - np.mean(test[test.columns[32]]))**2))
+
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o')
+plt.plot(test[test.columns[32]].values.ravel(), color = 'red', marker = '+')
+
+importance = brf.feature_importances_
+importance = pd.DataFrame(importance, index=train.columns[:32], columns=["Importance"])
+
+importance["Std"] = np.std([tree.feature_importances_ for tree in brf.estimators_], axis=0)
+
+x = range(importance.shape[0])
+y = importance.ix[:, 0]
+yerr = importance.ix[:, 1]
+
+plt.figure()
+plt.bar(x, y, yerr=yerr, align="center")
