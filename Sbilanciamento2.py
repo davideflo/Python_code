@@ -13,7 +13,6 @@ import pandas as pd
 from pandas.tools import plotting
 import numpy as np
 import matplotlib.pyplot as plt
-import statsmodels.api
 import calendar
 import scipy
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
@@ -160,8 +159,9 @@ dt.columns = [str(i) for i in dt.columns]
 
 All = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_01_2017.xlsx")
 
-
 sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento.xlsx')
+
+
 nord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_NORD']
 nord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:nord.shape[0]]
 mi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2016.xlsx')
@@ -196,19 +196,28 @@ rc7 = rc7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
 rc = rc6.append(rc7)
 ###############################
 sici = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SICI']
-sici.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sud.shape[0]]
+sici.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sici.shape[0]]
 pa6 = pd.read_excel('C:/Users/utente/Documents/PUN/Palermo 2016.xlsx')
 pa6 = pa6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 pa7 = pd.read_excel('C:/Users/utente/Documents/PUN/Palermo 2017.xlsx')
 pa7 = pa7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
 pa = pa6.append(pa7)
+###############################
+sard = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SARD']
+sard.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sard.shape[0]]
+ca6 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2016.xlsx')
+ca6 = ca6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+ca7 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2017.xlsx')
+ca7 = ca7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
+ca = ca6.append(ca7)
 
 
 DB = MakeExtendedDatasetWithSampleCurve(nord, dt, mi, All, "NORD")
 DB = MakeExtendedDatasetWithSampleCurve(cnord, dt, fi, All, "CNOR")
 DB = MakeExtendedDatasetWithSampleCurve(csud, dt, ro, All, "CSUD")
 DB = MakeExtendedDatasetWithSampleCurve(sud, dt, rc, All, "SUD")
-DB = MakeExtendedDatasetWithSampleCurve(sud, dt, pa, All, "SICI")
+DB = MakeExtendedDatasetWithSampleCurve(sici, dt, pa, All, "SICI")
+DB = MakeExtendedDatasetWithSampleCurve(sard, dt, ca, All, "SARD")
 
 
 train2 = DB.ix[:int(np.ceil(0.8*DB.shape[0]))]
@@ -249,6 +258,8 @@ sk2e = k2e["SUD"]/1000
 tsk2e = sk2e.ix[sk2e.index >= datetime.datetime(2017,2,17,16)]
 sik2e = k2e["SICI"]/1000
 tsik2e = sik2e.ix[sik2e.index >= datetime.datetime(2017,2,17,16)]
+sak2e = k2e["SARD"]/1000
+tsak2e = sak2e.ix[sak2e.index >= datetime.datetime(2017,2,17,16)]
 
 
 plt.figure()
@@ -275,6 +286,11 @@ plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x')
 plt.plot(tsik2e.values.ravel(), color = 'black', marker = '8')
+############
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o')
+plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x')
+plt.plot(tsak2e.values.ravel(), color = 'black', marker = '8')
 
 
 importance = brf.feature_importances_
@@ -294,6 +310,7 @@ k2e_error = test[test.columns[61]].values.ravel() - tcnk2e.values.ravel()
 k2e_error = test[test.columns[61]].values.ravel() - tcsk2e.values.ravel()     
 k2e_error = test[test.columns[61]].values.ravel() - tsk2e.values.ravel()     
 k2e_error = test[test.columns[61]].values.ravel() - tsik2e.values.ravel()     
+k2e_error = test[test.columns[61]].values.ravel() - tsak2e.values.ravel()     
 
 error = test[test.columns[61]].values.ravel() - yhat_test    
 
