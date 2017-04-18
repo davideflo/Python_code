@@ -6,6 +6,7 @@ Created on Mon Dec 05 10:22:48 2016
 
 Construction of GAS historical Consumption
 """
+
 from __future__ import division
 import pandas as pd
 import cx_Oracle 
@@ -20,7 +21,7 @@ def FilterMisura(df, pdr, year, month):
     df3 = df2.ix[df2['year'] == year]
     df4 = df3.ix[df3['month'] == month]
     if df4.shape[0] == 1:
-        return df4['lettura']
+        return df4['lettura'].values.ravel()[0]
     else:
         return 'unknown'
 ####################################################################################################
