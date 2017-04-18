@@ -126,8 +126,11 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, All, zona):
         ll = []        
         hvector = np.repeat(0, 24)
         dvector = np.repeat(0, 7)
-        cmym = db[db.columns[10:34]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = 2))].sum(axis = 0).values.ravel()/1000
-        wd = i.weekday()
+        wd = i.weekday()        
+        td = 2
+        if wd == 0:
+            td = 3
+        cmym = db[db.columns[10:34]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
         dvector[wd] = 1
         h = i.hour
         hvector[h] = 1
@@ -313,6 +316,17 @@ k2e_error = test[test.columns[61]].values.ravel() - tsik2e.values.ravel()
 k2e_error = test[test.columns[61]].values.ravel() - tsak2e.values.ravel()     
 
 error = test[test.columns[61]].values.ravel() - yhat_test    
+
+############ Error vs Fitted Values for SARD
+plt.figure()
+plt.scatter(yhat_test, error, marker = 'o')
+plt.axhline(y = 0, color = 'black')
+plt.figure()
+plt.scatter(tsak2e.values.ravel(), k2e_error, marker = '8', color = 'red')
+plt.axhline(y = 0, color = 'black')
+############
+
+
 
 print np.mean(k2e_error)
 print np.median(k2e_error)
