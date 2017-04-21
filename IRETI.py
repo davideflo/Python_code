@@ -379,12 +379,14 @@ def IRETI_Executer(prodotto):
         print 'len(list_pod) is 0!'
     
     Diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    writer = pd.ExcelWriter('C:/Users/d_floriello/fatture/IRETI_'+fatt_n.replace('/','-')+'.xlsx', engine='xlsxwriter')
     if Diz.shape[0] > 0:
         Diz.columns = [['numero fattura', 'emessa il', 'POD', 'data inizio', 'data fine', 'attiva F1', 'attiva F2', 'attiva F3',
                     'reattiva F1', 'reattiva F2', 'reattiva F3', 'potenza']] 
 
-        Diz.to_excel('fatture/IRETI_'+fatt_n.replace('/','-')+'.xlsx')
-
+        Diz.to_excel(writer, sheet_name = 'Sheet1')
+        writer.save()
+        
     else:
         print 'No POD processed'
     
@@ -392,7 +394,9 @@ def IRETI_Executer(prodotto):
     
     if NP.shape[0] > 0:
         NP.columns = [['POD']]             
-        NP.to_excel('fatture/' + fatt_n.replace('/','-')+'_IRETI_manuale.xlsx')
+        writer2 = pd.ExcelWriter('C:/Users/d_floriello/fatture/' + fatt_n.replace('/','-')+'_IRETI_manuale.xlsx', engine='xlsxwriter')
+        NP.to_excel(writer2)
+        writer2.save()
     else:
         print 'Tutto finito'
     return 1
@@ -410,7 +414,7 @@ dirs = os.walk(mypath)
 dirs = [x[0] for x in os.walk(mypath)]
 
 dirs = [os.path.join(mypath,o) for o in os.listdir(mypath) if os.path.isdir(os.path.join(mypath,o))]
-dirs = dirs[:5]
+dirs = dirs[1]
 
 
 mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/2. IRETI/'
@@ -423,6 +427,6 @@ for d in dirs:
         print d+'/'+f
         IRETI_Executer(d+'/'+f)    
     
-    
-prodotto = d + '/' + f
+f = 'Aem_STAMPABOLLETTE.2017040550_61150650_Allegato_39_1.001 (1).pdf'    
+prodotto = dirs + '/' + f
 IRETI_Executer(prodotto)
