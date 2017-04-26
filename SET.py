@@ -37,10 +37,15 @@ def ExtractAttiva_Set(df):
                 res.append(round(val,0))
             else:
                 res.append(round(val,0))
-    if len(res) == 2:
-        string = 'quota variabile'
-        df2 = df.ix[df[df.columns[2]].values.ravel() == string]
+        else:
+            res.append('')
+    string = 'quota variabile'
+    df2 = df.ix[df[df.columns[2]].values.ravel() == string]
+    #if res[2] == '':
+    if df2.shape[0] > 0:
         res.append(round(df2[df2.columns[7]].sum(),0))   
+    else:
+        res.append('')
     return res
 ####################################################################################################
 def ExtractReattiva_Set(df):
@@ -136,22 +141,19 @@ def SET_Extractor(set1, name):
     
     print 'pod non processati {}'.format(len(missing))
     
-    book = xlwt.Workbook()
-    sheet1 = book.add_sheet('sheet1')
-    for i,e in enumerate(missing):
-        sheet1.write(i,1,e)
+    book = pd.DataFrame(missing)
     
     if len(missing) > 0:
-        book.save('fatture/SET_manuale_' + name + '.xlsx')
+        book.to_excel('C:/Users/d_floriello/fatture/SET_manuale_' + name + '.xlsx')
     
     DF = pd.DataFrame.from_dict(diz, orient = 'index')
     if DF.shape[0] > 0:    
         DF.columns = [['Numero fattura', 'data emissione', 'POD', 'data inizio', 'data fine', 'En Attiva F1', 'En Attiva F2', 'En Attiva F3',
-                       'En Reattiva F1','En Reattiva F2','En Reattiva F3', 'Potenza']]
+                       'En Attiva F0', 'En Reattiva F1','En Reattiva F2','En Reattiva F3', 'Potenza']]
         
         DF = DF.reset_index(drop = True)
         
-        DF.to_excel('fatture/fattura_SET_' + name + '.xlsx')
+        DF.to_excel('C:/Users/d_floriello/fatture/fattura_SET_' + name + '.xlsx')
     
     return 1
 ####################################################################################################
@@ -160,23 +162,23 @@ def SET_Extractor(set1, name):
 from os import listdir
 from os.path import isfile, join
 
-mypath = 'Z:/AREA BO&B/00000.File Distribuzione/3. SET DISTRIBUZIONE'
-
-onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 
 #dirs = os.walk(mypath)
 #dirs = [x[0] for x in os.walk(mypath)]
 #
 #dirs = [os.path.join(mypath,o) for o in os.listdir(mypath) if os.path.isdir(os.path.join(mypath,o))]
 
-mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/3. SET DISTRIBUZIONE/Dettagli originali'
+#mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/3. SET DISTRIBUZIONE/Dettagli originali'
+mypath2 = 'Z:/AREA BO&B/00000.File Distribuzione/3. SET DISTRIBUZIONE'
 
 
 onlyfiles = [f for f in listdir(mypath2) if isfile(join(mypath2, f))]
 #ff = [y for y in  if 'Unica' not in y]
 ff2 = [y for y in onlyfiles if 'Thumbs' not in y]
+ff2 = onlyfiles[2:4]
 for f in ff2: 
     print mypath2+'/'+f
     SET_Extractor(mypath2+'/'+f, f[:-4])    
     
 set1 = mypath2+'/'+ff2[0]   
+name = ff2[0]
