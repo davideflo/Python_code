@@ -98,7 +98,7 @@ def GetMeanCurve(df, var):
 ####################################################################################################
 ####################################################################################################
 def percentageConsumption(db, All, zona):
-    dr = pd.date_range('2017-01-01', '2017-03-01', freq = 'D')
+    dr = pd.date_range('2017-01-01', '2017-05-02', freq = 'D')
     diz = OrderedDict()
     dbz = db.ix[db["Area"] == zona]
     for d in dr:
@@ -119,7 +119,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, All, zona):
 #### every day will have a dummy variable representing it
     #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
     psample = percentageConsumption(db, All, zona)
-    psample = psample.set_index(pd.date_range('2017-01-01', '2017-03-01', freq = 'D'))
+    psample = psample.set_index(pd.date_range('2017-01-01', '2017-05-02', freq = 'D'))
     dts = OrderedDict()
     df = df.ix[df.index.date >= datetime.date(2017,1,3)]
     for i in df.index.tolist():
@@ -162,7 +162,8 @@ dt.columns = [str(i) for i in dt.columns]
 
 All = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_01_2017.xlsx")
 
-sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento.xlsx')
+#sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento.xlsx')
+sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento2.xlsx')
 
 
 nord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_NORD']
@@ -170,7 +171,7 @@ nord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:nord.shape[0
 mi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2016.xlsx')
 mi6 = mi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 mi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2017.xlsx')
-mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
+mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 mi = mi6.append(mi7)
 #mi = fi5.append(fi6)
 ###############################
@@ -179,7 +180,7 @@ cnord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:cnord.shape
 fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
 fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 fi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2017.xlsx')
-fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
+fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 fi = fi6.append(fi7)
 ###############################
 csud = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CSUD']
@@ -187,7 +188,7 @@ csud.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:csud.shape[0
 ro6 = pd.read_excel('C:/Users/utente/Documents/PUN/Roma 2016.xlsx')
 ro6 = ro6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 ro7 = pd.read_excel('C:/Users/utente/Documents/PUN/Fiumicino 2017.xlsx')
-ro7 = ro7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
+ro7 = ro7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 ro = ro6.append(ro7)
 ###############################
 sud = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SUD']
@@ -195,7 +196,7 @@ sud.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sud.shape[0]]
 rc6 = pd.read_excel('C:/Users/utente/Documents/PUN/Bari 2016.xlsx')
 rc6 = rc6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 rc7 = pd.read_excel('C:/Users/utente/Documents/PUN/Reggio Calabria 2017.xlsx')
-rc7 = rc7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
+rc7 = rc7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 rc = rc6.append(rc7)
 ###############################
 sici = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SICI']
@@ -203,7 +204,7 @@ sici.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sici.shape[0
 pa6 = pd.read_excel('C:/Users/utente/Documents/PUN/Palermo 2016.xlsx')
 pa6 = pa6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 pa7 = pd.read_excel('C:/Users/utente/Documents/PUN/Palermo 2017.xlsx')
-pa7 = pa7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
+pa7 = pa7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 pa = pa6.append(pa7)
 ###############################
 sard = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SARD']
@@ -211,7 +212,7 @@ sard.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sard.shape[0
 ca6 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2016.xlsx')
 ca6 = ca6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 ca7 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2017.xlsx')
-ca7 = ca7.set_index(pd.date_range('2017-01-01', '2017-03-31', freq = 'D'))
+ca7 = ca7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 ca = ca6.append(ca7)
 
 
