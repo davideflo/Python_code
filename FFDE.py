@@ -55,7 +55,7 @@ def FileFilter(ld, directory):
     mesi = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     to_be_extracted = []
     list_files = [of for of in os.listdir(directory) if isfile(join(directory, of))]
-    M = 0
+    M = datetime.datetime(2017,1,1,0,0,0)
     last_file = 0
     for f in list_files:
         #filedate = datetime.datetime(2017, int(f[2:4]), int(f[5:7]))
@@ -63,8 +63,8 @@ def FileFilter(ld, directory):
         filedate = datetime.datetime(int(fdt[20:]), mesi.index(fdt[4:7])+1, int(fdt[8:10]), hour = int(fdt[11:13]), minute = int(fdt[14:16]), second = int(fdt[17:19]))        
         if filedate > ld:
             to_be_extracted.append(f)
-            if filedate.day > M:
-                M = filedate.day
+            if filedate > M:
+                M = filedate
                 last_file = f
     return to_be_extracted, time.ctime(os.path.getmtime(directory + "/" + last_file))
 ####################################################################################################    
@@ -74,7 +74,7 @@ def ZIPExtractor():
     ld = last_date.read()
     LD = datetime.datetime(int(ld[20:]), mesi.index(ld[4:7])+1, int(ld[8:10]), hour = int(ld[11:13]), minute = int(ld[14:16]), second = int(ld[17:19]))
     strm = str(LD.month) if len(str(LD.month)) > 1 else "0" + str(LD.month)
-    directory = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/" + str(LD.year) + "-" + strm
+    directory = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/" + str(LD.year) + "-" + strm + "/Giornalieri"
     tbe, M = FileFilter(LD, directory)
     for t in tbe:
         #print(t)
@@ -175,7 +175,7 @@ def Aggregator(today):
     strm2 = str(m-1) if len(str(m-1)) > 1 else "0" + str(m-1)        
     crppm1 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm1 + "-2017/_All_CRPP_" + strm1 + "_2017.xlsx")
     crppm2 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm2 + "-2017/_All_CRPP_" + strm2 + "_2017.xlsx")
-    pathm = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP"
+    pathm = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TBP"
     csvfiles = os.listdir(pathm)
     csvfiles = [cf for cf in csvfiles if 'T1' in cf and '.txt' not in cf]
     for cf in csvfiles:
@@ -184,8 +184,10 @@ def Aggregator(today):
         zona = 0
         if date.month == m:
             zona = crppm1["ZONA"].ix[crppm1["POD"] == pod].values[0] if crppm1["ZONA"].ix[crppm1["POD"] == pod].values.size > 0 else 0
+            shutil.copy2(pathm + "/" + cf,"H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/2017-" + strm1 + "/Giornalieri/CSV")
         else:
             zona = crppm2["ZONA"].ix[crppm2["POD"] == pod].values[0] if crppm2["ZONA"].ix[crppm2["POD"] == pod].values.size > 0 else 0
+            shutil.copy2(pathm + "/" + cf,"H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/2017-" + strm2 + "/Giornalieri/CSV")
         df = pd.read_csv(pathm + "/" + cf, sep = ";", dtype = object)
         df.columns = cl
         vec = np.repeat(0.0, 24)
@@ -209,13 +211,11 @@ def Aggregator(today):
         count += 1
             
     diz = pd.DataFrame.from_dict(diz, orient = 'index')    
-    diz.columns = [['POD', 'Area', 'Giorno', '1', '2', '3', '4', '5', '6',
-                    '7', '8', '9', '10', '11', '12',
-                    '13', '14', '15', '16', '17', '18',
-                    '19', '20', '21', '22', '23', '24']]
+    diz.columns = [['POD', 'Area', 'Giorno', '1', '2', '3', '4', '5', '6','7', '8', '9', '10', '11', '12','13', '14', '15', '16', '17', '18','19', '20', '21', '22', '23', '24']]
     Aggdf = Aggdf.append(diz, ignore_index = True)
     shutil.rmtree("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TBP")
     os.makedirs("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TBP")
+    Aggdf = Aggdf.drop_duplicates(subset = ["POD", "Giorno"], keep = "first")
     return Aggdf    
 ##################################################################################################    
 def T1_Mover(m):
@@ -225,8 +225,141 @@ def T1_Mover(m):
     csvfiles = os.listdir(pathm)
     csvfiles = [cf for cf in csvfiles if 'T1' in cf and '.txt' not in cf]
     for cf in csvfiles:
-        shutil.copy(pathm + cf, "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/2017-" + strm + "/T1")
+        shutil.copy2(pathm + cf, "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/2017-" + strm + "/T1")
     return 1
+##################################################################################################    
+####################################################################################################
+def AddHolidaysDate(vd):
+    
+  ##### codifica numerica delle vacanze
+  ## 1 Gennaio = 1, Epifania = 2
+  ## Pasqua = 3, Pasquetta = 4
+  ## 25 Aprile = 5, 1 Maggio = 6, 2 Giugno = 7,
+  ## Ferragosto = 8, 1 Novembre = 9
+  ## 8 Dicembre = 10, Natale = 11, S.Stefano = 12, S.Silvestro = 13
+    holidays = 0
+    pasquetta = [datetime.datetime(2015,4,6), datetime.datetime(2016,3,28), datetime.datetime(2017,4,17)]
+    pasqua = [datetime.datetime(2015,4,5), datetime.datetime(2016,3,27), datetime.datetime(2017,4,16)]
+  
+    if vd.month == 1 and vd.day == 1:
+        holidays = 1
+    if vd.month  == 1 and vd.day == 6: 
+        holidays = 1
+    if vd.month  == 4 and vd.day == 25: 
+        holidays = 1
+    if vd.month  == 5 and vd.day == 1: 
+        holidays = 1
+    if vd.month  == 6 and vd.day == 2: 
+        holidays = 1
+    if vd.month  == 8 and vd.day == 15: 
+        holidays = 1
+    if vd.month  == 11 and vd.day == 1: 
+        holidays = 1
+    if vd.month  == 12 and vd.day == 8: 
+        holidays = 1
+    if vd.month  == 12 and vd.day == 25: 
+        holidays = 1
+    if vd.month  == 12 and vd.day == 26: 
+        holidays = 1
+    if vd.month  == 12 and vd.day == 31: 
+        holidays = 1
+    if vd in pasqua:
+        holidays = 1
+    if vd in pasquetta:
+        holidays = 1
+  
+    return holidays
+####################################################################################################
+def Bridge(vd):
+    
+    bridge = 0
+    if vd.weekday() == 0:
+        Tues = vd + datetime.timedelta(days = 1)
+        if AddHolidaysDate(Tues) == 1:
+            bridge = 1
+    elif vd.weekday() == 4:
+        Thur = vd - datetime.timedelta(days = 1)
+        if AddHolidaysDate(Thur) == 1:
+            bridge = 1    
+    else:
+        pass
+    
+    return bridge
+####################################################################################################
+def GetMeanCurve(df, var):
+    mc = OrderedDict()
+    for y in [2015, 2016]:
+        dfy = df[var].ix[df.index.year == y]
+        for m in range(1,13,1):
+            dfym = dfy.ix[dfy.index.month == m]
+            Mean = []
+            for h in range(24):
+                dfymh = dfym.ix[dfym.index.hour == h].mean()
+                Mean.append(dfymh)
+            mc[str(m) + '_' + str(y)] = Mean
+    mc = pd.DataFrame.from_dict(mc, orient = 'index')
+    return mc
+####################################################################################################
+####################################################################################################
+def percentageConsumption(db, All, zona, today):
+    str_month = str(today.month) if len(str(today.month)) > 1 else "0" + str(today.month)
+    str_day = str(today.day) if len(str(today.day)) > 1 else "0" + str(today.day)
+    dr = pd.date_range('2017-01-01', str(today.year) + '-' + str_month + '-' + str_day, freq = 'D')
+    diz = OrderedDict()
+    dbz = db.ix[db["Area"] == zona]
+    for d in dr:
+        pods = dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()
+        All2 = All.ix[All["Trattamento_01"] == 'O']
+        totd = np.sum(np.nan_to_num([All2["CONSUMO_TOT"].ix[y] for y in All2.index if All2["POD"].ix[y] in pods]))/1000
+        #totd = All2["CONSUMO_TOT"].ix[All2["POD"].values.ravel() in pods].sum()
+        tot = All2["CONSUMO_TOT"].sum()/1000
+        p = totd/tot
+        diz[d] = [p]
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    return diz
+####################################################################################################
+def MakeExtendedDatasetWithSampleCurve(df, db, meteo, All, zona, today):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
+#### every day will have a dummy variable representing it
+    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    psample = percentageConsumption(db, All, zona, today)
+    str_month = str(today.month) if len(str(today.month)) > 1 else "0" + str(today.month)
+    str_day = str(today.day) if len(str(today.day)) > 1 else "0" + str(today.day)
+    psample = psample.set_index(pd.date_range('2017-01-01', str(today.year) + '-' + str_month + '-' + str_day, freq = 'D'))
+    dts = OrderedDict()
+    df = df.ix[df.index.date >= datetime.date(2017,1,3)]
+    for i in df.index.tolist():
+        ll = []        
+        hvector = np.repeat(0, 24)
+        dvector = np.repeat(0, 7)
+        wd = i.weekday()        
+        td = 2
+        if wd == 0:
+            td = 3
+        cmym = db[db.columns[10:34]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        dvector[wd] = 1
+        h = i.hour
+        hvector[h] = 1
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ps = psample.ix[psample.index.date == i.date()]
+        ll.extend(dvector.tolist())
+        ll.extend(hvector.tolist())        
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0]])
+        ll.extend(cmym.tolist())
+        ll.extend([df['MO [MWh]'].ix[i]])
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
+    't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+    'pday','tmax','pioggia','vento','holiday','perc',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
+    return dts
     
     
     
