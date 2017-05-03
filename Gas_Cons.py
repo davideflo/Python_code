@@ -129,10 +129,10 @@ def DaConferire(l, prof, setmonth, pp):
     ### l = [cons_contr, cons_distr, sii, VAF, vaf]
     if l[3] > 0:
         return l[3]
-    elif l[3] == 0 and l[2] > 0 and l[4] > 0:
-        if l[2] > l[4]: 
+    elif l[3] == 0 and l[2] > 0 and l[4] >= 0:
+        if l[2] >= l[4] or l[4] == 0: 
             return l[2]
-        else:
+        elif l[4] > l[2]:
             y = WYEstimation(l[4], prof, setmonth, pp)
             if y > 0:
                 return y
@@ -145,10 +145,10 @@ def DaConferire(l, prof, setmonth, pp):
         return l[0]
 ####################################################################################################
 
-doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170201 Report Fatturato Gas_Dicembre.xlsx'
+doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170503 Report Fatturato Gas_Marzo.xlsx'
 #doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
-doc2 = 'C:/Users/d_floriello/Documents/Report 2018.xls'
-doc3 = 'Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico/1702/Anagrafica TIS EVOLUTION.xlsm'
+doc2 = 'Z:/AREA ENERGY MANAGEMENT GAS/ESITI TRASPORTATORI/Report 218_Anagrafica Clienti.xls'
+doc3 = 'Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1705/Anagrafica TIS EVOLUTION.xlsm'
 
 
 df181 = pd.read_excel(doc1, sheetname = 'Report fatturato GAS', skiprows = [0,1], converters={'PDR': str,'REMI': str,
@@ -203,7 +203,7 @@ for c in cod:
                             else:
                                 vaf += m_cons
             fm12 = vaf
-            sii = 0
+            sii = 5
             if len(dfA['PRELIEVO_ANNUO_PREV'].ix[dfA['COD_PDR'] == p].values.tolist()) > 0:
                 sii = float(dfA['PRELIEVO_ANNUO_PREV'].ix[dfA['COD_PDR'] == p].values.tolist()[0])
                 pp = dfA['COD_PROF_PREL_STD'].ix[dfA['COD_PDR'] == p].values.tolist()[0]
@@ -237,7 +237,7 @@ for c in cod:
                         else:
                             vaf += m_cons
         fm12 = vaf
-        sii = 0
+        sii = 5
         if len(dfA['PRELIEVO_ANNUO_PREV'].ix[dfA['COD_REMI'] == remi].values.tolist()) > 0:
             sii = float(dfA['PRELIEVO_ANNUO_PREV'].ix[dfA['COD_REMI'] == remi].values.tolist()[0])
             pp = dfA['COD_PROF_PREL_STD'].ix[dfA['COD_PDR'] == p].values.tolist()[0]
@@ -258,9 +258,9 @@ if resdf['DA CONFERIRE'].ix[resdf['DA CONFERIRE'] == 0].values.size > 0:
 else:
     print 'tutti i PDR hanno valori da conferire'
 ####################################################################################################
-resdf.to_excel('Trasferimenti_clean2.xlsx')
+resdf.to_excel('C:/Users/d_floriello/GasCapacity/ConsumiStimati.xlsx')
 
-resdf = pd.read_excel('Trasferimenti_clean.xlsx', converters = {'PDR': str,'REMI': str})
+#resdf = pd.read_excel('Trasferimenti_clean2.xlsx', converters = {'PDR': str,'REMI': str})
                   
 ####### aggregazione capacità per trasportatore
 trasp = pd.read_excel('Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\DB Trasportatori.xlsx', skiprows = [0,1,2,3,4,5])
@@ -565,7 +565,7 @@ CGM = cg1.append(sg2)
 #grouped = CGM.groupby('REMI', 'AREA'])
 
 #cgm2 = grouped.agg(sum)
-writer = pd.ExcelWriter('Conferimenti.xlsx')
+writer = pd.ExcelWriter('C:/Users/d_floriello/GasCapacity/Conferimenti.xlsx')
 CGM.to_excel(writer, sheet_name = 'Conferimenti REMI')
 cgm2 = CGM
 
@@ -590,6 +590,11 @@ remis = list(set(resdf['REMI'].values.tolist()))
 
 for re in remis:
     #print re
+    re2 = ''
+    if re == '34366101':
+        re2 = '34366100'
+    else:
+        re2 = re
     atremi = resdf.ix[resdf['REMI'] == re]
     pdrl = list(set(atremi['PDR'].tolist()))
     for p in pdrl:
@@ -600,7 +605,7 @@ for re in remis:
                 di = GetStartDate(atpdr['FORNITURA_CONTRATTO_DA'].ix[i])
                 df = GetEndDate(atpdr['FORNITURA_CONTRATTO_A'].ix[i])
                 tot_cap = (atremi['DA CONFERIRE'].ix[atremi['PDR'] == p].tolist()[0]) * (ActiveAtMonth(di, df)) * (prof[atpdr['PROFILO_PRELIEVO'].ix[i]].resample('M').max()/100)
-                pre = [re, trasp['AREA'].ix[trasp['REMI'] == re].values.tolist()[0]]
+                pre = [re, trasp['AREA'].ix[trasp['REMI'] == re2].values.tolist()[0]]
                 pre.extend(tot_cap.tolist())
                 pdrprofile[str(p) + '_' + str(i)] = pre
     
