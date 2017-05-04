@@ -228,6 +228,31 @@ def T1_Mover(m):
         shutil.copy2(pathm + cf, "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/2017-" + strm + "/T1")
     return 1
 ##################################################################################################    
+####################################################################################################    
+def T2Extractor():    
+    mesi = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    for m in mesi[3]:
+        strm = str(mesi.index(m)+1) if len(str(mesi.index(m)+1)) > 1 else "0" + str(mesi.index(m)+1)
+        directory = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/" + str(2017) + "-" + strm + "/Giornalieri"
+        os.makedirs(directory + "/T2_" + strm + "-2017")        
+        tbe = os.listdir(directory)
+        tbe = [x for x in tbe if ".zip" in x]
+        for t in tbe:
+            #print(t)
+            path = directory + "/" + t
+            zf = zipfile.ZipFile(path)
+            lzf = [x for x in zf.namelist() if ".zip" in x]
+            zf.extractall(path = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP")
+            for z in lzf:
+                    #print(z)
+                path2 = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP/" + str(z)
+                with zipfile.ZipFile(path2) as zf2:
+                    right = [str(rf) for rf in zf2.namelist() if 'T2' in str(rf)]
+                    if len(right) > 0:
+                        zf2.extract(right[0], path = directory + "/T2_" + strm + "-2017")
+    #shutil.rmtree("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP")
+    return 1    
+####################################################################################################
 ####################################################################################################
 def AddHolidaysDate(vd):
     
