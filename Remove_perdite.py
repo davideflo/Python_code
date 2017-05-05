@@ -8,7 +8,9 @@ Created on Thu May  4 14:27:06 2017
 import pandas as pd
 from collections import OrderedDict
 
-df = pd.read_excel("H:/Energy Management/12. Aggregatore/Aggregatore consumi orari/Mensili/DB_2016.xlsm", sheetname = "DB_SI_perd")
+#df = pd.read_excel("H:/Energy Management/12. Aggregatore/Aggregatore consumi orari/Mensili/DB_2016.xlsm", sheetname = "DB_SI_perd")
+df = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016.xlsm", sheetname = "DB_SI_perd")
+
 
 diz = OrderedDict()
 for i in range(df.shape[0]):

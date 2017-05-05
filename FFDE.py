@@ -326,13 +326,28 @@ def GetMeanCurve(df, var):
     return mc
 ####################################################################################################
 ####################################################################################################
-def percentageConsumption(db, All, zona, today):
+def percentageConsumption(db, zona, today):
     str_month = str(today.month) if len(str(today.month)) > 1 else "0" + str(today.month)
     str_day = str(today.day) if len(str(today.day)) > 1 else "0" + str(today.day)
     dr = pd.date_range('2017-01-01', str(today.year) + '-' + str_month + '-' + str_day, freq = 'D')
+    All317 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/03-2017/_All_CRPP_03_2017.xlsx")
+    All417 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/04-2017/_All_CRPP_04_2017.xlsx")
+    All517 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/05-2017/_All_CRPP_05_2017.xlsx")
+    All617 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/06-2017/_All_CRPP_06_2017.xlsx")
+    All717 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/07-2017/_All_CRPP_07_2017.xlsx")
+    All817 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/08-2017/_All_CRPP_08_2017.xlsx")
+    All917 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/09-2017/_All_CRPP_09_2017.xlsx")
+    All1017 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/10-2017/_All_CRPP_10_2017.xlsx")
+    All1117 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/11-2017/_All_CRPP_11_2017.xlsx")
+    All1217 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/12-2017/_All_CRPP_12_2017.xlsx")
     diz = OrderedDict()
     dbz = db.ix[db["Area"] == zona]
     for d in dr:
+        if dr.month <= 3:
+            All = locals()["All317"]
+        else:
+            All = locals()["All" + str(today.month) + str(today.year)]
+        
         pods = dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()
         All2 = All.ix[All["Trattamento_01"] == 'O']
         totd = np.sum(np.nan_to_num([All2["CONSUMO_TOT"].ix[y] for y in All2.index if All2["POD"].ix[y] in pods]))/1000
@@ -343,13 +358,19 @@ def percentageConsumption(db, All, zona, today):
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     return diz
 ####################################################################################################
-def MakeExtendedDatasetWithSampleCurve(df, db, meteo, All, zona, today):
+def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona, today, days_behind = 2):
 #### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
 #### and the sample curve
 #### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
 #### every day will have a dummy variable representing it
     #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
-    psample = percentageConsumption(db, All, zona, today)
+
+
+### Instead of setting or passing days_behind, we could simply use the last day 
+### present in the DB with the hourly-daily consumption data
+
+ 
+    psample = percentageConsumption(db, zona, today)
     str_month = str(today.month) if len(str(today.month)) > 1 else "0" + str(today.month)
     str_day = str(today.day) if len(str(today.day)) > 1 else "0" + str(today.day)
     psample = psample.set_index(pd.date_range('2017-01-01', str(today.year) + '-' + str_month + '-' + str_day, freq = 'D'))
@@ -360,9 +381,11 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, All, zona, today):
         hvector = np.repeat(0, 24)
         dvector = np.repeat(0, 7)
         wd = i.weekday()        
-        td = 2
+        bridge = Bridge(i.date())
+        hol = AddHolidaysDate(i.date())
+        td = days_behind
         if wd == 0:
-            td = 3
+            td += 1
         cmym = db[db.columns[10:34]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
         dvector[wd] = 1
         h = i.hour
@@ -371,18 +394,17 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, All, zona, today):
         Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-        hol = AddHolidaysDate(i.date())
         ps = psample.ix[psample.index.date == i.date()]
         ll.extend(dvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0]])
+        ll.extend([dy, Tmax, rain, wind, hol, bridge, ps[0].values[0]])
         ll.extend(cmym.tolist())
         ll.extend([df['MO [MWh]'].ix[i]])
         dts[i] =  ll
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
     dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','holiday','perc',
+    'pday','tmax','pioggia','vento','holiday','ponte','perc',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
     
