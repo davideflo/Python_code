@@ -7,8 +7,8 @@ Created on Wed Feb 22 09:46:50 2017
 New scheduled meteo extractor 
 """
 
-import sys
-#import os
+#import sys
+import os
 #import requests
 from selenium import webdriver
 #import BeautifulSoup
@@ -21,7 +21,7 @@ from collections import OrderedDict
 #from PyQt4.QtWebKit import *  
 #from lxml import html 
 import re
-import time
+#import time
 
 #### Ideally, I could run the meteo updating when calling EE.py on the 69. See:
 #### http://stackoverflow.com/questions/3781851/run-a-python-script-from-another-python-script-passing-in-args
@@ -44,8 +44,6 @@ import time
 #    self.frame = self.mainFrame()  
 #    self.app.quit() 
 ####################################################################################################
-
-
 def Extractor():
     cities = ['Milano-domani-15146', 'Firenze-domani-48017', 'Roma-domani-58091', 
     'Bari-domani-72006', 'Palermo-domani-82053', 'Cagliari-domani-92009']
@@ -147,5 +145,74 @@ def Extractor():
         df.to_excel(path2)
         
         print '{} DONE'.format(city)
+        
+    return 1
+####################################################################################################
+def ExtractorMoreDays():
+    
+    cod = ["dopodomani", "3-giorni", "4-giorni", "5-giorni", "6-giorni"]    
+    cod_num = ["-15146", "-48017", "-58091", "-72006", "-82053", "-92009"]    
+    
+    cities = ['Milano', 'Firenze', 'Roma', 'Bari', 'Palermo', 'Cagliari']
+    
+#    city = cities[0]
+    for c in cod:
+        for j in range(len(cities)):
+            
+            
+            path = 'C:/Users/utente/Documents/meteo'
+            cromepath = r'C:/Users/utente/Desktop/chromedriver/chromedriver.exe'
+            
+            browser = webdriver.Chrome(cromepath)
+            
+            url = 'http://www.meteo.it/meteo/' + cities[j] + "-" + c + cod_num[j]
+            
+            browser.get(url)
+            
+            page = browser.page_source
+            result = page
+    
+            ### find the temperatures  
+            temp = [m.start() for m in re.finditer(";deg;", result)]
+            Temp = [float(re.findall(r'\d+', result[temp[i]:temp[i]+12])[0]) for i in range(len(temp))]
+            ### find the wind r'Part 1(.*?)Part 3'
+            wind = [m.start() for m in re.finditer("pk_cventi", result)]
+            Vento2 = [re.findall(r'\d+', result[wind[i]:wind[i]+200])[-2] for i in range(len(wind))]
+            Vento1 = ['.' + re.findall(r'\d+', result[wind[i]:wind[i]+150])[-1] for i in range(len(wind))]
+            Vento = [float(Vento2[i] + Vento1[i]) for i in range(5)]
+            ### find the rain 
+            rain = [m.start() for m in re.finditer('mm</span>', result)]
+            Pioggia = [float(re.findall(r'\d+', result[rain[i]-5:rain[i]])[0]) for i in range(len(rain))]
+            
+            print 'Done extracting the values'
+            
+            P = 0
+            if np.sum(Pioggia) > 0:
+                P = 1            
+            
+            dom = OrderedDict()
+            dom['Tmin'] = [np.min(Temp)]
+            dom['Tmax'] = [np.max(Temp)]
+            dom['Tmedia'] = [np.mean(Temp)]
+            dom['vento'] = [np.mean(Vento)]
+            dom['pioggia'] = [P]
+            dom['mmpioggia'] = [np.sum(Pioggia)]
+        
+            domani = pd.DataFrame.from_dict(dom, orient = 'columns')
+            
+            DELTA = cod.index(c) + 2            
+            
+            domani.index = pd.date_range(datetime.datetime.today() + datetime.timedelta(days = DELTA), datetime.datetime.today() + datetime.timedelta(days = DELTA))
+            
+            path2 = path + '/' + c + "/" + cities[j] + '.xlsx'
+            
+            if os.path.isfile(path2):
+                df = pd.read_excel(path2)
+                df = df.append(domani)
+                df.to_excel(path2)
+            else:
+                domani.to_excel(path2)    
+                
+            print '{} DONE'.format(cities[j] + "-" + c)
         
     return 1

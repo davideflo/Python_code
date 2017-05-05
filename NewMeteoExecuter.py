@@ -23,6 +23,7 @@ if __name__ == '__main__':
     
         
     NewMeteoExtractor.Extractor()
+    NewMeteoExtractor.ExtractorMoreDays()
         
     print 'Extraction Forward Meteo Done'
         
