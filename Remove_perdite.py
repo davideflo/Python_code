@@ -21,3 +21,5 @@ for i in range(df.shape[0]):
     sp = df[df.columns[10:35]].ix[i].values/df["PERDITA applicata"].ix[i]
     ll.extend(sp.tolist())
     diz[i] = ll
+
+diz.to_hdf("H:/Energy Management/DB_2016_noperd.h5",key = 'DB_2016', mode = 'w')
