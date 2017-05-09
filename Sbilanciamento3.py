@@ -210,7 +210,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
-k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Delta ORARI', skiprows = [0,1])
+k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
 k2e = k2e.set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:k2e.shape[0]])
 #db = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016_noperd.xlsx", converters = {'1': str, '2': str, '3': str,
 #                                                                                                 '4': str, '5': str, '6': str,
@@ -227,8 +227,10 @@ db = db[["POD", "Area", "Giorno", "1","2","3","4","5","6","7","8","9","10","11",
          "16","17","18","19","20","21","22","23","24"]]
 
 
-dt = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregatore_orari - 17_03.xlsm",
-                   skiprows = [0], sheetname = "Consumi base 24")
+#dt = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregatore_orari - 17_03.xlsm",
+#                   skiprows = [0], sheetname = "Consumi base 24")
+
+dt = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregatore_orari-2017.xlsx")
 
 dt.columns = [str(i) for i in dt.columns]
 
@@ -256,8 +258,11 @@ DBB = MakeExtendedDatasetWithSampleCurve(nord, DB, mi, "NORD")
 train2 = DBB.ix[DBB.index.date < datetime.date(2017, 1, 1)]
 train = DBB.sample(frac = 1)
 test = DBB.ix[DBB.index.date > datetime.date(2016, 12, 31)]
-test = test.ix[test.index.date < datetime.date(2017, 3, 1)]
+test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
 
+
+### It seems the performances depend on the initial permutatio of the trainingset
+### Google: cross validation with random forest sklearn
 
 ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
 ffregr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
@@ -281,7 +286,7 @@ plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = '+')
 
 #### graphical comparison with k2e
 nk2e = k2e["NORD"]/1000
-tnk2e = nk2e.ix[nk2e.index < datetime.datetime(2017,3,1)]
+tnk2e = nk2e.ix[nk2e.index < datetime.datetime(2017,4,1)]
 
 
 plt.figure()
@@ -293,7 +298,7 @@ plt.legend(loc = 'upper left')
 error = test[test.columns[61]].values.ravel() - yhat_test    
 
 
-k2e_error = test[test.columns[61]].values.ravel() - tnk2e.values.ravel()     
+k2e_error = test[test.columns[61]].values.ravel() - tnk2e.values.ravel()[:tnk2e.values.ravel().size - 1]     
 
 print np.mean(k2e_error)
 print np.median(k2e_error)
