@@ -397,36 +397,42 @@ plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tnk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
+plt.title("Forecast zona NORD")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tcnk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
+plt.title("Forecast zona CNORD")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tcsk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
+plt.title("Forecast zona CSUD")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tsk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
+plt.title("Forecast zona SUD")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tsik2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
+plt.title("Forecast zona SICI")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tsak2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
+plt.title("Forecast zona SARD")
 ##############################
 
 
@@ -471,21 +477,29 @@ print np.min(mae)
 print scipy.stats.mstats.mquantiles(maek2, prob = [0.025, 0.975])
 print scipy.stats.mstats.mquantiles(mae, prob = [0.025, 0.975])
 
+zona = "SUD"
+
 plt.figure()
 plt.plot(maek2, color = 'green')
 plt.axhline(y = 0.15)
 plt.axhline(y = -0.15)
+plt.title("Errore percentuale forecast K2E zona " + zona)
 plt.figure()
 plt.plot(mae, color = 'blue')
 plt.axhline(y = 0.15)
 plt.axhline(y = -0.15)
+plt.title("Errore percentuale forecast AXO zona " + zona)
+
 
 np.corrcoef(maek2, mae)
 
 plt.figure()
 plotting.autocorrelation_plot(maek2, color = 'green')
+plt.title("Autocorrelazione errore percentuale forecast K2E zona " + zona)
 plt.figure()
 plotting.autocorrelation_plot(mae)
+plt.title("Autocorrelazione errore percentuale forecast AXO zona " + zona)
+
 
 plt.figure() 
 plt.hist(maek2, bins = 20, color = 'green')   
