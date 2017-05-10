@@ -8,7 +8,7 @@ PDO Unzipper
 """
 
 
-#import zipfile
+import zipfile
 import os
 from os import listdir
 from os.path import isfile, join
@@ -55,8 +55,29 @@ def MeasureExtractor(s):
         mis.append(float(se.replace(',','.')))
     return mis
 ####################################################################################################
-    
-
+def Extractor():    
+    mesi = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    path2 = "C:/Users/d_floriello/Desktop/DF_PDO_2015"#"H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2016/TEMP"
+    for m in mesi:
+        strm = str(mesi.index(m)+1) if len(str(mesi.index(m)+1)) > 1 else "0" + str(mesi.index(m)+1)
+        directory = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2016/" + str(2016) + "-" + strm + "/giornalieri"
+        os.makedirs("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2016/GG")        
+        tbe = os.listdir(directory)
+        tbe = [x for x in tbe if ".zip" in x]
+        for t in tbe:
+            #print(t)
+            path = directory + "/" + t
+            zf = zipfile.ZipFile(path)
+            lzf = [x for x in zf.namelist() if ".zip" in x]
+            zf.extractall(path = path2)#"H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2016/TEMP")
+            for z in lzf:
+                with zipfile.ZipFile(path2) as zf2:
+                    right = [str(rf) for rf in zf2.namelist() if 'T1' in str(rf)]
+                    if len(right) > 0:
+                        zf2.extract(right[0], path = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2016/GG")
+    shutil.rmtree("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP")
+    return 1        
+####################################################################################################
 #directory = 'C:/Users/d_floriello/Desktop/PDO2015'
 directory = 'H:/Energy Management/12. Aggregatore/Aggregatore consumi orari/Mensili/DB XML/2017/17Q1'
 files = os.listdir(directory)
