@@ -210,6 +210,56 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
+def getImbalance(error, prediction):
+    ### error becomes a DataFrame with same index set as test
+    tau = error.values.ravel()/prediction
+    ERR = pd.DataFrame.from_dict({"Sbil": error.values.ravel().tolist(), "Sbil_perc": tau.tolist()})
+    ERR = ERR.set_index(error.index)
+    return ERR
+####################################################################################################    
+def EvaluateImbalance(val, imb, zona, pun):
+    diz = OrderedDict()
+    valzona = val.ix[val["CODICE RUC"] == "UC_DP1608_" + zona]
+    valzona = valzona.set_index(pd.date_range("2015-01-01", "2018-01-02", freq = "H")[:valzona.shape[0]])
+    for i in valzona.index:
+        valsbil = 0
+        valdiff = 0
+        if i in pun.index:
+            dp = pun[zona].ix[i]
+            ### dentro la banda:
+            if np.abs(imb["Sbil_perc"].ix[i]) <= 0.15: 
+                if valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] > 0 and imb["Sbil"].ix[i] > 0:
+                    valsbil = np.abs(imb["Sbil"].ix[i]) * min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i])
+                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i]))
+                elif valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] < 0 and imb["Sbil"].ix[i] > 0:
+                    valsbil = np.abs(imb["Sbil"].ix[i]) * max(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_ven"].ix[i])
+                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - max(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_ven"].ix[i]))
+                elif valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] > 0 and imb["Sbil"].ix[i] < 0:
+                    valsbil = -np.abs(imb["Sbil"].ix[i]) * min(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_acq"].ix[i])
+                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - min(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_acq"].ix[i]))
+                else:
+                    valsbil = -np.abs(imb["Sbil"].ix[i]) * max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i])
+                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i]))
+                diz[i] = [valsbil, valdiff]
+            ### fuori banda:
+            else:
+                if valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] > 0 and imb["Sbil"].ix[i] > 0:
+                    valsbil = np.abs(imb["Sbil"].ix[i]) * min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i])
+                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i]))
+                elif valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] < 0 and imb["Sbil"].ix[i] > 0:
+                    valsbil = np.abs(imb["Sbil"].ix[i]) * valzona["Pmgp_ven"].ix[i]
+                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - valzona["Pmgp_ven"].ix[i])
+                elif valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] > 0 and imb["Sbil"].ix[i] < 0:
+                    valsbil = -np.abs(imb["Sbil"].ix[i]) * valzona["Pmgp_acq"].ix[i]
+                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - valzona["Pmgp_acq"].ix[i])
+                else:
+                    valsbil = -np.abs(imb["Sbil"].ix[i]) * max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i])
+                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i]))
+                diz[i] = [valsbil, valdiff]
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    diz.columns = [["Val_sbil", "gain"]]
+    return diz
+####################################################################################################
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
 k2e = k2e.set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:k2e.shape[0]])
 #db = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016_noperd.xlsx", converters = {'1': str, '2': str, '3': str,
@@ -249,10 +299,54 @@ mi6 = mi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D
 mi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2017.xlsx')
 mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 mi = mi6.append(mi7)
+###############################
+cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
+cnord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:cnord.shape[0]]
+fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
+fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+fi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2017.xlsx')
+fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+fi = fi6.append(fi7)
+###############################
+csud = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CSUD']
+csud.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:csud.shape[0]]
+ro6 = pd.read_excel('C:/Users/utente/Documents/PUN/Roma 2016.xlsx')
+ro6 = ro6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+ro7 = pd.read_excel('C:/Users/utente/Documents/PUN/Fiumicino 2017.xlsx')
+ro7 = ro7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+ro = ro6.append(ro7)
+###############################
+sud = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SUD']
+sud.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sud.shape[0]]
+rc6 = pd.read_excel('C:/Users/utente/Documents/PUN/Bari 2016.xlsx')
+rc6 = rc6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+rc7 = pd.read_excel('C:/Users/utente/Documents/PUN/Bari 2017.xlsx')
+rc7 = rc7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+rc = rc6.append(rc7)
+###############################
+sici = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SICI']
+sici.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sici.shape[0]]
+pa6 = pd.read_excel('C:/Users/utente/Documents/PUN/Palermo 2016.xlsx')
+pa6 = pa6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+pa7 = pd.read_excel('C:/Users/utente/Documents/PUN/Palermo 2017.xlsx')
+pa7 = pa7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+pa = pa6.append(pa7)
+###############################
+sard = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SARD']
+sard.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sard.shape[0]]
+ca6 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2016.xlsx')
+ca6 = ca6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+ca7 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2017.xlsx')
+ca7 = ca7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+ca = ca6.append(ca7)
 
 
 DBB = MakeExtendedDatasetWithSampleCurve(nord, DB, mi, "NORD")
-
+DBB = MakeExtendedDatasetWithSampleCurve(cnord, DB, fi, "CNOR")
+DBB = MakeExtendedDatasetWithSampleCurve(csud, DB, ro, "CSUD")
+DBB = MakeExtendedDatasetWithSampleCurve(sud, DB, rc, "SUD")
+DBB = MakeExtendedDatasetWithSampleCurve(sici, DB, pa, "SICI")
+DBB = MakeExtendedDatasetWithSampleCurve(sard, DB, ca, "SARD")
 
 
 train2 = DBB.ix[DBB.index.date < datetime.date(2017, 1, 1)]
@@ -287,18 +381,64 @@ plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = '+')
 #### graphical comparison with k2e
 nk2e = k2e["NORD"]/1000
 tnk2e = nk2e.ix[nk2e.index < datetime.datetime(2017,4,1)]
-
+cnk2e = k2e["CNOR"]/1000
+tcnk2e = cnk2e.ix[cnk2e.index < datetime.datetime(2017,4,1)]
+csk2e = k2e["CSUD"]/1000
+tcsk2e = csk2e.ix[csk2e.index < datetime.datetime(2017,4,1)]
+sk2e = k2e["SUD"]/1000
+tsk2e = sk2e.ix[sk2e.index < datetime.datetime(2017,4,1)]
+sik2e = k2e["SICI"]/1000
+tsik2e = sik2e.ix[sik2e.index < datetime.datetime(2017,4,1)]
+sak2e = k2e["SARD"]/1000
+tsak2e = sak2e.ix[sak2e.index < datetime.datetime(2017,4,1)]
 
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tnk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
+##############################
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
+plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(tcnk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
+plt.legend(loc = 'upper left')
+##############################
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
+plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(tcsk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
+plt.legend(loc = 'upper left')
+##############################
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
+plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(tsk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
+plt.legend(loc = 'upper left')
+##############################
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
+plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(tsik2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
+plt.legend(loc = 'upper left')
+##############################
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
+plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(tsak2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
+plt.legend(loc = 'upper left')
+##############################
+
 
 error = test[test.columns[61]].values.ravel() - yhat_test    
 
 
-k2e_error = test[test.columns[61]].values.ravel() - tnk2e.values.ravel()[:tnk2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[61]].values.ravel() - tnk2e.values.ravel()[:tnk2e.values.ravel().size - 1] 
+k2e_error = test[test.columns[61]].values.ravel() - tcnk2e.values.ravel()[:tcnk2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[61]].values.ravel() - tcsk2e.values.ravel()[:tcsk2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[61]].values.ravel() - tsk2e.values.ravel()[:tsk2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[61]].values.ravel() - tsik2e.values.ravel()[:tsik2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[61]].values.ravel() - tsak2e.values.ravel()[:tsak2e.values.ravel().size - 1]     
 
 print np.mean(k2e_error)
 print np.median(k2e_error)
@@ -356,7 +496,22 @@ print np.where(np.abs(maek2) >= 0.15)[0].size/maek2.size
 print np.where(np.abs(mae) >= 0.15)[0].size/mae.size
 
 
+k2e_error = pd.DataFrame.from_dict({"error":k2e_error}).set_index(test.index)
+axo_error = pd.DataFrame.from_dict({"error":error}).set_index(test.index)
+
+K2E = getImbalance(k2e_error, tnk2e.values.ravel()[:tnk2e.values.ravel().size - 1])
+AXO = getImbalance(axo_error, yhat_test)
+
+val = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/valorizzazione_sbilanciamento.xlsx")
+pun = pd.read_excel("C:/Users/utente/Documents/DB_Borse_Elettriche_PER MI_17_conMacro - Copy.xlsm", sheetname = "DB_Dati")
+pun = pun.set_index(pd.date_range("2017-01-01", "2018-01-02", freq = "H")[:pun.shape[0]])
+pun = pun.ix[pun.index.date <= today.date()]
+pun = pun[pun.columns[[12,16,19,24,27,28,30]]]
+pun.columns = [["PUN","CNOR","CSUD","NORD","SARD","SICI","SUD"]]
+
+imb_k2e = EvaluateImbalance(val, K2E, "NORD", pun)
+imb_k2e = EvaluateImbalance(val, K2E, "SUD", pun)
 
 
-
-
+imb_axo = EvaluateImbalance(val, AXO, "NORD", pun)
+imb_axo = EvaluateImbalance(val, AXO, "SUD", pun)
