@@ -230,10 +230,10 @@ def EvaluateImbalance(val, imb, zona, pun):
             if np.abs(imb["Sbil_perc"].ix[i]) <= 0.15: 
                 if valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] > 0 and imb["Sbil"].ix[i] > 0:
                     valsbil = np.abs(imb["Sbil"].ix[i]) * min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i])
-                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i]))
+                    valdiff = -np.abs(imb["Sbil"].ix[i]) * (dp - min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i]))
                 elif valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] < 0 and imb["Sbil"].ix[i] > 0:
                     valsbil = np.abs(imb["Sbil"].ix[i]) * max(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_ven"].ix[i])
-                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - max(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_ven"].ix[i]))
+                    valdiff = -np.abs(imb["Sbil"].ix[i]) * (dp - max(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_ven"].ix[i]))
                 elif valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] > 0 and imb["Sbil"].ix[i] < 0:
                     valsbil = -np.abs(imb["Sbil"].ix[i]) * min(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_acq"].ix[i])
                     valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - min(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_acq"].ix[i]))
@@ -243,18 +243,21 @@ def EvaluateImbalance(val, imb, zona, pun):
                 diz[i] = [valsbil, valdiff]
             ### fuori banda:
             else:
+                PV = abs(-imb["Sbil"].ix[i]/(imb["Sbil_perc"].ix[i] - 1))
+                inside = PV * 0.15
+                outside = imb["Sbil"].ix[i] - inside
                 if valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] > 0 and imb["Sbil"].ix[i] > 0:
-                    valsbil = np.abs(imb["Sbil"].ix[i]) * min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i])
-                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i]))
+                    valsbil = np.abs(outside) * min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i]) +  np.abs(inside) * min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i])
+                    valdiff = -np.abs(outside) * (dp - min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i])) + (-np.abs(inside) * (dp - min(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_acq"].ix[i])))
                 elif valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] < 0 and imb["Sbil"].ix[i] > 0:
-                    valsbil = np.abs(imb["Sbil"].ix[i]) * valzona["Pmgp_ven"].ix[i]
-                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - valzona["Pmgp_ven"].ix[i])
+                    valsbil = np.abs(outside) * valzona["Pmgp_ven"].ix[i] + np.abs(inside) * max(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_ven"].ix[i])
+                    valdiff = -np.abs(outside) * (dp - valzona["Pmgp_ven"].ix[i]) + ( -np.abs(inside) * (dp - max(valzona["Pmgp_ven"].ix[i],valzona["PmedioMSD_ven"].ix[i])))
                 elif valzona["SEGNO SBILANCIAMENTO AGGREGATO ZONALE"].ix[i] > 0 and imb["Sbil"].ix[i] < 0:
-                    valsbil = -np.abs(imb["Sbil"].ix[i]) * valzona["Pmgp_acq"].ix[i]
-                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - valzona["Pmgp_acq"].ix[i])
+                    valsbil = -np.abs(outside) * valzona["Pmgp_acq"].ix[i] + (-np.abs(inside) * min(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_acq"].ix[i])) 
+                    valdiff = np.abs(outside) * (dp - valzona["Pmgp_acq"].ix[i]) + np.abs(inside) * (dp - min(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_acq"].ix[i]))
                 else:
-                    valsbil = -np.abs(imb["Sbil"].ix[i]) * max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i])
-                    valdiff = np.abs(imb["Sbil"].ix[i]) * (dp - max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i]))
+                    valsbil = -np.abs(outside) * max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i]) + (-np.abs(inside) * max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i]))
+                    valdiff = np.abs(outside) * (dp - max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i])) + np.abs(inside) * (dp - max(valzona["Pmgp_acq"].ix[i],valzona["PmedioMSD_ven"].ix[i]))
                 diz[i] = [valsbil, valdiff]
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [["Val_sbil", "gain"]]
@@ -392,6 +395,7 @@ tsik2e = sik2e.ix[sik2e.index < datetime.datetime(2017,4,1)]
 sak2e = k2e["SARD"]/1000
 tsak2e = sak2e.ix[sak2e.index < datetime.datetime(2017,4,1)]
 
+
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
 plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
@@ -477,7 +481,7 @@ print np.min(mae)
 print scipy.stats.mstats.mquantiles(maek2, prob = [0.025, 0.975])
 print scipy.stats.mstats.mquantiles(mae, prob = [0.025, 0.975])
 
-zona = "SUD"
+zona = "NORD"
 
 plt.figure()
 plt.plot(maek2, color = 'green')
@@ -514,6 +518,13 @@ k2e_error = pd.DataFrame.from_dict({"error":k2e_error}).set_index(test.index)
 axo_error = pd.DataFrame.from_dict({"error":error}).set_index(test.index)
 
 K2E = getImbalance(k2e_error, tnk2e.values.ravel()[:tnk2e.values.ravel().size - 1])
+K2E = getImbalance(k2e_error, tcnk2e.values.ravel()[:tcnk2e.values.ravel().size - 1])
+K2E = getImbalance(k2e_error, tcsk2e.values.ravel()[:tcsk2e.values.ravel().size - 1])
+K2E = getImbalance(k2e_error, tsk2e.values.ravel()[:tsk2e.values.ravel().size - 1])
+K2E = getImbalance(k2e_error, tsik2e.values.ravel()[:tsik2e.values.ravel().size - 1])
+K2E = getImbalance(k2e_error, tsak2e.values.ravel()[:tsak2e.values.ravel().size - 1])
+
+
 AXO = getImbalance(axo_error, yhat_test)
 
 val = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/valorizzazione_sbilanciamento.xlsx")
@@ -523,9 +534,34 @@ pun = pun.ix[pun.index.date <= today.date()]
 pun = pun[pun.columns[[12,16,19,24,27,28,30]]]
 pun.columns = [["PUN","CNOR","CSUD","NORD","SARD","SICI","SUD"]]
 
-imb_k2e = EvaluateImbalance(val, K2E, "NORD", pun)
-imb_k2e = EvaluateImbalance(val, K2E, "SUD", pun)
+##### Test for valorization ####
+spn = nord["SBILANCIAMENTO FISICO [MWh]"].values.ravel()/nord["PV [MWh]"].values.ravel()
+prova = pd.DataFrame.from_dict({"Sbil": nord["SBILANCIAMENTO FISICO [MWh]"].values.ravel().tolist(),
+                                "Sbil_perc": spn.tolist()})
+prova = prova.set_index(nord.index)                                
+VS = EvaluateImbalance(val, prova, "NORD", pun)                                
+#####                                
 
+imb_k2e = EvaluateImbalance(val, K2E, "NORD", pun)
+imb_k2e = EvaluateImbalance(val, K2E, "CNOR", pun)
+imb_k2e = EvaluateImbalance(val, K2E, "CSUD", pun)
+imb_k2e = EvaluateImbalance(val, K2E, "SUD", pun)
+imb_k2e = EvaluateImbalance(val, K2E, "SICI", pun)
+imb_k2e = EvaluateImbalance(val, K2E, "SARD", pun)
+
+
+imb_k2e.mean()
+imb_k2e.sum()
+imb_k2e.to_excel("C:/Users/utente/Documents/Sbilanciamento/Backtesting/sbilanciamento_k2e_" + zona + ".xlsx")
 
 imb_axo = EvaluateImbalance(val, AXO, "NORD", pun)
+imb_axo = EvaluateImbalance(val, AXO, "CNOR", pun)
+imb_axo = EvaluateImbalance(val, AXO, "CSUD", pun)
 imb_axo = EvaluateImbalance(val, AXO, "SUD", pun)
+imb_axo = EvaluateImbalance(val, AXO, "SICI", pun)
+imb_axo = EvaluateImbalance(val, AXO, "SARD", pun)
+
+
+imb_axo.mean()
+imb_axo.sum()
+imb_axo.to_excel("C:/Users/utente/Documents/Sbilanciamento/Backtesting/sbilanciamento_axo_" + zona + ".xlsx")
