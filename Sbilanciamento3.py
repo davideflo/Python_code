@@ -263,6 +263,81 @@ def EvaluateImbalance(val, imb, zona, pun):
     diz.columns = [["Val_sbil", "gain"]]
     return diz
 ####################################################################################################
+def CheckOnConsumption(db, zona):
+    db = db.set_index(db["Giorno"])
+    db = db.ix[db["Area"] == zona]
+    listpods = list(set(db["POD"].values.ravel().tolist()))
+    dr = pd.date_range('2016-01-01', '2017-01-01', freq = 'M')
+    All116 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1601.xlsm", sheetname = "CRPP")
+    All216 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1602.xlsm", sheetname = "CRPP")
+    All316 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1603.xlsm", sheetname = "CRPP")
+    All416 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1604.xlsm", sheetname = "CRPP")
+    All516 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1605.xlsm", sheetname = "CRPP")
+    All616 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1606.xlsm", sheetname = "CRPP")
+    All716 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1607.xlsm", sheetname = "CRPP")
+    All816 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1608.xlsm", sheetname = "CRPP")
+    All916 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1609.xlsm", sheetname = "CRPP")
+    All1016 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1610.xlsm", sheetname = "CRPP")
+    All1116 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1611.xlsm", sheetname = "CRPP")
+    All1216 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1612.xlsm", sheetname = "CRPP")
+    diz = OrderedDict()    
+    for pod in listpods:    
+        hdf = db.ix[db["POD"] == pod].sum(axis = 1)
+        mhdf = hdf.resample('M').sum()/1000
+        fmhdf = mhdf.ix[mhdf.index.year == 2017]
+        mhdf = mhdf.ix[mhdf.index.year == 2016]
+        perc = pd.DataFrame.from_dict({"perc": mhdf.values.ravel()/mhdf.sum()})
+        perc = perc.set_index(mhdf.index)
+        p = []
+        for d in dr:
+            drm = d.month
+            dry = d.year
+            strm = str(drm) if len(str(drm)) > 1 else "0" + str(drm)  
+            if drm == 1 and dry == 2016:
+                All = All116
+            elif drm == 2 and dry == 2016:
+                All = All216
+            elif drm == 3 and dry == 2016:
+                All = All316
+            elif drm == 4 and dry == 2016:
+                All = All416
+            elif drm == 5 and dry == 2016:
+                All = All516
+            elif drm == 6 and dry == 2016:
+                All = All616
+            elif drm == 7 and dry == 2016:
+                All = All716
+            elif drm == 8 and dry == 2016:
+                All = All816
+            elif drm == 9 and dry == 2016:
+                All = All916
+            elif drm == 10 and dry == 2016:
+                All = All1016
+            elif drm == 11 and dry == 2016:
+                All = All1116
+            elif drm == 12 and dry == 2016:
+                All = All1216
+            else:
+                pass
+            All2 = All.ix[All["Trattamento_"+ strm] == 'O']
+            cons = 0
+            tot_mese = 0
+            if All2["CONSUMO_TOT"].ix[All2["POD"] == pod].shape[0] > 0:
+                cons = All2["CONSUMO_TOT"].ix[All2["POD"] == pod].values.ravel()[0]/1000
+                if perc["perc"].ix[perc.index.month == drm].shape[0] > 0:
+                    tot_mese = cons * perc["perc"].ix[perc.index.month == drm].values.ravel()[0]
+            if drm in [1, 2, 3, 4]:            
+                if fmhdf.ix[fmhdf.index.month == drm].shape[0] > 0:
+                    p.append(tot_mese - fmhdf.ix[fmhdf.index.month == drm].values.ravel()[0])
+            else: 
+                pass
+            
+        diz[pod] = p
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    diz.columns = [["diff_01", "diff_02", "diff_03", "diff_04"]]
+    return diz
+####################################################################################################    
+    
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
 k2e = k2e.set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:k2e.shape[0]])
 #db = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016_noperd.xlsx", converters = {'1': str, '2': str, '3': str,
@@ -565,3 +640,8 @@ imb_axo = EvaluateImbalance(val, AXO, "SARD", pun)
 imb_axo.mean()
 imb_axo.sum()
 imb_axo.to_excel("C:/Users/utente/Documents/Sbilanciamento/Backtesting/sbilanciamento_axo_" + zona + ".xlsx")
+
+#######
+check_csud = CheckOnConsumption(DB, "CSUD")
+
+check_sard = CheckOnConsumption(DB, "SARD")
