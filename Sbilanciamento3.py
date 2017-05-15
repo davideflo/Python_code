@@ -210,6 +210,53 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
+def MakeExtendedDatasetGivenPOD(db, meteo, pod):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
+#### every day will have a dummy variable representing it
+    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    db = db.ix[db["POD"] == pod].reset_index(drop = True)
+    dts = OrderedDict()
+    start = str(db["Giorno"].ix[0])[:10]
+    end =  str(db["Giorno"].ix[db.shape[0]-1])[:10]
+    if db["Giorno"].ix[db.shape[0]-1] > datetime.datetime(2017,3,31):
+        end = '2017-04-02'
+    dr = pd.date_range(start, end, freq = 'H')
+    for i in dr:
+        #print i
+        ll = []        
+        hvector = np.repeat(0, 24)
+        dvector = np.repeat(0, 7)
+        wd = i.weekday()        
+        td = 2
+        if wd == 0:
+            td = 3
+        cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        dvector[wd] = 1
+        h = i.hour
+        hvector[h] = 1
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ll.extend(dvector.tolist())
+        ll.extend(hvector.tolist())        
+        ll.extend([dy, Tmax, rain, wind, hol])
+        ll.extend(cmym.tolist())
+        if db[str(h + 1)].ix[db["Giorno"] == i.date()].shape[0] > 0:
+            ll.extend([db[str(h + 1)].ix[db["Giorno"] == i.date()].values[0]])
+            dts[i] =  ll
+        else:
+            pass
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
+    't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+    'pday','tmax','pioggia','vento','holiday',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
+    return dts
+####################################################################################################
 def getImbalance(error, prediction):
     ### error becomes a DataFrame with same index set as test
     tau = error.values.ravel()/prediction
@@ -336,7 +383,41 @@ def CheckOnConsumption(db, zona):
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [["diff_01", "diff_02", "diff_03", "diff_04"]]
     return diz
-####################################################################################################    
+#################################################################################################### 
+def podwiseForecast(db, meteo, zona):
+    date_index = []
+    fdf = OrderedDict()
+    podlist = list(set(db["POD"].ix[db["Area"] == zona].values.ravel().tolist()))
+    for pod in podlist:
+        if db.ix[db["POD"] == pod].shape[0] > 366:
+            print 'Avanzamento: {} %'.format((podlist.index(pod) + 1)/len(podlist))
+            DBP = MakeExtendedDatasetGivenPOD(DB, mi, pod)
+            
+            train2 = DBP.ix[DBP.index.date < datetime.date(2017, 1, 1)]
+            train = DBP.sample(frac = 1)
+            test = DBP.ix[DBP.index.date > datetime.date(2016, 12, 31)]
+            #test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
+            
+            brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+            
+            brf.fit(train[train.columns[:60]], train[train.columns[60]])
+            yhat_train = brf.predict(train2[train2.columns[:60]])
+            
+            rfR2 = 1 - (np.sum((train2[train2.columns[60]] - yhat_train)**2))/(np.sum((train2[train2.columns[60]] - np.mean(train2[train2.columns[60]]))**2))
+            print 'R-squared per pod {} = {}'.format(pod, rfR2)
+            
+            
+            yhat_test = brf.predict(test[test.columns[:60]])
+            rfR2_test = 1 - (np.sum((test[test.columns[60]] - yhat_test)**2))/(np.sum((test[test.columns[60]] - np.mean(test[test.columns[60]]))**2))
+            print 'R-squared test per pod {} = {}'.format(pod, rfR2_test)
+            
+            fdf[pod] = yhat_test
+            date_index = test.index
+    
+    fdf = pd.DataFrame.from_dict(fdf, orient = "columns")
+    fdf = fdf.set_index(date_index)
+    return fdf
+#################################################################################################### 
     
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
 k2e = k2e.set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:k2e.shape[0]])
@@ -436,7 +517,7 @@ test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
 ### It seems the performances depend on the initial permutatio of the trainingset
 ### Google: cross validation with random forest sklearn
 
-ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+#ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
 ffregr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
 
 brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
@@ -642,6 +723,55 @@ imb_axo.sum()
 imb_axo.to_excel("C:/Users/utente/Documents/Sbilanciamento/Backtesting/sbilanciamento_axo_" + zona + ".xlsx")
 
 #######
+check_nord = CheckOnConsumption(DB, "NORD")
+check_cnord = CheckOnConsumption(DB, "CNOR")
 check_csud = CheckOnConsumption(DB, "CSUD")
-
+check_sud = CheckOnConsumption(DB, "SUD")
+check_sici = CheckOnConsumption(DB, "SICI")
 check_sard = CheckOnConsumption(DB, "SARD")
+
+###### podwise forecast
+
+DBP = MakeExtendedDatasetGivenPOD(DB, mi, "IT001E00066459")
+
+train2 = DBP.ix[DBP.index.date < datetime.date(2017, 1, 1)]
+train = DBP.sample(frac = 1)
+test = DBP.ix[DBP.index.date > datetime.date(2016, 12, 31)]
+test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
+
+
+### It seems the performances depend on the initial permutatio of the trainingset
+### Google: cross validation with random forest sklearn
+
+#ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
+ffregr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
+
+brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+
+brf.fit(train[train.columns[:60]], train[train.columns[60]])
+yhat_train = brf.predict(train2[train2.columns[:60]])
+
+rfR2 = 1 - (np.sum((train2[train2.columns[60]] - yhat_train)**2))/(np.sum((train2[train2.columns[60]] - np.mean(train2[train2.columns[60]]))**2))
+print rfR2
+
+
+yhat_test = brf.predict(test[test.columns[:60]])
+rfR2_test = 1 - (np.sum((test[test.columns[60]] - yhat_test)**2))/(np.sum((test[test.columns[60]] - np.mean(test[test.columns[60]]))**2))
+print rfR2_test
+
+plt.figure()
+plt.plot(yhat_test, color = 'blue', marker = 'o')
+plt.plot(test[test.columns[60]].values.ravel(), color = 'red', marker = '+')
+
+errpod = test[test.columns[60]].values.ravel() - yhat_test
+MAE = errpod/test[test.columns[60]].values.ravel()
+
+plt.figure()
+plt.plot(errpod, color = 'orange')
+plt.figure()
+plt.plot(MAE, color = 'navy')
+plt.axhline(y = 0.15, color = 'red')
+plt.axhline(y = -0.15, color = 'red')
+
+
+forecast_per_pod = podwiseForecast(DB, mi, "NORD")
