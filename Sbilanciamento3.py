@@ -385,7 +385,7 @@ def CheckOnConsumption(db, zona):
     return diz
 #################################################################################################### 
 def podwiseForecast(db, meteo, zona):
-    date_index = []
+    removed = []
     fdf = OrderedDict()
     podlist = list(set(db["POD"].ix[db["Area"] == zona].values.ravel().tolist()))
     for pod in podlist:
@@ -397,6 +397,9 @@ def podwiseForecast(db, meteo, zona):
             train = DBP.sample(frac = 1)
             test = DBP.ix[DBP.index.date > datetime.date(2016, 12, 31)]
             #test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
+            if test['y'].sum() < 10e-6:
+                removed.append(pod)
+                continue
             
             brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
             
@@ -411,12 +414,18 @@ def podwiseForecast(db, meteo, zona):
             rfR2_test = 1 - (np.sum((test[test.columns[60]] - yhat_test)**2))/(np.sum((test[test.columns[60]] - np.mean(test[test.columns[60]]))**2))
             print 'R-squared test per pod {} = {}'.format(pod, rfR2_test)
             
-            fdf[pod] = yhat_test
-            date_index = test.index
+            if yhat_test.size < 2185:
+                cc = np.concatenate([yhat_test, np.repeat(0, 2185 - yhat_test.size)]).tolist()
+            else:
+                cc = yhat_test.tolist()
+            
+            fdf[pod] = cc
+        else:
+            removed.append(pod)
     
     fdf = pd.DataFrame.from_dict(fdf, orient = "columns")
-    fdf = fdf.set_index(date_index)
-    return fdf
+    fdf = fdf.set_index(pd.date_range('2017-01-01', '2017-04-02', freq = 'H'))
+    return fdf, removed
 #################################################################################################### 
     
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
@@ -732,7 +741,7 @@ check_sard = CheckOnConsumption(DB, "SARD")
 
 ###### podwise forecast
 
-DBP = MakeExtendedDatasetGivenPOD(DB, mi, "IT001E00066459")
+DBP = MakeExtendedDatasetGivenPOD(DB, mi, "IT001E00123781")
 
 train2 = DBP.ix[DBP.index.date < datetime.date(2017, 1, 1)]
 train = DBP.sample(frac = 1)
@@ -775,3 +784,45 @@ plt.axhline(y = -0.15, color = 'red')
 
 
 forecast_per_pod = podwiseForecast(DB, mi, "NORD")
+forecast_per_pod = podwiseForecast(DB, fi, "CNOR")
+forecast_per_pod = podwiseForecast(DB, ro, "CSUD")
+fdf = podwiseForecast(DB, rc, "SUD")
+
+fdf = fdf[0]
+rem = fdf[1]
+
+csud_ = DB.ix[DB["Area"] == "CSUD"]
+CSUD = pd.DataFrame()
+for pod in fdf.columns:
+    CSUD = CSUD.append(DB.ix[DB["POD"] == pod])
+
+csud_gg = []
+for d in pd.date_range('2017-01-01', '2017-03-31', freq = 'D'):
+    #print d.month
+    #print CSUD.ix[CSUD["Giorno"] == d].shape
+    csud_gg.extend(CSUD.ix[CSUD["Giorno"] == d].sum())
+
+plt.figure()
+plt.plot(np.array(csud_gg), color = 'green')
+plt.plot(fdf.sum(axis = 1).values, marker = 'o', color = 'red')
+
+csud_gg[2018] = 1
+err = fdf.sum(axis = 1).values[:2160] - np.array(csud_gg)
+err[2018] = 1
+errmae = err/np.array(csud_gg)
+errmae[2018] = 0
+
+print np.mean(err)
+print np.median(err)
+print np.std(err)
+print np.mean(errmae)
+print np.median(errmae)
+print np.std(errmae)
+print np.max(errmae)
+print np.min(errmae)
+
+plt.figure()
+plt.plot(errmae)
+plt.axhline(y = 0.15)
+plt.axhline(y = -0.15)
+
