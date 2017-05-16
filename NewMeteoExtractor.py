@@ -22,6 +22,9 @@ from collections import OrderedDict
 #from lxml import html 
 import re
 #import time
+import pyscreenshot as ImageGrab
+from subprocess import Popen, PIPE
+#import contexlib
 
 #### Ideally, I could run the meteo updating when calling EE.py on the 69. See:
 #### http://stackoverflow.com/questions/3781851/run-a-python-script-from-another-python-script-passing-in-args
@@ -216,3 +219,82 @@ def ExtractorMoreDays():
             print '{} DONE'.format(cities[j] + "-" + c)
         
     return 1
+####################################################################################################
+def getImage():
+    
+    path = 'C:/Users/utente/Downloads/Terna screenshot/'
+    cromepath = r'C:/Users/utente/Desktop/chromedriver/chromedriver.exe'
+    alt_cromepath = r'C:/Users/utente/Downloads/chromedriver_win32/chromedriver.exe'
+        
+    browser = webdriver.Chrome(cromepath)
+    browser = webdriver.Chrome(alt_cromepath)    
+    
+    url = "http://www.terna.it/DesktopModules/GraficoTerna/GraficoTernaEsteso/ctlGraficoTerna.aspx?sLang=it-IT"
+    
+    browser.get(url)
+    im = browser.get_screenshot_as_png()
+    browser.save_screenshot(path + 'curva' + str(datetime.datetime.now()) + '.png')  
+    browser.get_screenshot_as_file(path + 'curva' + str(datetime.datetime.now()) + '.png')
+    
+    im = ImageGrab.grab()
+    
+    im.save(path + datetime.datetime.now())
+    
+    im.show()
+####################################################################################################
+
+path = 'C:/Users/utente/Downloads/Terna screenshot/'
+abspath = lambda *p: os.path.abspath(os.path.join(*p))
+ROOT = abspath(os.path.dirname(__file__))
+
+
+def execute_command(command):
+    result = Popen(command, shell=True, stdout=PIPE).stdout.read()
+    if len(result) > 0 and not result.isspace():
+        raise Exception(result)
+
+
+def do_screen_capturing(url, screen_path, width, height):
+    print "Capturing screen.."
+    driver = webdriver.PhantomJS("C:/Users/utente/Downloads/phantomjs-2.1.1-windows/bin/phantomjs.exe")
+    # it save service log file in same directory
+    # if you want to have log file stored else where
+    # initialize the webdriver.PhantomJS() as
+    # driver = webdriver.PhantomJS(service_log_path='/var/log/phantomjs/ghostdriver.log')
+    driver.set_script_timeout(30)
+    if width and height:
+        driver.set_window_size(width, height)
+    driver.get(url)
+    driver.save_screenshot(screen_path)
+
+
+def get_screen_shot(**kwargs):
+    url = kwargs['url']
+    #width = int(kwargs.get('width', 1024)) # screen width to capture
+    #height = int(kwargs.get('height', 768)) # screen height to capture
+    filename = kwargs.get('filename', 'screen.png') # file name e.g. screen.png
+    path = kwargs.get('path', 'C:/Users/utente/Downloads/Terna screenshot/') # directory path to store screen
+
+    screen_path = abspath(path, filename)
+
+    do_screen_capturing(url, screen_path, width=1024, height=768)
+
+    return screen_path
+
+
+if __name__ == '__main__':
+    '''
+        Requirements:
+        Install NodeJS
+        Using Node's package manager install phantomjs: npm -g install phantomjs
+        install selenium (in your virtualenv, if you are using that)
+        install imageMagick
+        add phantomjs to system path (on windows)
+    '''
+
+    url = "http://www.terna.it/DesktopModules/GraficoTerna/GraficoTernaEsteso/ctlGraficoTerna.aspx?sLang=it-IT"
+    screen_path = get_screen_shot(
+        url=url, filename='sof' + str(datetime.datetime.now()) + '.png',
+        crop=False, crop_replace=False,
+        thumbnail=False, thumbnail_replace=False,
+        thumbnail_width=0, thumbnail_height=0)
