@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import calendar
 import scipy
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
-from sklearn.tree import DecisionTreeRegressor
+#from sklearn.tree import DecisionTreeRegressor
 from collections import OrderedDict
 import datetime
 #from statsmodels.tsa.stattools import adfuller
@@ -391,7 +391,7 @@ def podwiseForecast(db, meteo, zona):
     for pod in podlist:
         if db.ix[db["POD"] == pod].shape[0] > 366:
             print 'Avanzamento: {} %'.format((podlist.index(pod) + 1)/len(podlist))
-            DBP = MakeExtendedDatasetGivenPOD(DB, mi, pod)
+            DBP = MakeExtendedDatasetGivenPOD(DB, meteo, pod)
             
             train2 = DBP.ix[DBP.index.date < datetime.date(2017, 1, 1)]
             train = DBP.sample(frac = 1)
@@ -785,15 +785,17 @@ plt.axhline(y = -0.15, color = 'red')
 
 forecast_per_pod = podwiseForecast(DB, mi, "NORD")
 forecast_per_pod = podwiseForecast(DB, fi, "CNOR")
-forecast_per_pod = podwiseForecast(DB, ro, "CSUD")
+forecast_per_pod, rem = podwiseForecast(DB, ro, "CSUD")
 fdf = podwiseForecast(DB, rc, "SUD")
+
+
 
 fdf = fdf[0]
 rem = fdf[1]
 
 csud_ = DB.ix[DB["Area"] == "CSUD"]
 CSUD = pd.DataFrame()
-for pod in fdf.columns:
+for pod in forecast_per_pod.columns:
     CSUD = CSUD.append(DB.ix[DB["POD"] == pod])
 
 csud_gg = []
@@ -802,13 +804,19 @@ for d in pd.date_range('2017-01-01', '2017-03-31', freq = 'D'):
     #print CSUD.ix[CSUD["Giorno"] == d].shape
     csud_gg.extend(CSUD.ix[CSUD["Giorno"] == d].sum())
 
-plt.figure()
-plt.plot(np.array(csud_gg), color = 'green')
-plt.plot(fdf.sum(axis = 1).values, marker = 'o', color = 'red')
+
+err = forecast_per_pod.sum(axis = 1).values[:2160] - np.array(csud_gg)
 
 csud_gg[2018] = 1
-err = fdf.sum(axis = 1).values[:2160] - np.array(csud_gg)
 err[2018] = 1
+
+R2_glob = 1 - (np.sum((err)**2))/(np.sum((np.array(csud_gg) - np.mean(np.array(csud_gg)))**2))
+print R2_glob
+
+plt.figure()
+plt.plot(np.array(csud_gg), marker = '8', color = 'green')
+plt.plot(forecast_per_pod.sum(axis = 1).values, marker = 'o', color = 'magenta')
+
 errmae = err/np.array(csud_gg)
 errmae[2018] = 0
 
