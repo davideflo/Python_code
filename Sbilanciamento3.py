@@ -49,9 +49,9 @@ def AddHolidaysDate(vd):
   ## Ferragosto = 8, 1 Novembre = 9
   ## 8 Dicembre = 10, Natale = 11, S.Stefano = 12, S.Silvestro = 13
     holidays = 0
-    pasquetta = [datetime.datetime(2015,4,6), datetime.datetime(2016,3,28), datetime.datetime(2017,4,17)]
-    pasqua = [datetime.datetime(2015,4,5), datetime.datetime(2016,3,27), datetime.datetime(2017,4,16)]
-  
+    pasquetta = [datetime.date(2015,4,6), datetime.date(2016,3,28), datetime.date(2017,4,17)]
+    pasqua = [datetime.date(2015,4,5), datetime.date(2016,3,27), datetime.date(2017,4,16)]
+
     if vd.month == 1 and vd.day == 1:
         holidays = 1
     if vd.month  == 1 and vd.day == 6: 
@@ -97,7 +97,7 @@ def GetMeanCurve(df, var):
 ####################################################################################################
 ####################################################################################################
 def percentageConsumption(db, zona):
-    dr = pd.date_range('2016-01-01', '2017-04-11', freq = 'D')
+    dr = pd.date_range('2016-01-01', '2017-05-20', freq = 'D')
     All116 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1601.xlsm", sheetname = "CRPP")
     All216 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1602.xlsm", sheetname = "CRPP")
     All316 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1603.xlsm", sheetname = "CRPP")
@@ -114,6 +114,8 @@ def percentageConsumption(db, zona):
 #    All217 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_02_2017.xlsx")
     All317 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_03_2017.xlsx")
     All417 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_04_2017.xlsx")
+    All517 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_05_2017.xlsx")
+#    All417 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_04_2017.xlsx")    
     diz = OrderedDict()
     dbz = db.ix[db["Area"] == zona]
     for d in dr:
@@ -157,6 +159,8 @@ def percentageConsumption(db, zona):
             All = All317
         elif drm == 4 and dry == 2017:
             All = All417
+        elif drm == 5 and dry == 2017:
+            All = All517
         else:
             pass
         pods = dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()
@@ -176,7 +180,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
 #### every day will have a dummy variable representing it
     #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
     psample = percentageConsumption(db, zona)
-    psample = psample.set_index(pd.date_range('2016-01-01', '2017-04-11', freq = 'D'))
+    psample = psample.set_index(pd.date_range('2016-01-01', '2017-05-20', freq = 'D'))
     dts = OrderedDict()
     df = df.ix[df.index.date >= datetime.date(2016,1,3)]
     for i in df.index.tolist():
@@ -255,6 +259,46 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
     'pday','tmax','pioggia','vento','holiday',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
+    return dts
+####################################################################################################
+def MakeForecastDataset(db, meteo, zona):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
+#### every day will have a dummy variable representing it
+    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    psample = percentageConsumption(db, zona)
+    psample = psample.set_index(pd.date_range('2016-01-01', '2017-05-20', freq = 'D'))
+    dts = OrderedDict()
+    dr = pd.date_range('2017-04-01', '2017-05-20', freq = 'H')
+    for i in dr:
+        ll = []        
+        hvector = np.repeat(0, 24)
+        dvector = np.repeat(0, 7)
+        wd = i.weekday()        
+        td = 2
+        if wd == 0:
+            td = 3
+        cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        dvector[wd] = 1
+        h = i.hour
+        hvector[h] = 1
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        rain = meteo['pioggia'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        wind = meteo['vento'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ps = psample.ix[psample.index.date == i.date()]
+        ll.extend(dvector.tolist())
+        ll.extend(hvector.tolist())        
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0]])
+        ll.extend(cmym.tolist())
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
+    't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+    'pday','tmax','pioggia','vento','holiday','perc',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23']]
     return dts
 ####################################################################################################
 def getImbalance(error, prediction):
@@ -522,8 +566,15 @@ train = DBB.sample(frac = 1)
 test = DBB.ix[DBB.index.date > datetime.date(2016, 12, 31)]
 test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
 
+###### check to see if the initial error is due to the model or some other pecularity
+###### happened in January 2017
+train2 = DBB.ix[DBB.index.date < datetime.date(2017, 2, 1)]
+train = DBB.sample(frac = 1)
+test = DBB.ix[DBB.index.date > datetime.date(2017, 1, 31)]
+test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
 
-### It seems the performances depend on the initial permutatio of the trainingset
+
+### It seems the performances depend on the initial permutation of the trainingset
 ### Google: cross validation with random forest sklearn
 
 #ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
@@ -834,3 +885,50 @@ plt.plot(errmae)
 plt.axhline(y = 0.15)
 plt.axhline(y = -0.15)
 
+################################
+######## Test on May 2017 ######
+################################
+cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
+cnord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:cnord.shape[0]]
+fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
+fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+fi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2017.xlsx')
+fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+fi2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Firenze.xlsx')
+fi = fi6.append(fi7)
+fi = fi[["Tmin", "Tmax", "Tmedia", "VENTOMEDIA", "PIOGGIA"]]
+fi.columns = [["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+fi2017 = fi2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+fi = fi.append(fi2017) 
+
+DBtrain = DBB.sample(frac = 1)
+
+DBT = MakeForecastDataset(DB, fi2017, "CNOR")
+
+DBT = DBT.ix[DBT.index.date < datetime.date(2017,5,20)]
+DBT = DBT.ix[DBT.index.date > datetime.date(2017,3,31)]
+
+bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
+
+brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+
+brf.fit(DBtrain[DBtrain.columns[:61]], DBtrain[DBtrain.columns[61]])
+yhat_train = brf.predict(DBtrain[DBtrain.columns[:61]])
+
+rfR2 = 1 - (np.sum((DBtrain[DBtrain.columns[61]] - yhat_train)**2))/(np.sum((DBtrain[DBtrain.columns[61]] - np.mean(DBtrain[DBtrain.columns[61]]))**2))
+print rfR2
+
+yhat_test = brf.predict(DBT)
+
+plt.figure()
+plt.plot(yhat_test, marker = '8', color = 'red')
+plt.figure()
+plt.plot(yhat_test, marker = '8', color = 'magenta')
+plt.title('AdaBoost + RF')
+plt.figure()
+plt.plot(DBB['y'].values.ravel())
+
+
+DBT['holiday'].ix[datetime.date(2017,4,16)]
+
+pd.DataFrame.from_dict({'previsione': yhat_test[-24:].tolist()}).to_excel('C:/Users/utente/Documents/previsione_2017-05-17.xlsx')
