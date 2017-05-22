@@ -96,8 +96,8 @@ def GetMeanCurve(df, var):
     return mc
 ####################################################################################################
 ####################################################################################################
-def percentageConsumption(db, zona):
-    dr = pd.date_range('2016-01-01', '2017-05-20', freq = 'D')
+def percentageConsumption(db, zona, di, df):
+    dr = pd.date_range(di, df, freq = 'D')
     All116 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1601.xlsm", sheetname = "CRPP")
     All216 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1602.xlsm", sheetname = "CRPP")
     All316 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1603.xlsm", sheetname = "CRPP")
@@ -179,8 +179,12 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
 #### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
 #### every day will have a dummy variable representing it
     #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
-    psample = percentageConsumption(db, zona)
-    psample = psample.set_index(pd.date_range('2016-01-01', '2017-05-20', freq = 'D'))
+    final = max(df.index.date)
+    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
+    strd = str(final.day + 1) if len(str(final.day + 1)) > 1 else "0" + str(final.day + 1)
+    final_date = str(final.year) + '-' + strm + '-' + strd
+    psample = percentageConsumption(db, zona, '2016-01-01', final_date)
+    psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
     df = df.ix[df.index.date >= datetime.date(2016,1,3)]
     for i in df.index.tolist():
@@ -261,16 +265,20 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
-def MakeForecastDataset(db, meteo, zona):
+def MakeForecastDataset(db, meteo, zona, time_delta = 1):
 #### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
 #### and the sample curve
 #### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
 #### every day will have a dummy variable representing it
     #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
-    psample = percentageConsumption(db, zona)
-    psample = psample.set_index(pd.date_range('2016-01-01', '2017-05-20', freq = 'D'))
+    future = datetime.datetime.now() + datetime.timedelta(days = time_delta + 1)
+    strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
+    strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
+    final_date = str(future.year) + '-' + strm + '-' + strd
+    psample = percentageConsumption(db, zona, '2017-05-01',final_date)
+    psample = psample.set_index(pd.date_range('2017-05-01', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
-    dr = pd.date_range('2017-04-01', '2017-05-20', freq = 'H')
+    dr = pd.date_range('2017-04-01', '2017-05-24', freq = 'H')
     for i in dr:
         ll = []        
         hvector = np.repeat(0, 24)
@@ -559,6 +567,10 @@ DBB = MakeExtendedDatasetWithSampleCurve(csud, DB, ro, "CSUD")
 DBB = MakeExtendedDatasetWithSampleCurve(sud, DB, rc, "SUD")
 DBB = MakeExtendedDatasetWithSampleCurve(sici, DB, pa, "SICI")
 DBB = MakeExtendedDatasetWithSampleCurve(sard, DB, ca, "SARD")
+
+#### check on holidays ####
+feste = DBB.ix[DBB['holiday'] == 1].index
+feste = set(feste.tolist())
 
 
 train2 = DBB.ix[DBB.index.date < datetime.date(2017, 1, 1)]
@@ -888,25 +900,75 @@ plt.axhline(y = -0.15)
 ################################
 ######## Test on May 2017 ######
 ################################
-cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
-cnord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:cnord.shape[0]]
-fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
-fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
-fi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2017.xlsx')
-fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+mi2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Milano.xlsx')
+mi2017 = mi2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
 fi2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Firenze.xlsx')
-fi = fi6.append(fi7)
-fi = fi[["Tmin", "Tmax", "Tmedia", "VENTOMEDIA", "PIOGGIA"]]
-fi.columns = [["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
 fi2017 = fi2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
-fi = fi.append(fi2017) 
+ro2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Roma.xlsx')
+ro2017 = ro2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+ba2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Bari.xlsx')
+ba2017 = ba2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+pa2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Palermo.xlsx')
+pa2017 = pa2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+ca2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Cagliari.xlsx')
+ca2017 = ca2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+
+
+DBH = DBB.ix[DBB['holiday'] == 1]
+DBN = DBB.ix[DBB['holiday'] == 0]
 
 DBtrain = DBB.sample(frac = 1)
 
-DBT = MakeForecastDataset(DB, fi2017, "CNOR")
+DBHtrain = DBH.sample(frac = 1)
+DBNtrain = DBN.sample(frac = 1)
 
-DBT = DBT.ix[DBT.index.date < datetime.date(2017,5,20)]
+DBT = MakeForecastDataset(DB, mi2017, "NORD")
+DBT = MakeForecastDataset(DB, fi2017, "CNOR")
+DBT = MakeForecastDataset(DB, ro2017, "CSUD")
+DBT = MakeForecastDataset(DB, ba2017, "SUD")
+DBT = MakeForecastDataset(DB, pa2017, "SICI")
+DBT = MakeForecastDataset(DB, ca2017, "SARD")
+
+
+#DBT = DBT.ix[DBT.index.date < datetime.date(2017,5,20)]
 DBT = DBT.ix[DBT.index.date > datetime.date(2017,3,31)]
+
+DBTH =  DBT.ix[DBT['holiday'] == 1]
+DBTN =  DBT.ix[DBT['holiday'] == 0]
+
+################################ Separation holiday/non-holidays ###################################
+brfh = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+
+brfh.fit(DBHtrain[DBHtrain.columns[:61]], DBHtrain[DBHtrain.columns[61]])
+yhat_train_h = brfh.predict(DBHtrain[DBHtrain.columns[:61]])
+
+rfR2H = 1 - (np.sum((DBHtrain[DBHtrain.columns[61]] - yhat_train_h)**2))/(np.sum((DBHtrain[DBHtrain.columns[61]] - np.mean(DBHtrain[DBHtrain.columns[61]]))**2))
+print rfR2H
+
+yhat_test_h = brfh.predict(DBTH)
+
+yth = pd.DataFrame.from_dict({'pred': yhat_test_h.tolist()})
+yth = yth.set_index(DBTH.index)
+yth.plot(color = 'orchid')
+
+yth.ix[yth.index.date >= datetime.date(2017,5,18)].to_excel(zona + "_previsionew_2017-05-23.xlsx")
+
+brfn = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+
+brfn.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain[DBNtrain.columns[61]])
+yhat_train_n = brfn.predict(DBNtrain[DBNtrain.columns[:61]])
+
+rfR2n = 1 - (np.sum((DBNtrain[DBNtrain.columns[61]] - yhat_train_n)**2))/(np.sum((DBNtrain[DBNtrain.columns[61]] - np.mean(DBNtrain[DBNtrain.columns[61]]))**2))
+print rfR2n
+
+yhat_test_n = brfn.predict(DBTN)
+
+ytn = pd.DataFrame.from_dict({'pred': yhat_test_n.tolist()})
+ytn = ytn.set_index(DBTN.index)
+ytn.plot(color = 'dimgrey')
+
+ytn.ix[ytn.index.date >= datetime.date(2017,5,18)].to_excel(zona + "_previsione_2017-05-23.xlsx")
+## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
 
@@ -919,6 +981,22 @@ rfR2 = 1 - (np.sum((DBtrain[DBtrain.columns[61]] - yhat_train)**2))/(np.sum((DBt
 print rfR2
 
 yhat_test = brf.predict(DBT)
+
+##### Feature importance ####
+importance = brf.feature_importances_
+importance = pd.DataFrame(importance, index=DBtrain.columns[:61], columns=["Importance"])
+
+importance["Std"] = np.std([tree.feature_importances_ for tree in brf.estimators_], axis=0)
+
+x = range(importance.shape[0])
+y = importance.ix[:, 0]
+yerr = importance.ix[:, 1]
+
+fig, ax = plt.subplots()
+Ax = ax.bar(x, y, yerr=yerr, align="center")
+Ax.set_xticklabels(DBtrain.columns)
+####################################
+
 
 plt.figure()
 plt.plot(yhat_test, marker = '8', color = 'red')
