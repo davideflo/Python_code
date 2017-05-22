@@ -358,6 +358,63 @@ def percentageConsumption(db, zona, today):
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     return diz
 ####################################################################################################
+def updateCRPP():
+    path16 = "H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2016/pod-zona per davide/"
+    path17 = "H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/"
+    mesi = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+    years = ['16', '17']
+    today = datetime.datetime.now()    
+    str_month = str(today.month) if len(str(today.month)) > 1 else "0" + str(today.month)
+    DF6 = pd.DataFrame()
+    DF7 = pd.DataFrame()
+    for y in years:
+        count = 0
+        if y == '16':
+            for m in mesi:
+                df = OrderedDict()
+                crpp = pd.read_excel(path16 + 'CRPP_' + y + m + '.xlsm', sheetname = 'CRPP')
+                for r in range(crpp.shape[0]):
+                    vec = np.repeat(0,26).tolist()
+                    vec[0] = str(crpp['ZONA'].ix[r]).upper()
+                    vec[1] = crpp['POD'].ix[r]
+                    vec[mesi.index(m) + 2] = str(crpp['Trattamento_' + m].ix[r]).upper()
+                    vec[mesi.index(m) + 14] = crpp['CONSUMO_TOT'].ix[r]
+                    df[count] = vec
+                    count += 1
+                df = pd.DataFrame.from_dict(df, orient = 'index')
+                df.columns = [['ZONA', 'POD', 'Trattamento_01', 'Trattamento_02', 'Trattamento_03', 'Trattamento_04', 'Trattamento_05',
+                               'Trattamento_06', 'Trattamento_07', 'Trattamento_08', 'Trattamento_09', 'Trattamento_10',
+                               'Trattamento_11', 'Trattamento_12', 'CONSUMO_TOT_01', 'CONSUMO_TOT_02',
+                               'CONSUMO_TOT_03', 'CONSUMO_TOT_04', 'CONSUMO_TOT_05', 'CONSUMO_TOT_06', 'CONSUMO_TOT_07',
+                               'CONSUMO_TOT_08', 'CONSUMO_TOT_09', 'CONSUMO_TOT_10', 'CONSUMO_TOT_11', 'CONSUMO_TOT_12']]
+                DF6 = DF6.append(df, ignore_index = True)
+            DF6 = DF6.groupby(['ZONA', 'POD'])
+            DF6 = DF6.agg(sum)
+            DF6.to_hdf('H:/Energy Management/02. EDM/01. MISURE/4. CRPP/CRPP_2016.h5', 'DF2016')
+        else:
+            for m in mesi[2:mesi.index(str_month)]:
+                df = OrderedDict()
+                crpp = pd.read_excel(path17 + m + '-2017/_All_CRPP_' + m  + '_20' + y + '.xlsx')
+                for r in range(crpp.shape[0]):
+                    vec = np.repeat(0,26).tolist()
+                    vec[0] = str(crpp['ZONA'].ix[r]).upper()
+                    vec[1] = crpp['POD'].ix[r]
+                    vec[mesi.index(m) + 2] = str(crpp['Trattamento_' + m].ix[r]).upper()
+                    vec[mesi.index(m) + 14] = crpp['CONSUMO_TOT'].ix[r]
+                    df[count] = vec
+                    count += 1
+                df = pd.DataFrame.from_dict(df, orient = 'index')
+                df.columns = [['ZONA', 'POD', 'Trattamento_01', 'Trattamento_02', 'Trattamento_03', 'Trattamento_04', 'Trattamento_05',
+                               'Trattamento_06', 'Trattamento_07', 'Trattamento_08', 'Trattamento_09', 'Trattamento_10',
+                               'Trattamento_11', 'Trattamento_12', 'CONSUMO_TOT_01', 'CONSUMO_TOT_02',
+                               'CONSUMO_TOT_03', 'CONSUMO_TOT_04', 'CONSUMO_TOT_05', 'CONSUMO_TOT_06', 'CONSUMO_TOT_07',
+                               'CONSUMO_TOT_08', 'CONSUMO_TOT_09', 'CONSUMO_TOT_10', 'CONSUMO_TOT_11', 'CONSUMO_TOT_12']]
+                DF7 = DF7.append(df, ignore_index = True)
+            DF7 = DF7.groupby(['ZONA', 'POD'])
+            DF7 = DF7.agg(sum)
+            DF7.to_hdf('H:/Energy Management/02. EDM/01. MISURE/4. CRPP/CRPP_2017.h5', 'DF2017')
+    return DF6, DF7
+####################################################################################################
 def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona, today, days_behind = 2):
 #### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
 #### and the sample curve
