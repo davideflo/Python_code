@@ -98,76 +98,26 @@ def GetMeanCurve(df, var):
 ####################################################################################################
 def percentageConsumption(db, zona, di, df):
     dr = pd.date_range(di, df, freq = 'D')
-    All116 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1601.xlsm", sheetname = "CRPP")
-    All216 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1602.xlsm", sheetname = "CRPP")
-    All316 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1603.xlsm", sheetname = "CRPP")
-    All416 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1604.xlsm", sheetname = "CRPP")
-    All516 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1605.xlsm", sheetname = "CRPP")
-    All616 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1606.xlsm", sheetname = "CRPP")
-    All716 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1607.xlsm", sheetname = "CRPP")
-    All816 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1608.xlsm", sheetname = "CRPP")
-    All916 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1609.xlsm", sheetname = "CRPP")
-    All1016 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1610.xlsm", sheetname = "CRPP")
-    All1116 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1611.xlsm", sheetname = "CRPP")
-    All1216 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1612.xlsm", sheetname = "CRPP")
-#    All117 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_01_2017.xlsx")
-#    All217 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_02_2017.xlsx")
-    All317 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_03_2017.xlsx")
-    All417 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_04_2017.xlsx")
-    All517 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_05_2017.xlsx")
-#    All417 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/_All_CRPP_04_2017.xlsx")    
+    All1 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_2016.h5")
+    All2 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_2017.h5")  
     diz = OrderedDict()
     dbz = db.ix[db["Area"] == zona]
     for d in dr:
         drm = d.month
-        dry = d.year
-#        print drm
-#        print dry
-#        print '###'
         strm = str(drm) if len(str(drm)) > 1 else "0" + str(drm)  
-        if drm == 1 and dry == 2016:
-            All = All116
-        elif drm == 2 and dry == 2016:
-            All = All216
-        elif drm == 3 and dry == 2016:
-            All = All316
-        elif drm == 4 and dry == 2016:
-            All = All416
-        elif drm == 5 and dry == 2016:
-            All = All516
-        elif drm == 6 and dry == 2016:
-            All = All616
-        elif drm == 7 and dry == 2016:
-            All = All716
-        elif drm == 8 and dry == 2016:
-            All = All816
-        elif drm == 9 and dry == 2016:
-            All = All916
-        elif drm == 10 and dry == 2016:
-            All = All1016
-        elif drm == 11 and dry == 2016:
-            All = All1116
-        elif drm == 12 and dry == 2016:
-            All = All1216
-        elif drm == 1 and dry == 2017:
-            All = All317
+        dry = d.year
+        if dry == 2017 and drm <= 3:
             strm = '03'
-        elif drm == 2 and dry == 2017:
-            All = All317
-            strm = '03'
-        elif drm == 3 and dry == 2017:
-            All = All317
-        elif drm == 4 and dry == 2017:
-            All = All417
-        elif drm == 5 and dry == 2017:
-            All = All517
+        
+        if dry == 2016:
+            All = All1
         else:
-            pass
+            All = All2
         pods = dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()
-        All2 = All.ix[All["Trattamento_"+ strm] == 'O']
-        totd = np.sum(np.nan_to_num([All2["CONSUMO_TOT"].ix[y] for y in All2.index if All2["POD"].ix[y] in pods]))/1000
+        All = All.ix[All["Trattamento_"+ strm] == 1]
+        totd = np.sum(np.nan_to_num([All["CONSUMO_TOT_" + strm].ix[y] for y in All.index if All["POD"].ix[y] in pods]))/1000
         #totd = All2["CONSUMO_TOT"].ix[All2["POD"].values.ravel() in pods].sum()
-        tot = All2["CONSUMO_TOT"].sum()/1000
+        tot = All["CONSUMO_TOT_" + strm].sum()/1000
         p = totd/tot
         diz[d] = [p]
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
@@ -181,7 +131,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
     final = max(df.index.date)
     strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
-    strd = str(final.day + 1) if len(str(final.day + 1)) > 1 else "0" + str(final.day + 1)
+    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
     final_date = str(final.year) + '-' + strm + '-' + strd
     psample = percentageConsumption(db, zona, '2016-01-01', final_date)
     psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
@@ -278,7 +228,7 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     psample = percentageConsumption(db, zona, '2017-05-01',final_date)
     psample = psample.set_index(pd.date_range('2017-05-01', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
-    dr = pd.date_range('2017-04-01', '2017-05-24', freq = 'H')
+    dr = pd.date_range('2017-04-01', final_date, freq = 'H')
     for i in dr:
         ll = []        
         hvector = np.repeat(0, 24)
@@ -479,6 +429,35 @@ def podwiseForecast(db, meteo, zona):
     fdf = fdf.set_index(pd.date_range('2017-01-01', '2017-04-02', freq = 'H'))
     return fdf, removed
 #################################################################################################### 
+def transform_df(df):
+    diz = OrderedDict()
+    dr = pd.date_range('2016-01-01', '2017-04-01', freq = 'D')
+    for i in dr:
+        dfi = df['MO [MWh]'].ix[df.index.date == i.date()]
+        if int(dfi.shape[0]) == 24:
+            diz[i.date()] = dfi.values.ravel().tolist()
+        elif int(dfi.shape[0]) == 23:
+            vec = np.repeat(0.0, 24)
+            for h in range(24):
+                if h != 2:
+                    vec[h] = dfi.ix[dfi.index.hour == h]
+            diz[i.date()] = vec.tolist()
+        else:
+            vec = np.repeat(0.0, 24)
+            for h in range(24):
+                if h == 2:
+                    vec[h] = dfi.ix[dfi.index.hour == h].sum()
+                else:
+                    vec[h] = dfi.ix[dfi.index.hour == h].sum()
+            diz[i.date()] = vec.tolist()
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    diz.columns = [['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24']]
+    return diz
+#################################################################################################### 
+def convertDates(vec):
+    CD = vec.apply(lambda x: datetime.datetime(year = int(str(x)[6:10]), month = int(str(x)[3:5]), day = int(str(x)[:2]), hour = int(str(x)[11:13])))
+    return CD
+####################################################################################################
     
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
 k2e = k2e.set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:k2e.shape[0]])
@@ -560,6 +539,14 @@ ca7 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2017.xlsx')
 ca7 = ca7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 ca = ca6.append(ca7)
 
+######### mean behaviour per month ############                 ####################################
+cd = convertDates(nord['DATA RIFERIMENTO CORRISPETTIVO'])
+nord = nord.set_index(cd.values)
+df_t = transform_df(nord)
+df_t = df_t.set_index(pd.date_range('2016-01-01', '2017-04-01', freq = 'D'))
+df_t.resample('M').mean().T.plot()
+
+###############################################                 ####################################
 
 DBB = MakeExtendedDatasetWithSampleCurve(nord, DB, mi, "NORD")
 DBB = MakeExtendedDatasetWithSampleCurve(cnord, DB, fi, "CNOR")
