@@ -377,7 +377,15 @@ def updateCRPP():
                     vec = np.repeat(0,26).tolist()
                     vec[0] = str(crpp['ZONA'].ix[r]).upper()
                     vec[1] = crpp['POD'].ix[r]
-                    vec[mesi.index(m) + 2] = str(crpp['Trattamento_' + m].ix[r]).upper()
+                    treatment = str(crpp['Trattamento_' + m].ix[r]).upper()
+                    if treatment == 'O':
+                        vec[mesi.index(m) + 2] = 1
+                    elif treatment == 'M':
+                        vec[mesi.index(m) + 2] = 2
+                    elif treatment == 'F':
+                        vec[mesi.index(m) + 2] = 3
+                    else:
+                        vec[mesi.index(m) + 2] = 0                        
                     vec[mesi.index(m) + 14] = crpp['CONSUMO_TOT'].ix[r]
                     df[count] = vec
                     count += 1
@@ -390,7 +398,7 @@ def updateCRPP():
                 DF6 = DF6.append(df, ignore_index = True)
             DF6 = DF6.groupby(['ZONA', 'POD'])
             DF6 = DF6.agg(sum)
-            DF6.to_hdf('H:/Energy Management/02. EDM/01. MISURE/4. CRPP/CRPP_2016.h5', 'DF2016')
+            DF6.to_excel('C:/Users/d_floriello/Documents/CRPP2016.xlsx')
         else:
             for m in mesi[2:mesi.index(str_month)]:
                 df = OrderedDict()
@@ -399,7 +407,15 @@ def updateCRPP():
                     vec = np.repeat(0,26).tolist()
                     vec[0] = str(crpp['ZONA'].ix[r]).upper()
                     vec[1] = crpp['POD'].ix[r]
-                    vec[mesi.index(m) + 2] = str(crpp['Trattamento_' + m].ix[r]).upper()
+                    treatment = str(crpp['Trattamento_' + m].ix[r]).upper()
+                    if treatment == 'O':
+                        vec[mesi.index(m) + 2] = 1
+                    elif treatment == 'M':
+                        vec[mesi.index(m) + 2] = 2
+                    elif treatment == 'F':
+                        vec[mesi.index(m) + 2] = 3
+                    else:
+                        vec[mesi.index(m) + 2] = 0                        
                     vec[mesi.index(m) + 14] = crpp['CONSUMO_TOT'].ix[r]
                     df[count] = vec
                     count += 1
@@ -412,7 +428,7 @@ def updateCRPP():
                 DF7 = DF7.append(df, ignore_index = True)
             DF7 = DF7.groupby(['ZONA', 'POD'])
             DF7 = DF7.agg(sum)
-            DF7.to_hdf('H:/Energy Management/02. EDM/01. MISURE/4. CRPP/CRPP_2017.h5', 'DF2017')
+            DF7.to_excel('C:/Users/d_floriello/Documents/CRPP2017.xlsx')            
     return DF6, DF7
 ####################################################################################################
 def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona, today, days_behind = 2):
