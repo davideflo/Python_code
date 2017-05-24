@@ -400,7 +400,7 @@ def updateCRPP():
             DF6 = DF6.agg(sum)
             DF6.to_excel('C:/Users/d_floriello/Documents/CRPP2016.xlsx')
         else:
-            for m in mesi[2:mesi.index(str_month)]:
+            for m in mesi[2:(mesi.index(str_month) + 1)]:
                 df = OrderedDict()
                 crpp = pd.read_excel(path17 + m + '-2017/_All_CRPP_' + m  + '_20' + y + '.xlsx')
                 for r in range(crpp.shape[0]):
