@@ -14,7 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import calendar
 import scipy
-from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
+from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor, GradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
 #from sklearn.tree import DecisionTreeRegressor
 from collections import OrderedDict
 import datetime
@@ -114,10 +115,10 @@ def percentageConsumption(db, zona, di, df):
         else:
             All = All2
         pods = dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()
-        All = All.ix[All["Trattamento_"+ strm] == 1]
-        totd = np.sum(np.nan_to_num([All["CONSUMO_TOT_" + strm].ix[y] for y in All.index if All["POD"].ix[y] in pods]))/1000
+        AllX = All.ix[All["Trattamento_"+ strm] == 1]
+        totd = np.sum(np.nan_to_num([AllX["CONSUMO_TOT_" + strm].ix[y] for y in AllX.index if AllX["POD"].ix[y] in pods]))/1000
         #totd = All2["CONSUMO_TOT"].ix[All2["POD"].values.ravel() in pods].sum()
-        tot = All["CONSUMO_TOT_" + strm].sum()/1000
+        tot = AllX["CONSUMO_TOT_" + strm].sum()/1000
         p = totd/tot
         diz[d] = [p]
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
@@ -154,7 +155,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
         rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         hol = AddHolidaysDate(i.date())
-        ps = psample.ix[psample.index.date == i.date()]
+        ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
         ll.extend(dvector.tolist())
         ll.extend(hvector.tolist())        
         ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0]])
@@ -178,8 +179,8 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
     dts = OrderedDict()
     start = str(db["Giorno"].ix[0])[:10]
     end =  str(db["Giorno"].ix[db.shape[0]-1])[:10]
-    if db["Giorno"].ix[db.shape[0]-1] > datetime.datetime(2017,3,31):
-        end = '2017-04-02'
+#    if db["Giorno"].ix[db.shape[0]-1] > datetime.datetime(2017,3,31):
+#        end = '2017-04-02'
     dr = pd.date_range(start, end, freq = 'H')
     for i in dr:
         #print i
@@ -221,12 +222,55 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
 #### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
 #### every day will have a dummy variable representing it
     #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
-    future = datetime.datetime.now() + datetime.timedelta(days = time_delta + 1)
+    future = datetime.datetime.now() + datetime.timedelta(days = time_delta)
     strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
     strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
     final_date = str(future.year) + '-' + strm + '-' + strd
     psample = percentageConsumption(db, zona, '2017-05-01',final_date)
     psample = psample.set_index(pd.date_range('2017-05-01', final_date, freq = 'D')[:psample.shape[0]])
+    dts = OrderedDict()
+    dr = pd.date_range('2017-05-01', final_date, freq = 'H')
+    for i in dr[2*24:]:
+        ll = []        
+        hvector = np.repeat(0, 24)
+        dvector = np.repeat(0, 7)
+        wd = i.weekday()        
+        td = 2
+        if wd == 0:
+            td = 3
+        cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date() - datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        dvector[wd] = 1
+        h = i.hour
+        hvector[h] = 1
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        rain = meteo['pioggia'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        wind = meteo['vento'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
+        ll.extend(dvector.tolist())
+        ll.extend(hvector.tolist())        
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0]])
+        ll.extend(cmym.tolist())
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
+    't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+    'pday','tmax','pioggia','vento','holiday','perc',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23']]
+    return dts
+####################################################################################################
+def MakeForecastPerPOD(db, meteo, pod, time_delta = 1):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
+#### every day will have a dummy variable representing it
+    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    db = db.ix[db['POD'] == pod]
+    future = datetime.datetime.now() + datetime.timedelta(days = time_delta)
+    strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
+    strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
+    final_date = str(future.year) + '-' + strm + '-' + strd
     dts = OrderedDict()
     dr = pd.date_range('2017-04-01', final_date, freq = 'H')
     for i in dr:
@@ -246,16 +290,15 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
         rain = meteo['pioggia'].ix[meteo.index.date == i.date()].values.ravel()[0]
         wind = meteo['vento'].ix[meteo.index.date == i.date()].values.ravel()[0]
         hol = AddHolidaysDate(i.date())
-        ps = psample.ix[psample.index.date == i.date()]
         ll.extend(dvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0]])
+        ll.extend([dy, Tmax, rain, wind, hol])
         ll.extend(cmym.tolist())
         dts[i] =  ll
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
     dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','holiday','perc',
+    'pday','tmax','pioggia','vento','holiday',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23']]
     return dts
 ####################################################################################################
@@ -312,80 +355,6 @@ def EvaluateImbalance(val, imb, zona, pun):
     diz.columns = [["Val_sbil", "gain"]]
     return diz
 ####################################################################################################
-def CheckOnConsumption(db, zona):
-    db = db.set_index(db["Giorno"])
-    db = db.ix[db["Area"] == zona]
-    listpods = list(set(db["POD"].values.ravel().tolist()))
-    dr = pd.date_range('2016-01-01', '2017-01-01', freq = 'M')
-    All116 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1601.xlsm", sheetname = "CRPP")
-    All216 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1602.xlsm", sheetname = "CRPP")
-    All316 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1603.xlsm", sheetname = "CRPP")
-    All416 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1604.xlsm", sheetname = "CRPP")
-    All516 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1605.xlsm", sheetname = "CRPP")
-    All616 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1606.xlsm", sheetname = "CRPP")
-    All716 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1607.xlsm", sheetname = "CRPP")
-    All816 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1608.xlsm", sheetname = "CRPP")
-    All916 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1609.xlsm", sheetname = "CRPP")
-    All1016 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1610.xlsm", sheetname = "CRPP")
-    All1116 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1611.xlsm", sheetname = "CRPP")
-    All1216 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP_1612.xlsm", sheetname = "CRPP")
-    diz = OrderedDict()    
-    for pod in listpods:    
-        hdf = db.ix[db["POD"] == pod].sum(axis = 1)
-        mhdf = hdf.resample('M').sum()/1000
-        fmhdf = mhdf.ix[mhdf.index.year == 2017]
-        mhdf = mhdf.ix[mhdf.index.year == 2016]
-        perc = pd.DataFrame.from_dict({"perc": mhdf.values.ravel()/mhdf.sum()})
-        perc = perc.set_index(mhdf.index)
-        p = []
-        for d in dr:
-            drm = d.month
-            dry = d.year
-            strm = str(drm) if len(str(drm)) > 1 else "0" + str(drm)  
-            if drm == 1 and dry == 2016:
-                All = All116
-            elif drm == 2 and dry == 2016:
-                All = All216
-            elif drm == 3 and dry == 2016:
-                All = All316
-            elif drm == 4 and dry == 2016:
-                All = All416
-            elif drm == 5 and dry == 2016:
-                All = All516
-            elif drm == 6 and dry == 2016:
-                All = All616
-            elif drm == 7 and dry == 2016:
-                All = All716
-            elif drm == 8 and dry == 2016:
-                All = All816
-            elif drm == 9 and dry == 2016:
-                All = All916
-            elif drm == 10 and dry == 2016:
-                All = All1016
-            elif drm == 11 and dry == 2016:
-                All = All1116
-            elif drm == 12 and dry == 2016:
-                All = All1216
-            else:
-                pass
-            All2 = All.ix[All["Trattamento_"+ strm] == 'O']
-            cons = 0
-            tot_mese = 0
-            if All2["CONSUMO_TOT"].ix[All2["POD"] == pod].shape[0] > 0:
-                cons = All2["CONSUMO_TOT"].ix[All2["POD"] == pod].values.ravel()[0]/1000
-                if perc["perc"].ix[perc.index.month == drm].shape[0] > 0:
-                    tot_mese = cons * perc["perc"].ix[perc.index.month == drm].values.ravel()[0]
-            if drm in [1, 2, 3, 4]:            
-                if fmhdf.ix[fmhdf.index.month == drm].shape[0] > 0:
-                    p.append(tot_mese - fmhdf.ix[fmhdf.index.month == drm].values.ravel()[0])
-            else: 
-                pass
-            
-        diz[pod] = p
-    diz = pd.DataFrame.from_dict(diz, orient = 'index')
-    diz.columns = [["diff_01", "diff_02", "diff_03", "diff_04"]]
-    return diz
-#################################################################################################### 
 def podwiseForecast(db, meteo, zona):
     removed = []
     fdf = OrderedDict()
@@ -782,12 +751,7 @@ imb_axo.sum()
 imb_axo.to_excel("C:/Users/utente/Documents/Sbilanciamento/Backtesting/sbilanciamento_axo_" + zona + ".xlsx")
 
 #######
-check_nord = CheckOnConsumption(DB, "NORD")
-check_cnord = CheckOnConsumption(DB, "CNOR")
-check_csud = CheckOnConsumption(DB, "CSUD")
-check_sud = CheckOnConsumption(DB, "SUD")
-check_sici = CheckOnConsumption(DB, "SICI")
-check_sard = CheckOnConsumption(DB, "SARD")
+
 
 ###### podwise forecast
 
@@ -939,8 +903,15 @@ yth = yth.set_index(DBTH.index)
 yth.plot(color = 'orchid')
 
 yth.ix[yth.index.date >= datetime.date(2017,5,18)].to_excel(zona + "_previsionew_2017-05-23.xlsx")
-
+##########################
 brfn = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+
+params = {'n_estimators': 500, 'max_depth': 48, 'min_samples_split': 2,
+          'learning_rate': 0.01, 'loss': 'ls', 'criterion': 'friedman_mse'}
+gbm = GradientBoostingRegressor(**params)
+
+gbm.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain[DBNtrain.columns[61]])
+mse = mean_squared_error(DBNtrain[DBNtrain.columns[61]], gbm.predict(DBNtrain[DBNtrain.columns[:61]]))
 
 brfn.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain[DBNtrain.columns[61]])
 yhat_train_n = brfn.predict(DBNtrain[DBNtrain.columns[:61]])
