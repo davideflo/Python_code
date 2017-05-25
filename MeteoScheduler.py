@@ -10,6 +10,7 @@ Meteo Scheduler
 import datetime
 import threading
 
+
 ####################################################################################################
 def Executer():
     execfile('NewMeteoExecuter.py')
@@ -34,14 +35,18 @@ secs = 3600*24
 secs2 = 3600*48
 secs3 = 3600*72    
 secs4 = 3600*96
+secs5 = 3600*120
 
 
 T1 = threading.Timer(secs, Executer)
 T2 = threading.Timer(secs2, Executer)
 T3 = threading.Timer(secs3, Executer)
 T4 = threading.Timer(secs4, Executer)
+T5 = threading.Timer(secs5, Executer)
+
 
 T1.start()
 T2.start()
 T3.start()
 T4.start()
+T5.start()

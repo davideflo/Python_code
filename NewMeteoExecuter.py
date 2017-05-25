@@ -14,8 +14,14 @@ if __name__ == '__main__':
     import NewMeteoExtractor
     import datetime
     import EE_interp
+    from pyper import *
     
-    
+    r = R("C://Program Files//R//R-3.3.3//bin//R")
+    r.run("library(webshot)")
+    r.run("today <- Sys.Date()")
+    r.run("path_to_save <- paste0('C:/Users/utente/Documents/prova/', as.character(today),'.png')")
+    r.run("webshot('http://www.terna.it/DesktopModules/GraficoTerna/GraficoTernaEsteso/ctlGraficoTerna.aspx?sLang=it-IT', path_to_save)")
+    r.run("print('FATTO')")    
     
     today = datetime.datetime.today()
     
@@ -47,3 +53,5 @@ if __name__ == '__main__':
         
         
     EE_interp.Extract_Dataset(path)
+    
+    
