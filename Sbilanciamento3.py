@@ -222,7 +222,7 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
 #### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
 #### every day will have a dummy variable representing it
     #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
-    future = datetime.datetime.now() + datetime.timedelta(days = time_delta)
+    future = datetime.datetime.now() + datetime.timedelta(days = time_delta + 1)
     strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
     strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
     final_date = str(future.year) + '-' + strm + '-' + strd
@@ -511,6 +511,22 @@ ca = ca6.append(ca7)
 ######### mean behaviour per month ############                 ####################################
 cd = convertDates(nord['DATA RIFERIMENTO CORRISPETTIVO'])
 nord = nord.set_index(cd.values)
+
+cd = convertDates(cnord['DATA RIFERIMENTO CORRISPETTIVO'])
+cnord = cnord.set_index(cd.values)
+
+cd = convertDates(csud['DATA RIFERIMENTO CORRISPETTIVO'])
+csud = csud.set_index(cd.values)
+
+cd = convertDates(sud['DATA RIFERIMENTO CORRISPETTIVO'])
+sud = sud.set_index(cd.values)
+
+cd = convertDates(sici['DATA RIFERIMENTO CORRISPETTIVO'])
+sici = sici.set_index(cd.values)
+
+cd = convertDates(sard['DATA RIFERIMENTO CORRISPETTIVO'])
+sard = sard.set_index(cd.values)
+
 df_t = transform_df(nord)
 df_t = df_t.set_index(pd.date_range('2016-01-01', '2017-04-01', freq = 'D'))
 df_t.resample('M').mean().T.plot()
@@ -524,6 +540,12 @@ DBB = MakeExtendedDatasetWithSampleCurve(sud, DB, rc, "SUD")
 DBB = MakeExtendedDatasetWithSampleCurve(sici, DB, pa, "SICI")
 DBB = MakeExtendedDatasetWithSampleCurve(sard, DB, ca, "SARD")
 
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/nord.h5', 'nord')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/cnord.h5', 'cnord')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/csud.h5', 'csud')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5', 'sud')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5', 'sici')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5', 'sard')
 #### check on holidays ####
 feste = DBB.ix[DBB['holiday'] == 1].index
 feste = set(feste.tolist())
@@ -533,6 +555,11 @@ train2 = DBB.ix[DBB.index.date < datetime.date(2017, 1, 1)]
 train = DBB.sample(frac = 1)
 test = DBB.ix[DBB.index.date > datetime.date(2016, 12, 31)]
 test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
+
+
+train = train.ix[train.index.date != datetime.date(2016,3,27)]
+train = train.ix[train.index.date != datetime.date(2016,10,30)]
+train = train.ix[train.index.date != datetime.date(2017,3,26)]
 
 ###### check to see if the initial error is due to the model or some other pecularity
 ###### happened in January 2017
@@ -873,6 +900,13 @@ DBtrain = DBB.sample(frac = 1)
 DBHtrain = DBH.sample(frac = 1)
 DBNtrain = DBN.sample(frac = 1)
 
+### for the moment remove the date-change days --> prevents from giving 'setting an array element with a sequence' error
+
+DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2016,3,27)]
+DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2016,10,30)]
+DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2017,3,26)]
+
+
 DBT = MakeForecastDataset(DB, mi2017, "NORD")
 DBT = MakeForecastDataset(DB, fi2017, "CNOR")
 DBT = MakeForecastDataset(DB, ro2017, "CSUD")
@@ -910,10 +944,12 @@ params = {'n_estimators': 500, 'max_depth': 48, 'min_samples_split': 2,
           'learning_rate': 0.01, 'loss': 'ls', 'criterion': 'friedman_mse'}
 gbm = GradientBoostingRegressor(**params)
 
-gbm.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain[DBNtrain.columns[61]])
+gbm.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain['y'])
 mse = mean_squared_error(DBNtrain[DBNtrain.columns[61]], gbm.predict(DBNtrain[DBNtrain.columns[:61]]))
+yg_train_n = gbm.predict(DBNtrain[DBNtrain.columns[:61]])
 
-brfn.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain[DBNtrain.columns[61]])
+
+brfn.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain['y'])
 yhat_train_n = brfn.predict(DBNtrain[DBNtrain.columns[:61]])
 
 rfR2n = 1 - (np.sum((DBNtrain[DBNtrain.columns[61]] - yhat_train_n)**2))/(np.sum((DBNtrain[DBNtrain.columns[61]] - np.mean(DBNtrain[DBNtrain.columns[61]]))**2))
@@ -925,7 +961,7 @@ ytn = pd.DataFrame.from_dict({'pred': yhat_test_n.tolist()})
 ytn = ytn.set_index(DBTN.index)
 ytn.plot(color = 'dimgrey')
 
-ytn.ix[ytn.index.date >= datetime.date(2017,5,18)].to_excel(zona + "_previsione_2017-05-23.xlsx")
+ytn.to_excel(zona + "_previsione_2017-05-23.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
@@ -968,3 +1004,18 @@ plt.plot(DBB['y'].values.ravel())
 DBT['holiday'].ix[datetime.date(2017,4,16)]
 
 pd.DataFrame.from_dict({'previsione': yhat_test[-24:].tolist()}).to_excel('C:/Users/utente/Documents/previsione_2017-05-17.xlsx')
+
+Y = DBB['y'].astype(float)#.values.ravel()
+U = np.repeat(0.0, Y.size)
+U = U + Y
+Y = []
+for i in range(DBB.shape[0]):
+    if DBB['y'].ix[i].size == 1:
+        Y.append(float(DBB['y'].ix[i]))
+    else:
+        Y.append(float(DBB['y'].ix[i].sum()))
+
+plt.figure()
+plt.plot(Y[2831:3576])
+plt.axvline(x = 2831, color = 'black',  linewidth=2.0)
+plt.axvline(x = 3575, color = 'black',  linewidth=2.0)
