@@ -230,7 +230,7 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     psample = psample.set_index(pd.date_range('2017-05-01', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
     dr = pd.date_range('2017-05-01', final_date, freq = 'H')
-    for i in dr[2*24:]:
+    for i in dr[2*24:dr.size-1]:
         ll = []        
         hvector = np.repeat(0, 24)
         dvector = np.repeat(0, 7)
@@ -546,6 +546,14 @@ DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/csud.h5', 'csud')
 DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5', 'sud')
 DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5', 'sici')
 DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5', 'sard')
+
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/nord.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/cnord.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/csud.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5')
+
 #### check on holidays ####
 feste = DBB.ix[DBB['holiday'] == 1].index
 feste = set(feste.tolist())
