@@ -82,6 +82,20 @@ def AddHolidaysDate(vd):
   
     return holidays
 ####################################################################################################
+def StartsDaylightSaving(vd):
+    dls = 0
+    DLS = [datetime.date(2016,10,30), datetime.date(2017,10,29)]
+    if vd in DLS:
+        dls = 1
+    return dls
+####################################################################################################
+def EndsDaylightSaving(vd):
+    dls = 0
+    DLS = [datetime.date(2016,3,27), datetime.date(2017,3,26)]
+    if vd in DLS:
+        dls = 1
+    return dls
+####################################################################################################
 def GetMeanCurve(df, var):
     mc = OrderedDict()
     for y in [2015, 2016]:
@@ -139,6 +153,8 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     dts = OrderedDict()
     df = df.ix[df.index.date >= datetime.date(2016,1,3)]
     for i in df.index.tolist():
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
         ll = []        
         hvector = np.repeat(0, 24)
         dvector = np.repeat(0, 7)
@@ -158,14 +174,20 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
         ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
         ll.extend(dvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0]])
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], dls, edls])
         ll.extend(cmym.tolist())
-        ll.extend([df['MO [MWh]'].ix[i]])
+        if df.ix[i].shape[0] > 1:
+            y = df['MO [MWh]'].ix[i].sum()
+        elif df.ix[i].shape[0] == 0:
+            y = 0
+        else:
+            y = df['MO [MWh]'].ix[i]
+        ll.extend([y])
         dts[i] =  ll
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
     dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','holiday','perc',
+    'pday','tmax','pioggia','vento','holiday','perc','daylightsaving','endsdaylightsaving',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
@@ -226,11 +248,13 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
     strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
     final_date = str(future.year) + '-' + strm + '-' + strd
-    psample = percentageConsumption(db, zona, '2017-05-01',final_date)
-    psample = psample.set_index(pd.date_range('2017-05-01', final_date, freq = 'D')[:psample.shape[0]])
+    psample = percentageConsumption(db, zona, '2017-05-25',final_date)
+    psample = psample.set_index(pd.date_range('2017-05-25', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
-    dr = pd.date_range('2017-05-01', final_date, freq = 'H')
+    dr = pd.date_range('2017-05-25', final_date, freq = 'H')
     for i in dr[2*24:dr.size-1]:
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
         ll = []        
         hvector = np.repeat(0, 24)
         dvector = np.repeat(0, 7)
@@ -250,13 +274,13 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
         ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
         ll.extend(dvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0]])
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], dls, edls])
         ll.extend(cmym.tolist())
         dts[i] =  ll
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
     dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','holiday','perc',
+    'pday','tmax','pioggia','vento','holiday','perc','daylightsaving','endsdaylightsaving',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23']]
     return dts
 ####################################################################################################
@@ -532,6 +556,21 @@ df_t = df_t.set_index(pd.date_range('2016-01-01', '2017-04-01', freq = 'D'))
 df_t.resample('M').mean().T.plot()
 
 ###############################################                 ####################################
+###############################################
+DBB1 = MakeExtendedDatasetWithSampleCurve(nord, DB, mi, "NORD")
+DBB2 = MakeExtendedDatasetWithSampleCurve(cnord, DB, fi, "CNOR")
+DBB3 = MakeExtendedDatasetWithSampleCurve(csud, DB, ro, "CSUD")
+DBB4 = MakeExtendedDatasetWithSampleCurve(sud, DB, rc, "SUD")
+DBB5 = MakeExtendedDatasetWithSampleCurve(sici, DB, pa, "SICI")
+DBB6 = MakeExtendedDatasetWithSampleCurve(sard, DB, ca, "SARD")
+
+DBB1.to_hdf('C:/Users/utente/Documents/Sbilanciamento/nord.h5', 'nord')
+DBB2.to_hdf('C:/Users/utente/Documents/Sbilanciamento/cnord.h5', 'cnord')
+DBB3.to_hdf('C:/Users/utente/Documents/Sbilanciamento/csud.h5', 'csud')
+DBB4.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5', 'sud')
+DBB5.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5', 'sici')
+DBB6.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5', 'sard')
+###############################################
 
 DBB = MakeExtendedDatasetWithSampleCurve(nord, DB, mi, "NORD")
 DBB = MakeExtendedDatasetWithSampleCurve(cnord, DB, fi, "CNOR")
@@ -546,14 +585,6 @@ DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/csud.h5', 'csud')
 DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5', 'sud')
 DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5', 'sici')
 DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5', 'sard')
-
-DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/nord.h5')
-DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/cnord.h5')
-DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/csud.h5')
-DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5')
-DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5')
-DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5')
-
 #### check on holidays ####
 feste = DBB.ix[DBB['holiday'] == 1].index
 feste = set(feste.tolist())
@@ -585,20 +616,20 @@ ffregr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth =
 
 brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
 
-brf.fit(train[train.columns[:61]], train[train.columns[61]])
-yhat_train = brf.predict(train2[train2.columns[:61]])
+brf.fit(train[train.columns[:63]], train[train.columns[63]])
+yhat_train = brf.predict(train2[train2.columns[:63]])
 
-rfR2 = 1 - (np.sum((train2[train2.columns[61]] - yhat_train)**2))/(np.sum((train2[train2.columns[61]] - np.mean(train2[train2.columns[61]]))**2))
+rfR2 = 1 - (np.sum((train2[train2.columns[63]] - yhat_train)**2))/(np.sum((train2[train2.columns[63]] - np.mean(train2[train2.columns[63]]))**2))
 print rfR2
 
 
-yhat_test = brf.predict(test[test.columns[:61]])
-rfR2_test = 1 - (np.sum((test[test.columns[61]] - yhat_test)**2))/(np.sum((test[test.columns[61]] - np.mean(test[test.columns[61]]))**2))
+yhat_test = brf.predict(test[test.columns[:63]])
+rfR2_test = 1 - (np.sum((test[test.columns[63]] - yhat_test)**2))/(np.sum((test[test.columns[63]] - np.mean(test[test.columns[63]]))**2))
 print rfR2_test
 
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o')
-plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = '+')
+plt.plot(test[test.columns[63]].values.ravel(), color = 'red', marker = '+')
 
 #### graphical comparison with k2e
 nk2e = k2e["NORD"]/1000
@@ -617,57 +648,57 @@ tsak2e = sak2e.ix[sak2e.index < datetime.datetime(2017,4,1)]
 
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
-plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(test[test.columns[63]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tnk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
 plt.title("Forecast zona NORD")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
-plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(test[test.columns[63]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tcnk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
 plt.title("Forecast zona CNORD")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
-plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(test[test.columns[63]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tcsk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
 plt.title("Forecast zona CSUD")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
-plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(test[test.columns[63]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tsk2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
 plt.title("Forecast zona SUD")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
-plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(test[test.columns[63]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tsik2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
 plt.title("Forecast zona SICI")
 ##############################
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o', label = 'Axopower')
-plt.plot(test[test.columns[61]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
+plt.plot(test[test.columns[63]].values.ravel(), color = 'red', marker = 'x', label = 'Terna')
 plt.plot(tsak2e.values.ravel(), color = 'black', marker = '8', label = 'K2E')
 plt.legend(loc = 'upper left')
 plt.title("Forecast zona SARD")
 ##############################
 
 
-error = test[test.columns[61]].values.ravel() - yhat_test    
+error = test[test.columns[63]].values.ravel() - yhat_test    
 
 
-k2e_error = test[test.columns[61]].values.ravel() - tnk2e.values.ravel()[:tnk2e.values.ravel().size - 1] 
-k2e_error = test[test.columns[61]].values.ravel() - tcnk2e.values.ravel()[:tcnk2e.values.ravel().size - 1]     
-k2e_error = test[test.columns[61]].values.ravel() - tcsk2e.values.ravel()[:tcsk2e.values.ravel().size - 1]     
-k2e_error = test[test.columns[61]].values.ravel() - tsk2e.values.ravel()[:tsk2e.values.ravel().size - 1]     
-k2e_error = test[test.columns[61]].values.ravel() - tsik2e.values.ravel()[:tsik2e.values.ravel().size - 1]     
-k2e_error = test[test.columns[61]].values.ravel() - tsak2e.values.ravel()[:tsak2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[63]].values.ravel() - tnk2e.values.ravel()[:tnk2e.values.ravel().size - 1] 
+k2e_error = test[test.columns[63]].values.ravel() - tcnk2e.values.ravel()[:tcnk2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[63]].values.ravel() - tcsk2e.values.ravel()[:tcsk2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[63]].values.ravel() - tsk2e.values.ravel()[:tsk2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[63]].values.ravel() - tsik2e.values.ravel()[:tsik2e.values.ravel().size - 1]     
+k2e_error = test[test.columns[63]].values.ravel() - tsak2e.values.ravel()[:tsak2e.values.ravel().size - 1]     
 
 print np.mean(k2e_error)
 print np.median(k2e_error)
@@ -682,8 +713,8 @@ plt.hist(k2e_error, bins = 20, color = 'green')
 plt.figure() 
 plt.hist(error, bins = 20)   
 
-maek2 = k2e_error/test[test.columns[61]].values.ravel()
-mae = error/test[test.columns[61]].values.ravel()
+maek2 = k2e_error/test[test.columns[63]].values.ravel()
+mae = error/test[test.columns[63]].values.ravel()
 
 print np.mean(maek2)
 print np.median(maek2)
@@ -886,6 +917,15 @@ plt.axhline(y = -0.15)
 ################################
 ######## Test on May 2017 ######
 ################################
+
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/nord.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/cnord.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/csud.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5')
+
+
 mi2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Milano.xlsx')
 mi2017 = mi2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
 fi2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Firenze.xlsx')
@@ -924,7 +964,6 @@ DBT = MakeForecastDataset(DB, ca2017, "SARD")
 
 
 #DBT = DBT.ix[DBT.index.date < datetime.date(2017,5,20)]
-DBT = DBT.ix[DBT.index.date > datetime.date(2017,3,31)]
 
 DBTH =  DBT.ix[DBT['holiday'] == 1]
 DBTN =  DBT.ix[DBT['holiday'] == 0]
@@ -932,10 +971,10 @@ DBTN =  DBT.ix[DBT['holiday'] == 0]
 ################################ Separation holiday/non-holidays ###################################
 brfh = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
 
-brfh.fit(DBHtrain[DBHtrain.columns[:61]], DBHtrain[DBHtrain.columns[61]])
-yhat_train_h = brfh.predict(DBHtrain[DBHtrain.columns[:61]])
+brfh.fit(DBHtrain[DBHtrain.columns[:63]], DBHtrain[DBHtrain.columns[63]])
+yhat_train_h = brfh.predict(DBHtrain[DBHtrain.columns[:63]])
 
-rfR2H = 1 - (np.sum((DBHtrain[DBHtrain.columns[61]] - yhat_train_h)**2))/(np.sum((DBHtrain[DBHtrain.columns[61]] - np.mean(DBHtrain[DBHtrain.columns[61]]))**2))
+rfR2H = 1 - (np.sum((DBHtrain[DBHtrain.columns[63]] - yhat_train_h)**2))/(np.sum((DBHtrain[DBHtrain.columns[63]] - np.mean(DBHtrain[DBHtrain.columns[63]]))**2))
 print rfR2H
 
 yhat_test_h = brfh.predict(DBTH)
@@ -952,15 +991,15 @@ params = {'n_estimators': 500, 'max_depth': 48, 'min_samples_split': 2,
           'learning_rate': 0.01, 'loss': 'ls', 'criterion': 'friedman_mse'}
 gbm = GradientBoostingRegressor(**params)
 
-gbm.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain['y'])
-mse = mean_squared_error(DBNtrain[DBNtrain.columns[61]], gbm.predict(DBNtrain[DBNtrain.columns[:61]]))
-yg_train_n = gbm.predict(DBNtrain[DBNtrain.columns[:61]])
+gbm.fit(DBNtrain[DBNtrain.columns[:63]], DBNtrain['y'])
+mse = mean_squared_error(DBNtrain[DBNtrain.columns[63]], gbm.predict(DBNtrain[DBNtrain.columns[:63]]))
+yg_train_n = gbm.predict(DBNtrain[DBNtrain.columns[:63]])
 
 
-brfn.fit(DBNtrain[DBNtrain.columns[:61]], DBNtrain['y'])
-yhat_train_n = brfn.predict(DBNtrain[DBNtrain.columns[:61]])
+brfn.fit(DBNtrain[DBNtrain.columns[:63]], DBNtrain['y'])
+yhat_train_n = brfn.predict(DBNtrain[DBNtrain.columns[:63]])
 
-rfR2n = 1 - (np.sum((DBNtrain[DBNtrain.columns[61]] - yhat_train_n)**2))/(np.sum((DBNtrain[DBNtrain.columns[61]] - np.mean(DBNtrain[DBNtrain.columns[61]]))**2))
+rfR2n = 1 - (np.sum((DBNtrain[DBNtrain.columns[63]] - yhat_train_n)**2))/(np.sum((DBNtrain[DBNtrain.columns[63]] - np.mean(DBNtrain[DBNtrain.columns[63]]))**2))
 print rfR2n
 
 yhat_test_n = brfn.predict(DBTN)
@@ -969,7 +1008,9 @@ ytn = pd.DataFrame.from_dict({'pred': yhat_test_n.tolist()})
 ytn = ytn.set_index(DBTN.index)
 ytn.plot(color = 'dimgrey')
 
-ytn.to_excel(zona + "_previsione_2017-05-23.xlsx")
+zona = "SARD"
+
+ytn.to_excel(zona + "_previsione_2017-05-30.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
