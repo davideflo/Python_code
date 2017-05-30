@@ -248,10 +248,10 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
     strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
     final_date = str(future.year) + '-' + strm + '-' + strd
-    psample = percentageConsumption(db, zona, '2017-05-25',final_date)
-    psample = psample.set_index(pd.date_range('2017-05-25', final_date, freq = 'D')[:psample.shape[0]])
+    psample = percentageConsumption(db, zona, '2017-05-26',final_date)
+    psample = psample.set_index(pd.date_range('2017-05-26', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
-    dr = pd.date_range('2017-05-25', final_date, freq = 'H')
+    dr = pd.date_range('2017-05-26', final_date, freq = 'H')
     for i in dr[2*24:dr.size-1]:
         dls = StartsDaylightSaving(i.date())
         edls = EndsDaylightSaving(i.date())
@@ -728,6 +728,23 @@ print np.std(mae)
 print np.max(mae)
 print np.min(mae)
 
+###### ABSOLUTE ERRORS ########
+amaek2 = np.abs(k2e_error)/test[test.columns[63]].values.ravel()
+amae = np.abs(error)/test[test.columns[63]].values.ravel()
+
+print np.mean(amaek2)
+print np.median(amaek2)
+print np.std(amaek2)
+print np.max(amaek2)
+print np.min(amaek2)
+
+print np.mean(amae)
+print np.median(amae)
+print np.std(amae)
+print np.max(amae)
+print np.min(amae)
+##############################
+
 print scipy.stats.mstats.mquantiles(maek2, prob = [0.025, 0.975])
 print scipy.stats.mstats.mquantiles(mae, prob = [0.025, 0.975])
 
@@ -950,9 +967,9 @@ DBNtrain = DBN.sample(frac = 1)
 
 ### for the moment remove the date-change days --> prevents from giving 'setting an array element with a sequence' error
 
-DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2016,3,27)]
-DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2016,10,30)]
-DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2017,3,26)]
+#DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2016,3,27)]
+#DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2016,10,30)]
+#DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2017,3,26)]
 
 
 DBT = MakeForecastDataset(DB, mi2017, "NORD")
@@ -1010,7 +1027,7 @@ ytn.plot(color = 'dimgrey')
 
 zona = "SARD"
 
-ytn.to_excel(zona + "_previsione_2017-05-30.xlsx")
+ytn.to_excel(zona + "_previsione_2017-05-31.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
