@@ -248,10 +248,10 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
     strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
     final_date = str(future.year) + '-' + strm + '-' + strd
-    psample = percentageConsumption(db, zona, '2017-05-26',final_date)
-    psample = psample.set_index(pd.date_range('2017-05-26', final_date, freq = 'D')[:psample.shape[0]])
+    psample = percentageConsumption(db, zona, '2017-05-30',final_date)
+    psample = psample.set_index(pd.date_range('2017-05-30', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
-    dr = pd.date_range('2017-05-26', final_date, freq = 'H')
+    dr = pd.date_range('2017-05-30', final_date, freq = 'H')
     for i in dr[2*24:dr.size-1]:
         dls = StartsDaylightSaving(i.date())
         edls = EndsDaylightSaving(i.date())
@@ -323,6 +323,100 @@ def MakeForecastPerPOD(db, meteo, pod, time_delta = 1):
     dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
     'pday','tmax','pioggia','vento','holiday',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23']]
+    return dts
+####################################################################################################
+def MakeDatasetLongTerm(df, db, meteo, zona, td):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
+#### every day will have a dummy variable representing it
+    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    final = max(df.index.date)
+    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
+    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
+    final_date = str(final.year) + '-' + strm + '-' + strd
+    psample = percentageConsumption(db, zona, '2016-01-01', final_date)
+    psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
+    dts = OrderedDict()
+    df = df.ix[df.index.date >= (datetime.date(2016,1,1) + datetime.timedelta(days = td))]
+    for i in df.index.tolist():
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
+        ll = []        
+        hvector = np.repeat(0, 24)
+        dvector = np.repeat(0, 7)
+        wd = i.weekday()        
+        cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        dvector[wd] = 1
+        h = i.hour
+        hvector[h] = 1
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
+        ll.extend(dvector.tolist())
+        ll.extend(hvector.tolist())        
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], dls, edls])
+        ll.extend(cmym.tolist())
+        if df.ix[i].shape[0] > 1:
+            y = df['MO [MWh]'].ix[i].sum()
+        elif df.ix[i].shape[0] == 0:
+            y = 0
+        else:
+            y = df['MO [MWh]'].ix[i]
+        ll.extend([y])
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
+    't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+    'pday','tmax','pioggia','vento','holiday','perc','daylightsaving','endsdaylightsaving',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
+    return dts
+####################################################################################################
+def MakeForecastLongTerm(db, meteo, zona, time_delta):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
+#### every day will have a dummy variable representing it
+    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    future = datetime.datetime.now() + datetime.timedelta(days = time_delta + 1)
+    strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
+    strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
+    final_date = str(future.year) + '-' + strm + '-' + strd
+    psample = percentageConsumption(db, zona, '2017-05-20',final_date)
+    psample = psample.set_index(pd.date_range('2017-05-20', final_date, freq = 'D')[:psample.shape[0]])
+    dts = OrderedDict()
+    dr = pd.date_range('2017-05-20', final_date, freq = 'H')
+    for i in dr[time_delta*24:dr.size-1]:
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
+        ll = []        
+        hvector = np.repeat(0, 24)
+        dvector = np.repeat(0, 7)
+        wd = i.weekday()        
+        td = time_delta
+        cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date() - datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        dvector[wd] = 1
+        h = i.hour
+        hvector[h] = 1
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        rain = meteo['pioggia'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        wind = meteo['vento'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
+        ll.extend(dvector.tolist())
+        ll.extend(hvector.tolist())        
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], dls, edls])
+        ll.extend(cmym.tolist())
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
+    't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+    'pday','tmax','pioggia','vento','holiday','perc','daylightsaving','endsdaylightsaving',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23']]
     return dts
 ####################################################################################################
@@ -571,6 +665,22 @@ DBB4.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5', 'sud')
 DBB5.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5', 'sici')
 DBB6.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5', 'sard')
 ###############################################
+###############################################
+DBB = MakeDatasetLongTerm(nord, DB, mi, "NORD", 5)
+DBB = MakeDatasetLongTerm(cnord, DB, fi, "CNOR",5)
+DBB = MakeDatasetLongTerm(csud, DB, ro, "CSUD",5)
+DBB = MakeDatasetLongTerm(sud, DB, rc, "SUD",5)
+DBB = MakeDatasetLongTerm(sici, DB, pa, "SICI",5)
+DBB = MakeDatasetLongTerm(sard, DB, ca, "SARD",5)
+
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/nord5.h5', 'nord')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/cnord5.h5', 'cnord')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/csud5.h5', 'csud')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sud5.h5', 'sud')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sici5.h5', 'sici')
+DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sard5.h5', 'sard')
+####################################################
+####################################################
 
 DBB = MakeExtendedDatasetWithSampleCurve(nord, DB, mi, "NORD")
 DBB = MakeExtendedDatasetWithSampleCurve(cnord, DB, fi, "CNOR")
@@ -956,6 +1066,28 @@ pa2017 = pa2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
 ca2017 = pd.read_excel('C:/Users/utente/Documents/meteo/Cagliari.xlsx')
 ca2017 = ca2017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
 
+############################
+mi52017 = pd.read_excel('C:/Users/utente/Documents/meteo/5-giorni/Milano.xlsx')
+mi52017 = mi52017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+fi52017 = pd.read_excel('C:/Users/utente/Documents/meteo/5-giorni/Firenze.xlsx')
+fi52017 = fi52017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+ro52017 = pd.read_excel('C:/Users/utente/Documents/meteo/5-giorni/Roma.xlsx')
+ro52017 = ro52017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+ba52017 = pd.read_excel('C:/Users/utente/Documents/meteo/5-giorni/Bari.xlsx')
+ba52017 = ba52017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+pa52017 = pd.read_excel('C:/Users/utente/Documents/meteo/5-giorni/Palermo.xlsx')
+pa52017 = pa52017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+ca52017 = pd.read_excel('C:/Users/utente/Documents/meteo/5-giorni/Cagliari.xlsx')
+ca52017 = ca52017[["Tmin", "Tmax", "Tmedia", "vento", "pioggia"]]
+
+DBT = MakeForecastLongTerm(DB, mi52017, "NORD",5)
+DBT = MakeForecastLongTerm(DB, fi52017, "CNOR",5)
+DBT = MakeForecastLongTerm(DB, ro52017, "CSUD",5)
+DBT = MakeForecastLongTerm(DB, ba52017, "SUD",5)
+DBT = MakeForecastLongTerm(DB, pa52017, "SICI",5)
+DBT = MakeForecastLongTerm(DB, ca52017, "SARD",5)
+###########################
+
 
 DBH = DBB.ix[DBB['holiday'] == 1]
 DBN = DBB.ix[DBB['holiday'] == 0]
@@ -964,12 +1096,6 @@ DBtrain = DBB.sample(frac = 1)
 
 DBHtrain = DBH.sample(frac = 1)
 DBNtrain = DBN.sample(frac = 1)
-
-### for the moment remove the date-change days --> prevents from giving 'setting an array element with a sequence' error
-
-#DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2016,3,27)]
-#DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2016,10,30)]
-#DBNtrain = DBNtrain.ix[DBNtrain.index.date != datetime.date(2017,3,26)]
 
 
 DBT = MakeForecastDataset(DB, mi2017, "NORD")
@@ -980,7 +1106,6 @@ DBT = MakeForecastDataset(DB, pa2017, "SICI")
 DBT = MakeForecastDataset(DB, ca2017, "SARD")
 
 
-#DBT = DBT.ix[DBT.index.date < datetime.date(2017,5,20)]
 
 DBTH =  DBT.ix[DBT['holiday'] == 1]
 DBTN =  DBT.ix[DBT['holiday'] == 0]
@@ -1000,7 +1125,7 @@ yth = pd.DataFrame.from_dict({'pred': yhat_test_h.tolist()})
 yth = yth.set_index(DBTH.index)
 yth.plot(color = 'orchid')
 
-yth.ix[yth.index.date >= datetime.date(2017,5,18)].to_excel(zona + "_previsionew_2017-05-23.xlsx")
+yth.to_excel("SUD_previsione_2017-06-02.xlsx")
 ##########################
 brfn = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
 
@@ -1025,9 +1150,9 @@ ytn = pd.DataFrame.from_dict({'pred': yhat_test_n.tolist()})
 ytn = ytn.set_index(DBTN.index)
 ytn.plot(color = 'dimgrey')
 
-zona = "SARD"
+zona = "CSUD"
 
-ytn.to_excel(zona + "_previsione_2017-05-31.xlsx")
+ytn.to_excel("SUD_previsione_2017-06-01.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
