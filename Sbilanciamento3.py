@@ -248,10 +248,10 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
     strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
     final_date = str(future.year) + '-' + strm + '-' + strd
-    psample = percentageConsumption(db, zona, '2017-05-30',final_date)
-    psample = psample.set_index(pd.date_range('2017-05-30', final_date, freq = 'D')[:psample.shape[0]])
+    psample = percentageConsumption(db, zona, '2017-05-19',final_date)
+    psample = psample.set_index(pd.date_range('2017-05-19', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
-    dr = pd.date_range('2017-05-30', final_date, freq = 'H')
+    dr = pd.date_range('2017-05-19', final_date, freq = 'H')
     for i in dr[2*24:dr.size-1]:
         dls = StartsDaylightSaving(i.date())
         edls = EndsDaylightSaving(i.date())
@@ -1150,9 +1150,8 @@ ytn = pd.DataFrame.from_dict({'pred': yhat_test_n.tolist()})
 ytn = ytn.set_index(DBTN.index)
 ytn.plot(color = 'dimgrey')
 
-zona = "CSUD"
 
-ytn.to_excel("SUD_previsione_2017-06-01.xlsx")
+ytn.to_excel("SUD_previsione_2017-05-26.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
