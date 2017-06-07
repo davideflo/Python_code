@@ -11,24 +11,43 @@ import pandas as pd
 import numpy as np
 from collections import OrderedDict
 import datetime
-
+import calendar
 
 ###############################################################################
 def GetData(pdos):
     diz = OrderedDict()
-    for i in range(pdos.shape[0]):
+    pods = list(set(pdos['Pod'].values.ravel().tolist()))
+    for i in pods:
         ll = []
-        pod = pdos['Pod'].ix[i]
-        dt = datetime.date(int(pdos['MeseAnno'].ix[i][3:]), int(pdos['MeseAnno'].ix[i][:2]), int(pdos['Ea'].ix[i]))
-        zona = pdos['PuntoDispacciamento'].ix[i]
-        ll.append(pod)
-        ll.append(dt)  
-        ll.append(zona)
-        vec = np.repeat(0.0, 24)
-        for h in range(24):
-            vec[h] = float(pdos[str(h) + '.A'].ix[i].replace(',','.')) + float(pdos[str(h) + '.B'].ix[i].replace(',','.')) + float(pdos[str(h) + '.C'].ix[i].replace(',','.')) + float(pdos[str(h) + '.D'].ix[i].replace(',','.')) 
-        ll.extend(vec.tolist())
-        diz[i] = ll
+        ATP = pdos.ix[pdos['Pod'] == i]
+        #ea = list(set(ATP['Ea'].values.ravel().tolist()))
+        meseanno = list(set(ATP['MeseAnno'].values.ravel().tolist()))
+        for ma in meseanno:
+            ATP2 = ATP.ix[ATP['MeseAnno'] == ma]
+            ea = range(1, calendar.monthrange(int(ma[3:]),  int(ma[:2]))[1])
+            for e in ea:
+                if e == 29 and int(ma[:2]) == 2:
+                    pass
+                else:
+                    ATP3 = ATP2.ix[ATP2['Ea'] == e]                
+                    if ATP3.shape[0] > 1:
+                        ATP4 = ATP3.ix[ATP3['CodFlusso'] == 'RFO']
+                    else:
+                        ATP4 = ATP3
+                    if ATP4.shape[0] > 0:
+                        dt = datetime.date(int(ma[3:]), int(ma[:2]), int(e))
+                        zona = ATP4['PuntoDispacciamento'].ix[ATP4['Pod'] == i]
+                        ll.append(i)
+                        ll.append(dt)  
+                        ll.append(zona)
+                        vec = np.repeat(0.0, 24)
+                        for h in range(24):
+                            vec[h] = (float(ATP4[str(h) + '.A'].ix[ATP4['Pod'] == i].values[0].replace(',','.')) + 
+                            float(ATP4[str(h) + '.B'].ix[ATP4['Pod'] == i].values[0].replace(',','.')) + 
+                            float(ATP4[str(h) + '.C'].ix[ATP4['Pod'] == i].values[0].replace(',','.')) + 
+                            float(ATP4[str(h) + '.D'].ix[ATP4['Pod'] == i].values[0].replace(',','.'))) 
+                        ll.extend(vec.tolist())
+                        diz[i] = ll
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [['Pod', 'DATA','zona','1','2','3','4','5','6','7','8','9','10','11','12','13',
                     '14','15','16','17','18','19',
