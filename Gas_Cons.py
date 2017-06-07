@@ -145,10 +145,10 @@ def DaConferire(l, prof, setmonth, pp):
         return l[0]
 ####################################################################################################
 
-doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170503 Report Fatturato Gas_Marzo.xlsx'
+doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170530 Report Fatturato Gas_Aprile.xlsx'
 #doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
 doc2 = 'Z:/AREA ENERGY MANAGEMENT GAS/ESITI TRASPORTATORI/Report 218_Anagrafica Clienti.xls'
-doc3 = 'Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1705/Anagrafica TIS EVOLUTION.xlsm'
+doc3 = 'Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1706/Anagrafica TIS EVOLUTION.xlsm'
 
 
 df181 = pd.read_excel(doc1, sheetname = 'Report fatturato GAS', skiprows = [0,1], converters={'PDR': str,'REMI': str,
@@ -258,13 +258,15 @@ if resdf['DA CONFERIRE'].ix[resdf['DA CONFERIRE'] == 0].values.size > 0:
 else:
     print 'tutti i PDR hanno valori da conferire'
 ####################################################################################################
+### capacity constraint (=> 5) on REMI, not PDR
+####################################################################################################
 resdf.to_excel('C:/Users/d_floriello/GasCapacity/ConsumiStimati.xlsx')
 
 #resdf = pd.read_excel('Trasferimenti_clean2.xlsx', converters = {'PDR': str,'REMI': str})
                   
 ####### aggregazione capacità per trasportatore
-trasp = pd.read_excel('Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\DB Trasportatori.xlsx', skiprows = [0,1,2,3,4,5])
-trasp = trasp[trasp.columns[-2:]]
+trasp = pd.read_excel('Z:\AREA ENERGY MANAGEMENT GAS\ESITI TRASPORTATORI\DB Trasportatori.xlsx', skiprows = [0,1,2,3,4,5], converters={0: str, 6: str})
+trasp = trasp[[0,6]]
 trasp = trasp.dropna()
 trasp.columns = [['REMI', 'AREA']]
 trasp = trasp.ix[trasp['AREA'] != '0']
@@ -409,7 +411,6 @@ variazioni = [f for f in others if 'Variazioni' in f][0]
 rgb = pd.read_excel(directory + '/' + base[0], converters = {'PdrLogico': str}, skiprows = [0,1,2,3,4,5,6,8]) 
 remi_rg = list(set(rgb['PdrLogico'].values.tolist()))
     
-    
 Rg = OrderedDict()
 for rg in remi_rg:
     index_rs = remi_rg.index(rg)
@@ -444,11 +445,12 @@ for of in others:
             print rr
             if rr != '' and str(rr) != 'nan':
                 cap = 0
-                if 'INCR' in of:
-                    if df['Esito'].ix[i] > 0:
-                        cap = df['capacita'].ix[i] 
-                else:
-                    cap = df['capacita'].ix[i]
+#                if 'INCR' in of:
+#                    if df['Esito'].ix[i] > 0:
+#                        cap = df['CapacitaRichiesta'].ix[i] 
+#                else:
+#                    cap = df['CapacitaRichiesta'].ix[i]
+                cap = df['CapacitaRichiesta'].ix[i]
                 atr = [rr, 'M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0]]
                 atr.extend(GenerateCapacity(cap, int(m)).tolist())
                 newremi[g_i] = atr
@@ -515,20 +517,36 @@ g_i = 0
 newremi = OrderedDict()
 for of in others:
     print of    
-    df = pd.read_excel(directory + '/' + of, converters = {'PUNTO DI RICONSEGNA': str})
-    df.columns = [unidecode.unidecode(x) for x in df.columns.tolist()]
-    for i in range(df.shape[0]):
-        print i
-        g_i += 1
-        rr = df['PUNTO DI RICONSEGNA'].ix[i]
-        m = str(df["DATA DI INIZIO VALIDITA' DELLA CAPACITA' RICHIESTA"].ix[i].month)
-        if rr != '' and str(rr) != 'nan':
-                atr = []
-                atr.append(rr)
-                atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
-                up = df["CAPACITA'\nOTTENUTA\n(Sm3/g)"].ix[i]
-                atr.extend(GenerateCapacity(up, int(m)))
-                newremi[g_i] = atr
+    if 'TRASPASS' not in of:
+        df = pd.read_excel(directory + '/' + of, converters = {'PUNTO DI RICONSEGNA': str})
+        df.columns = [unidecode.unidecode(x) for x in df.columns.tolist()]
+        for i in range(df.shape[0]):
+            print i
+            g_i += 1
+            rr = df['PUNTO DI RICONSEGNA'].ix[i]
+            m = str(df["DATA DI INIZIO VALIDITA' DELLA CAPACITA' RICHIESTA"].ix[i].month)
+            if rr != '' and str(rr) != 'nan':
+                    atr = []
+                    atr.append(rr)
+                    atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
+                    up = df["CAPACITA'\nOTTENUTA\n(Sm3/g)"].ix[i]
+                    atr.extend(GenerateCapacity(up, int(m)))
+                    newremi[g_i] = atr
+    else:
+        df = pd.read_excel(directory + '/' + of, converters = {'PUNTO DI RICONSEGNA': str})
+        df.columns = [unidecode.unidecode(x) for x in df.columns.tolist()]
+        for i in range(df.shape[0]):
+            print i
+            g_i += 1
+            rr = df['PUNTO DI RICONSEGNA'].ix[i]
+            m = str(df["DATA DI INIZIO VALIDITA' DELLA CAPACITA' RICHIESTA"].ix[i].month)
+            if rr != '' and str(rr) != 'nan':
+                    atr = []
+                    atr.append(rr)
+                    atr.append('M_RN_' + trasp['AREA'].ix[trasp['REMI'] == rr].values.tolist()[0])
+                    up = -df["CAPACITA'\nTRASFERITA\n(Sm3/g)"].ix[i]
+                    atr.extend(GenerateCapacity(up, int(m)))
+                    newremi[g_i] = atr
 
 num_nuovi_remi_sgi = 0
 newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
