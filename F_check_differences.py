@@ -13,41 +13,57 @@ from collections import OrderedDict
 import datetime
 import calendar
 
+
+###############################################################################
+def ReduceDF(x):
+    X = [x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7]]
+    vec = np.repeat(0.0, 24)
+    for h in range(24):
+        vec[h] = (float(x[h+8].replace(',','.')) + float(x[h+9].replace(',','.')) + float(x[h+10].replace(',','.')) + float(x[h+11].replace(',','.')))
+    X.extend(vec.tolist())
+    return X
+###############################################################################
+def ToDF(pdos2):
+    diz = OrderedDict()
+    for i in range(pdos2.shape[0]):
+        diz[i] = pdos2.ix[i]
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    diz.columns = [['CodFlusso', 'Pod', 'MeseAnno', 'PuntoDispacciamento', 'Trattamento',
+                    'Tensione', 'PotMax', 'Ea', '1','2','3','4','5','6','7','8','9','10','11','12','13',
+                    '14','15','16','17','18','19',
+                    '20','21','22','23','24']]
+    return diz
 ###############################################################################
 def GetData(pdos):
     diz = OrderedDict()
     pods = list(set(pdos['Pod'].values.ravel().tolist()))
+    counter = 0
     for i in pods:
-        ll = []
+        print("avanzamento: {} %".format(pods.index(i)/len(pods)))
         ATP = pdos.ix[pdos['Pod'] == i]
         #ea = list(set(ATP['Ea'].values.ravel().tolist()))
         meseanno = list(set(ATP['MeseAnno'].values.ravel().tolist()))
         for ma in meseanno:
             ATP2 = ATP.ix[ATP['MeseAnno'] == ma]
             ea = range(1, calendar.monthrange(int(ma[3:]),  int(ma[:2]))[1])
-            for e in ea:
-                if e == 29 and int(ma[:2]) == 2:
-                    pass
+            for e in ea:                
+                ATP3 = ATP2.ix[ATP2['Ea'] == e]                
+                if ATP3.shape[0] > 1:
+                    ATP4 = ATP3.ix[ATP3['CodFlusso'] != 'PDO']
+                    ATP4 = ATP4.ix[max(ATP4.index)]
                 else:
-                    ATP3 = ATP2.ix[ATP2['Ea'] == e]                
-                    if ATP3.shape[0] > 1:
-                        ATP4 = ATP3.ix[ATP3['CodFlusso'] == 'RFO']
-                    else:
-                        ATP4 = ATP3
-                    if ATP4.shape[0] > 0:
-                        dt = datetime.date(int(ma[3:]), int(ma[:2]), int(e))
-                        zona = ATP4['PuntoDispacciamento'].ix[ATP4['Pod'] == i]
-                        ll.append(i)
-                        ll.append(dt)  
-                        ll.append(zona)
-                        vec = np.repeat(0.0, 24)
-                        for h in range(24):
-                            vec[h] = (float(ATP4[str(h) + '.A'].ix[ATP4['Pod'] == i].values[0].replace(',','.')) + 
-                            float(ATP4[str(h) + '.B'].ix[ATP4['Pod'] == i].values[0].replace(',','.')) + 
-                            float(ATP4[str(h) + '.C'].ix[ATP4['Pod'] == i].values[0].replace(',','.')) + 
-                            float(ATP4[str(h) + '.D'].ix[ATP4['Pod'] == i].values[0].replace(',','.'))) 
-                        ll.extend(vec.tolist())
-                        diz[i] = ll
+                    ATP4 = ATP3
+                if ATP4.shape[0] > 0:
+                    ll = []
+                    dt = datetime.date(int(ma[3:]), int(ma[:2]), int(e))
+                    zona = ATP4['PuntoDispacciamento']#.values[0]
+                    ll.append(i)
+                    ll.append(dt)  
+                    ll.append(zona)
+                    vec = ATP4.values.ravel()[8:]
+                    ll.extend(vec.tolist())
+                    diz[counter] = ll
+                    counter += 1
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [['Pod', 'DATA','zona','1','2','3','4','5','6','7','8','9','10','11','12','13',
                     '14','15','16','17','18','19',
@@ -76,6 +92,7 @@ terna = pd.read_excel("C:/users/d_floriello/Documents/aggregato_sbilanciamento2.
 pdos = pd.read_excel("C:/users/d_floriello/Desktop/XML_Importer.xlsm")
 
 pdos.to_hdf("C:/users/d_floriello/Desktop/pdos.h5", "PDO")
+pdos = pd.read_hdf("C:/users/d_floriello/Desktop/pdos.h5")
 
 cl = [x for x in pdos.columns[:8].tolist()]
 for h in range(24):
@@ -86,7 +103,10 @@ for h in range(24):
 pdos.columns = cl
 
 pdos = pdos.fillna(value = '0,0')
-Pdo = GetData(pdos)
+
+pdos2 = pdos.apply(ReduceDF, axis = 1)
+pdos3 = ToDF(pdos2)
+Pdo = GetData(pdos3)
 
 Pdo = Pdo.ix[Pdo['DATA'] > datetime.date(2016,12,31)]
 Pdo = Pdo.ix[Pdo['CodFlusso'] == 'PDO']
