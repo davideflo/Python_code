@@ -649,6 +649,14 @@ df_t = transform_df(nord)
 df_t = df_t.set_index(pd.date_range('2016-01-01', '2017-04-01', freq = 'D'))
 df_t.resample('M').mean().T.plot()
 
+####################################################################################################
+####################################################################################################
+print np.where(np.diff(nord['MO [MWh]']) >= 0)[0].size/np.diff(nord['MO [MWh]']).size
+print np.where(np.diff(cnord['MO [MWh]']) >= 0)[0].size/np.diff(cnord['MO [MWh]']).size
+print np.where(np.diff(csud['MO [MWh]']) >= 0)[0].size/np.diff(csud['MO [MWh]']).size
+print np.where(np.diff(sud['MO [MWh]']) >= 0)[0].size/np.diff(sud['MO [MWh]']).size
+print np.where(np.diff(sici['MO [MWh]']) >= 0)[0].size/np.diff(sici['MO [MWh]']).size
+print np.where(np.diff(sard['MO [MWh]']) >= 0)[0].size/np.diff(sard['MO [MWh]']).size
 ###############################################                 ####################################
 ###############################################
 DBB1 = MakeExtendedDatasetWithSampleCurve(nord, DB, mi, "NORD")
