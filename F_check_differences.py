@@ -21,8 +21,8 @@ from bs4 import BeautifulSoup as Soup
 def ReduceDF(x):
     X = [x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7]]
     vec = np.repeat(0.0, 24)
-    for h in range(24):
-        vec[h] = (float(x[h+8].replace(',','.')) + float(x[h+9].replace(',','.')) + float(x[h+10].replace(',','.')) + float(x[h+11].replace(',','.')))
+    for h in range(8,104,4):
+        vec[list(range(8,104,4)).index(h)] = (float(x[h].replace(',','.')) + float(x[h+1].replace(',','.')) + float(x[h+2].replace(',','.')) + float(x[h+3].replace(',','.')))
     X.extend(vec.tolist())
     return X
 ###############################################################################
@@ -199,7 +199,7 @@ def SOSExtractor(infile):
         for er in Er:
             tbi = []
             day = str(er)[(str(er).find(">")+1):(str(er).find(">")+3)] 
-            print(day)
+            #print(day)
             mis = ReMeasureExtractor(str(er))
             if len(mis) < 96:
                 pass
@@ -214,6 +214,15 @@ def SOSExtractor(infile):
     dix = pd.DataFrame.from_dict(dix, orient = 'index')
     return dix
 ###############################################################################
+def ReduceSOS(x):
+    X = [x[0],x[2]]
+    vec = np.repeat(0.0, 24)
+    for h in range(3,99,4):
+        vec[list(range(3,99,4)).index(h)] = x[h] + x[h+1] + x[h+2] + x[h+3]
+    X.extend(vec.tolist())
+    return X
+###############################################################################
+
 
 mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 
         'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
@@ -233,3 +242,18 @@ for a in anni:
                 SOS = SOS.append(sos, ignore_index = True)
             
 SOS.to_excel("SOS_elaborati.xlsx")
+
+
+SOS = pd.read_excel("C:/users/d_floriello/Documents/SOS_elaborati.xlsx")
+
+sos = OrderedDict()
+for i in range(SOS.shape[0]):
+    sos[i] = ReduceSOS(SOS.ix[i])
+sos = pd.DataFrame.from_dict(sos, orient = 'index')
+sos.columns = [['Pod', 'DATA','1','2','3','4','5','6','7','8','9','10','11','12','13',
+                    '14','15','16','17','18','19',
+                    '20','21','22','23','24']]
+
+sos.to_excel("sos_elaborati_finiti.xlsx")
+sos.to_hdf("sos_elaborati_finiti.h5", "sos")
+

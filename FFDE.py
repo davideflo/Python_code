@@ -75,7 +75,8 @@ def ZIPExtractor():
     LD = datetime.datetime(int(ld[20:]), mesi.index(ld[4:7])+1, int(ld[8:10]), hour = int(ld[11:13]), minute = int(ld[14:16]), second = int(ld[17:19]))
     strm = str(LD.month) if len(str(LD.month)) > 1 else "0" + str(LD.month)
     directory = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/" + str(LD.year) + "-" + strm + "/Giornalieri"
-    tbe, M = FileFilter(LD, directory)
+    tbe2, M = FileFilter(LD, directory)
+    tbe = [x for x in tbe2 if ".zip" in x and "CSV" not in x]
     for t in tbe:
         #print(t)
         path = directory + "/" + t
@@ -400,7 +401,7 @@ def updateCRPP():
             DF6 = DF6.agg(sum)
             DF6.to_excel('C:/Users/d_floriello/Documents/CRPP2016.xlsx')
         else:
-            for m in mesi[2:(mesi.index(str_month) + 1)]:
+            for m in mesi[2:(mesi.index(str_month) + 2)]:
                 df = OrderedDict()
                 crpp = pd.read_excel(path17 + m + '-2017/_All_CRPP_' + m  + '_20' + y + '.xlsx')
                 for r in range(crpp.shape[0]):
