@@ -12,9 +12,10 @@ import os
 import pandas as pd
 from collections import OrderedDict
 import numpy as np
+import unidecode
 
 ####################################################################################################
-def Extractor1(df):
+def Extractor1(df, fm):
     ###@BRIEF: extractor for files from XML format ---> first row: '/Prestazione'
     diz = OrderedDict()
     vals = ['/DatiPdR/cod_pdr', '/DatiPdR/matr_mis', '/DatiPdR/matr_conv', '/DatiPdR/data_racc', 
@@ -25,14 +26,15 @@ def Extractor1(df):
         pdr = str(df['/DatiPdR/cod_pdr'].ix[i])
         pdr = '0'*(14 - len(str(pdr))) + str(pdr) 
         vec = [np.where(vals[j] == '/DatiPdR/cod_pdr', pdr, df[vals[j]].ix[i]) if j in multi_index else '' for j in range(8)]
+        vec.append(unidecode.unidecode(fm))
         diz[pdr] = vec
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [['PDR', 'Matricola misuratore gas','Matricola convertitore gas','Data Lettura',
                     'Lettura misuratore gas','Lettura convertitore gas',	
-                    	'Frequenza Letture','Tipo Letture']]
+                    	'Frequenza Letture','Tipo Letture', 'file']]
     return diz
 ####################################################################################################
-def Extractor2(df):
+def Extractor2(df,fm):
     ###@BRIEF: extractor for the other monthlies
     diz = OrderedDict()
     vals = ['cod_pdr', 'matr_mis', 'matr_conv', 'data_racc', 
@@ -43,14 +45,15 @@ def Extractor2(df):
         pdr = str(df['cod_pdr'].ix[i])
         pdr = '0'*(14 - len(str(pdr))) + str(pdr)
         vec = [np.where(vals[j] == 'cod_pdr', pdr, df[vals[j]].ix[i]) if j in multi_index else '' for j in range(8)]
+        vec.append(unidecode.unidecode(fm))
         diz[pdr] = vec
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [['PDR', 'Matricola misuratore gas','Matricola convertitore gas','Data Lettura',
                     'Lettura misuratore gas','Lettura convertitore gas',	
-                    	'Frequenza Letture','Tipo Letture']]
+                    	'Frequenza Letture','Tipo Letture', 'file']]
     return diz
 ####################################################################################################
-def ExtractorPar(df):
+def ExtractorPar(df, fm):
     ###@BRIEF: extractor for the other monthlies
     diz = OrderedDict()
     vals = ['cod_pdr','matr_mis','matr_conv','coeff_corr','freq_let','acc_mis','data_racc','let_tot_prel',
@@ -62,17 +65,18 @@ def ExtractorPar(df):
         pdr = str(df['cod_pdr'].ix[i])
         pdr = '0'*(14 - len(str(pdr))) + str(pdr)
         vec = [np.where(vals[j] == 'cod_pdr', pdr, df[vals[j]].ix[i]) if j in multi_index else '' for j in range(8)]
+        vec.append(unidecode.unidecode(fm))
         diz[pdr] = vec
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [['PDR', 'Matricola misuratore gas','Matricola convertitore gas','Data Lettura',
                     'Lettura misuratore gas','Lettura convertitore gas',	
-                    	'Frequenza Letture','Tipo Letture']]
+                    	'Frequenza Letture','Tipo Letture', 'file']]
     return diz
 ####################################################################################################
-def GGExtractor1(df):
+def GGExtractor1(df, fm):
     ###@BRIEF: extractor for dailies version 1
     diz = OrderedDict()
-    vals = ['/cod_pdr', '/matr_mis', '/matr_conv', '/data_racc', '/data_comp',
+    vals = ['/cod_pdr', '/matr_mis', '/matr_conv', '/data_comp',
             '/let_tot_prel', '/let_tot_conv','/tipo_lettura']
     col_pres = []
     for i,c in enumerate(df.columns):
@@ -98,17 +102,18 @@ def GGExtractor1(df):
         
 #        vec = [np.where(vals[j] == '/cod_pdr', pdr, dfpdr[multi_index2[j]].ix[i]) if j in multi_index2 else '' for j in range(8)]
         vec = [dfpdr[multi_index2[j]].ix[i] for j in range(len(multi_index2))]
+        vec.append(unidecode.unidecode(fm))
         diz[pdr] = vec
 
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [['PDR', 'Matricola misuratore gas','Matricola convertitore gas','Data Lettura',
-                    'Lettura misuratore gas','Lettura convertitore gas','Tipo Letture']]
+                    'Lettura misuratore gas','Lettura convertitore gas','Tipo Letture', 'file']]
     return diz
 ####################################################################################################    
-def GGExtractor2(df):
+def GGExtractor2(df, fm):
     ###@BRIEF: extractor for dailies version 2
     diz = OrderedDict()
-    vals = ['cod_pdr', 'matr_mis', 'matr_conv', 'data_racc','data_comp', 
+    vals = ['cod_pdr', 'matr_mis', 'matr_conv','data_comp', 
             'let_tot_prel', 'let_tot_conv','tipo_lettura']
     col_pres = [x for x in vals if x in df.columns]
     multi_index = [vals.index(x) for x in col_pres]
@@ -118,16 +123,17 @@ def GGExtractor2(df):
         pdr = '0'*(14 - len(str(p))) + str(p)
         i = max(dfpdr.ix[dfpdr['tipo_lettura'] == 'E'].index) if dfpdr.ix[dfpdr['tipo_lettura'] == 'E'].shape[0] > 0 else max(dfpdr.index)
         vec = [np.where(vals[j] == 'cod_pdr', pdr, dfpdr[vals[j]].ix[i]).item() if j in multi_index else '' for j in range(7)]
+        vec.append(unidecode.unidecode(fm))
         diz[pdr] = vec
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [['PDR', 'Matricola misuratore gas','Matricola convertitore gas','Data Lettura',
-                    'Lettura misuratore gas','Lettura convertitore gas','Tipo Letture']]
+                    'Lettura misuratore gas','Lettura convertitore gas','Tipo Letture', 'file']]
     return diz
 ####################################################################################################    
-def GGExtractorPar(df):
+def GGExtractorPar(df, fm):
     ###@BRIEF: extractor for dailies version 2
     diz = OrderedDict()
-    vals = ['cod_pdr','matr_mis','matr_conv','val_dato_mens','esito_raccolta','data_comp','let_tot_prel',
+    vals = ['cod_pdr','matr_mis','matr_conv','data_comp','let_tot_prel',
             'let_tot_conv','tipo_lettura']
     col_pres = [x for x in vals if x in df.columns]
     multi_index = [vals.index(x) for x in col_pres]
@@ -137,10 +143,11 @@ def GGExtractorPar(df):
         pdr = '0'*(14 - len(str(p))) + str(p)
         i = max(dfpdr.ix[dfpdr['tipo_lettura'] == 'E'].index) if dfpdr.ix[dfpdr['tipo_lettura'] == 'E'].shape[0] > 0 else max(dfpdr.index)
         vec = [np.where(vals[j] == 'cod_pdr', pdr, dfpdr[vals[j]].ix[i]).item() if j in multi_index else '' for j in range(7)]
+        vec.append(unidecode.unidecode(fm))
         diz[pdr] = vec
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
     diz.columns = [['PDR', 'Matricola misuratore gas','Matricola convertitore gas','Data Lettura',
-                    'Lettura misuratore gas','Lettura convertitore gas','Tipo Letture']]
+                    'Lettura misuratore gas','Lettura convertitore gas','Tipo Letture', 'file']]
     return diz
 ####################################################################################################
 
@@ -149,11 +156,11 @@ def GGExtractorPar(df):
 #### 2. if /Prestazione in column_names => re-read the file skipping first row
 #### 3. if Extractor2 is needed => rename and lower columns like in ASA
 
-df = pd.read_excel("Z:/AREA ENERGY MANAGEMENT GAS/Misura/Letture Gas/TML/2017/1705 Unareti.xlsx")
-Extractor1(df)
-
-df = pd.read_csv("Z:/AREA ENERGY MANAGEMENT GAS/Misura/Letture Gas/TML/2017/1704 ASA.csv", sep = ';')
-Extractor2(df)
+#df = pd.read_excel("Z:/AREA ENERGY MANAGEMENT GAS/Misura/Letture Gas/TML/2017/1705 Unareti.xlsx")
+#Extractor1(df)
+#
+#df = pd.read_csv("Z:/AREA ENERGY MANAGEMENT GAS/Misura/Letture Gas/TML/2017/1704 ASA.csv", sep = ';')
+#Extractor2(df)
 
 ###### Lettura file mensili #####
 
@@ -168,10 +175,10 @@ for fm in files_month:
         df = pd.read_csv(directory + fm, sep = ";", dtype = object)
         if '/Prestazione' in df.columns:
             df = pd.read_csv(directory + fm, sep = ";", skiprows = [0], dtype = object)
-            tdf = Extractor1(df)
+            tdf = Extractor1(df, fm)
         elif 'Italgas' in fm or 'Umbria' in fm or 'Toscana' in fm or 'Napoletana' in fm:
             df = pd.read_csv(directory + fm, sep = ";", skiprows = [0], dtype = object)
-            tdf = ExtractorPar(df)
+            tdf = ExtractorPar(df, fm)
         else:
             if df.columns.size < 21:
                 df = pd.read_csv(directory + fm, sep = ";", skiprows = [0], dtype = object)
@@ -180,12 +187,12 @@ for fm in files_month:
                            'matr_conv','coeff_corr'	,'freq_let','acc_mis','data_racc','let_tot_prel',	
                            'let_tot_conv','tipo_lettura','val_dato','num_tentativi','esito_raccolta','causa_manc_raccolta',
                            'mod_alt_racc','dir_indennizzo','pros_fin']]
-            tdf = Extractor2(df)
+            tdf = Extractor2(df, fm)
     else:
         df = pd.read_excel(directory + fm)
         if '/Prestazione' in df.columns:
             df = pd.read_excel(directory + fm, skiprows = [0], converters = {'/DatiPdR/cod_pdr': str})
-            tdf = Extractor1(df)
+            tdf = Extractor1(df, fm)
         else:
             df = pd.read_excel(directory + fm, skiprows = [0], converters = {'cod_pdr': str})
             df = df[df.columns[:21]]
@@ -193,7 +200,7 @@ for fm in files_month:
                            'matr_conv','coeff_corr'	,'freq_let','acc_mis','data_racc','let_tot_prel',	
                            'let_tot_conv','tipo_lettura','val_dato','num_tentativi','esito_raccolta','causa_manc_raccolta',
                            'mod_alt_racc','dir_indennizzo','pros_fin']]
-            tdf = Extractor2(df)
+            tdf = Extractor2(df, fm)
     dfM = dfM.append(tdf, ignore_index = True)
 
 
@@ -210,38 +217,43 @@ for fm in files_month:
     print fm
     try:
         if '.csv' in fm.lower():
-            df = pd.read_csv(directory + fm, sep = ";", dtype = object)
+            df = pd.read_csv(directory + fm, sep = ";", dtype = str)
             if '/Prestazione' in df.columns:
-                df = pd.read_csv(directory + fm, sep = ";", skiprows = [0], dtype = object)
-                tdf = GGExtractor1(df)
+                df = pd.read_csv(directory + fm, sep = ";", skiprows = [0], dtype = str)
+                tdf = GGExtractor1(df, fm)
             elif 'Italgas' in fm or 'Umbria' in fm or 'Toscana' in fm or 'Napoletana' in fm:
-                df = pd.read_csv(directory + fm, sep = ";", skiprows = [0], dtype = object)
-                tdf = GGExtractorPar(df)
+                df = pd.read_csv(directory + fm, sep = ";", skiprows = [0], dtype = str)
+                tdf = GGExtractorPar(df, fm)
             else:
                 if df.columns.size >= 14 and '2i Rete Gas' not in fm:
                     df = df[df.columns[:14]]
                 df.columns = [['cod_servizio','cod_flusso','piva_utente','piva_distr','mese_comp','cod_pdr',
                                'matr_mis','matr_conv','val_dato_mens','esito_raccolta','data_comp','let_tot_prel',
                                'let_tot_conv','tipo_lettura']]
-                tdf = GGExtractor2(df)
+                tdf = GGExtractor2(df, fm)
         else:
             df = pd.read_excel(directory + fm)
+            conv = OrderedDict()
+            for c in range(df.shape[1]):
+                conv[c] = str
+            df = pd.read_excel(directory + fm, converters = conv)            
             if '/Prestazione' in df.columns:
-                df = pd.read_excel(directory + fm, skiprows = [0], converters = {'/DatiPdR/cod_pdr': str})
-                tdf = GGExtractor1(df)
+                df = pd.read_excel(directory + fm, skiprows = [0], converters = conv)
+                tdf = GGExtractor1(df, fm)
             else:
                 if df.columns.size >= 14:
                     df = df[df.columns[:14]]
                 df.columns = [['cod_servizio','cod_flusso','piva_utente','piva_distr','mese_comp','cod_pdr',
                                'matr_mis','matr_conv','val_dato_mens','esito_raccolta','data_comp','let_tot_prel',
                                'let_tot_conv','tipo_lettura']]
-                tdf = GGExtractor2(df)
+                tdf = GGExtractor2(df, fm)
         dfG = dfG.append(tdf, ignore_index = True)
     except:
         missing.append(fm)
 
 print 'percentage not processed: {}'.format(len(missing)/len(files_month))
 
-dfM.to_excel('C:/Users/d_floriello/Documents/Letture_GAS_1706.xlsx')
+dfM.to_excel('C:/Users/d_floriello/Documents/M_Letture_GAS_1706.xlsx')
+dfG.to_excel('C:/Users/d_floriello/Documents/G_Letture_GAS_1706.xlsx')
 missed = pd.DataFrame.from_dict({'mancanti': missing}, orient = 'columns')        
 missed.to_excel('C:/Users/d_floriello/Documents/Letture_GAS_1706_mancanti.xlsx')
