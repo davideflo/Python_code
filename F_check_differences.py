@@ -16,6 +16,8 @@ import re
 import time
 import os
 from bs4 import BeautifulSoup as Soup
+import zipfile
+import shutil
 
 ###############################################################################
 def ReduceDF(x):
@@ -222,7 +224,48 @@ def ReduceSOS(x):
     X.extend(vec.tolist())
     return X
 ###############################################################################
-
+def PDOMeasureExtractor(s):
+    E = [re.findall(r'"(.*?)"', s)][0]
+    mis = list(map(Replacer, E))
+    mis2 = list(map(float, mis))
+    return mis2
+###############################################################################
+def PDOExtractor(infile, flusso):    
+    count = 0
+    dix = OrderedDict()
+    pdox = Soup(open(infile).read(), "xml")
+    bs = pdox.find_all('DatiPod')
+    start_time = time.time()
+    for b in bs:
+        pod = b.find_all('Pod')
+        zona = re.findall(r'>(.*?)<',str(b.find_all('PuntoDispacciamento')[0]))[0]
+        M = b.find_all('MeseAnno')[:2]
+        M = str(M)[11:18]
+        y = int(M[3:])
+        m = int(M[:2])
+        Er = b.find_all('Ea')
+        for er in Er:
+            tbi = []
+            day = str(er)[(str(er).find(">")+1):(str(er).find(">")+3)] 
+            #print(day)
+            mis = PDOMeasureExtractor(str(er))
+            if len(mis) < 95:
+                pass
+            else:
+                tbi.append(str(pod[0])[5:19])
+                tbi.append(day)
+                tbi.append(datetime.date(y,m,int(day)))
+                tbi.append(zona)
+                tbi.append(flusso)
+                if 'AEM Cremona' in infile:
+                    mis = reversed(mis)
+                tbi.extend(mis)
+                dix[count] = tbi
+                count += 1
+    print("--- %s seconds ---" % (time.time() - start_time))
+    dix = pd.DataFrame.from_dict(dix, orient = 'index')
+    return dix
+###############################################################################
 
 mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 
         'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
@@ -257,3 +300,87 @@ sos.columns = [['Pod', 'DATA','1','2','3','4','5','6','7','8','9','10','11','12'
 sos.to_excel("sos_elaborati_finiti.xlsx")
 sos.to_hdf("sos_elaborati_finiti.h5", "sos")
 
+###############################################################################
+######################## ALL PDO EXTRACTION ###################################
+###############################################################################
+
+DIR = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/"
+subdir = os.listdir(DIR)
+subdir = [x for x in subdir if not x.startswith("_")]
+subdir = [x for x in subdir if not (x.endswith(".xlsx") or x.endswith(".zip") or x.endswith(".xls") or x.endswith(".docx") or x.endswith(".xml"))]
+
+for s in subdir:
+    if os.path.exists(DIR + s + "/2016"):
+        subpath = os.listdir(DIR + s + "/2016")
+        for sp in subpath:
+            if 'storici' in sp.lower():
+                print(DIR + s + "/2016/storici")
+                pass
+            elif 'rettifiche tardive' in sp.lower():
+                print("RFO's found")
+                ### is it a directory?
+                if os.path.isdir(DIR + s + "/2016/" + sp):
+                    files = os.listdir(DIR + s + "/2016/" + sp)
+                    for f in files:
+                        print(DIR + s + "/2016/" + sp + "/" + f)
+                        if '.zip' in f and 'RFO' in f:
+                            zf = zipfile.ZipFile(DIR + s + "/2016/" + sp + "/" + f)
+                            lzf = zf.namelist()
+                            zf.extractall(path = "H:/Energy Management/02. EDM/01. MISURE/ZIP")
+                            for unz in lzf:
+                                pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz)
+                                shutil.move("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz, "H:/Energy Management/02. EDM/01. MISURE/ZIP_DONE/" + unz)
+                        elif '.xlm' in f and 'RFO' in f:
+                            pdo = PDOExtractor(DIR + s + "/2016/" + sp + "/" + f, 'RFO')
+                        elif "RNO" in f:
+                            pass
+            else:
+                ### months
+                print('MONTHS')
+                if os.path.exists(DIR + s + "/2016/" + sp + "/PDO"):
+                    print('PDO folder')
+                    ### is it a directory?
+                    if os.path.isdir(DIR + s + "/2016/" + sp + "/PDO"):
+                        files = os.listdir(DIR + s + "/2016/" + sp + "/PDO")
+                        print(DIR + s + "/2016/" + sp + "/PDO")
+                        for f in files:
+                            if '.zip' in f and 'PDO' in f:
+                                zf = zipfile.ZipFile(DIR + s + "/2016/" + sp + "/PDO/" + f)
+                                lzf = zf.namelist()
+                                zf.extractall(path = "H:/Energy Management/02. EDM/01. MISURE/ZIP")
+                                for unz in lzf:
+                                    pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz)
+                                    shutil.move("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz, "H:/Energy Management/02. EDM/01. MISURE/ZIP_DONE/" + unz)
+                            elif '.xlm' in f and 'PDO' in f:
+                                pdo = PDOExtractor(DIR + s + "/2016/" + sp + "/PDO/" + f, 'PDO')
+                else:
+                    ### no PDO folder
+                    print('no PDO folder')
+                    ### is it a directory?
+                    if os.path.isdir(DIR + s + "/2016/" + sp):
+                        files = os.listdir(DIR + s + "/2016/" + sp)
+                        print(DIR + s + "/2016/" + sp)
+                        for f in files:
+                            if '.zip' in f and 'PDO' in f:
+                                zf = zipfile.ZipFile(DIR + s + "/2016/" + sp + "/" + f)
+                                lzf = [x for x in zf.namelist() if ".zip" in x]
+                                zf.extractall(path = "H:/Energy Management/02. EDM/01. MISURE/ZIP")
+                                for unz in lzf:
+                                    pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz, 'PDO')
+                                    shutil.move("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz, "H:/Energy Management/02. EDM/01. MISURE/ZIP_DONE/" + unz)
+                            elif '.xlm' in f and 'PDO' in f:
+                                pdo = PDOExtractor(DIR + s + "/2016/" + sp + "/" + f)
+
+
+#### os.walk returns a tuple --> look into the tuple
+all_subdir = [x[0] for x in os.walk(DIR)]
+all_subdir = [x for x in all_subdir if ('2016' in x or '2017' in x)]
+for sd in all_subdir:
+    files = os.listdir(sd)
+    for f in files:
+        if os.path.isfile(f):
+            if 'PDO' in f or 'RFO' in f:
+                shutil.copy2(sd + "/" + f, "H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO")
+        else:
+            subsubdir = [x[0] for x in os.walk(sd + "/" + f)]
+            
