@@ -707,6 +707,17 @@ DBB.to_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5', 'sard')
 feste = DBB.ix[DBB['holiday'] == 1].index
 feste = set(feste.tolist())
 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+ ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/nord.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/cnord.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/csud.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sud.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5')
+DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5')
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+ ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
 
 train2 = DBB.ix[DBB.index.date < datetime.date(2017, 1, 1)]
 train = DBB.sample(frac = 1)
@@ -714,9 +725,6 @@ test = DBB.ix[DBB.index.date > datetime.date(2016, 12, 31)]
 test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
 
 
-train = train.ix[train.index.date != datetime.date(2016,3,27)]
-train = train.ix[train.index.date != datetime.date(2016,10,30)]
-train = train.ix[train.index.date != datetime.date(2017,3,26)]
 
 ###### check to see if the initial error is due to the model or some other pecularity
 ###### happened in January 2017
@@ -749,6 +757,7 @@ plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o')
 plt.plot(test[test.columns[63]].values.ravel(), color = 'red', marker = '+')
 
+pd.DataFrame.from_dict({'prediction': yhat_test.tolist()}, orient = 'columns').set_index(test.index).to_excel('backtesting_SARD.xlsx')
 #### graphical comparison with k2e
 nk2e = k2e["NORD"]/1000
 tnk2e = nk2e.ix[nk2e.index < datetime.datetime(2017,4,1)]
