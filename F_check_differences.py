@@ -226,11 +226,19 @@ def ReduceSOS(x):
 ###############################################################################
 def PDOMeasureExtractor(s):
     E = [re.findall(r'"(.*?)"', s)][0]
+    if len(E) > 96:
+        E = E[1:]
     mis = list(map(Replacer, E))
     mis2 = list(map(float, mis))
     return mis2
 ###############################################################################
 def PDOExtractor(infile, flusso):    
+    cl = ['POD', 'day', 'date', 'zona', 'flusso']
+    for h in range(24):
+        cl.append(str(h) + '.A')
+        cl.append(str(h) + '.B')
+        cl.append(str(h) + '.C')
+        cl.append(str(h) + '.D')
     count = 0
     dix = OrderedDict()
     pdox = Soup(open(infile).read(), "xml")
@@ -264,6 +272,7 @@ def PDOExtractor(infile, flusso):
                 count += 1
     print("--- %s seconds ---" % (time.time() - start_time))
     dix = pd.DataFrame.from_dict(dix, orient = 'index')
+    dix.columns = cl
     return dix
 ###############################################################################
 
@@ -373,14 +382,42 @@ for s in subdir:
 
 
 #### os.walk returns a tuple --> look into the tuple
-all_subdir = [x[0] for x in os.walk(DIR)]
-all_subdir = [x for x in all_subdir if ('2016' in x or '2017' in x)]
+all_subdir = [x for x in os.walk(DIR)]
+all_subdir = [x for x in all_subdir if ('2016' in x or '2017' in x[0])]
 for sd in all_subdir:
-    files = os.listdir(sd)
+    files = sd[2]
     for f in files:
-        if os.path.isfile(f):
-            if 'PDO' in f or 'RFO' in f:
-                shutil.copy2(sd + "/" + f, "H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO")
-        else:
-            subsubdir = [x[0] for x in os.walk(sd + "/" + f)]
+        if 'PDO' in f or 'RFO' in f:
+            shutil.copy2(sd[0] + "/" + f, "H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO")
             
+            
+###############################################################################
+############################# EXTRACTION ######################################
+###############################################################################
+Mis = pd.DataFrame()
+
+files = os.listdir("H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO")
+for f in files:
+    if ".zip" in f.lower():
+        zf = zipfile.ZipFile("H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO/" + f)
+        zf.extractall(path = "H:/Energy Management/02. EDM/01. MISURE/ZIP")
+        unzfiles = os.listdir("H:/Energy Management/02. EDM/01. MISURE/ZIP")
+        for unz in unzfiles:
+            if "PDO" in unz:
+                pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz, 'PDO')
+                shutil.move("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz, "H:/Energy Management/02. EDM/01. MISURE/ZIP_DONE/" + unz)
+            elif "RFO" in unz:
+                pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz, 'RFO')
+                shutil.move("H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz, "H:/Energy Management/02. EDM/01. MISURE/ZIP_DONE/" + unz)
+            else:
+                print("neither PDO, nor RFO")
+    else:                                                    
+        if "PDO" in f:
+            pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO/" + f, 'PDO')
+        elif "RFO" in unz:
+            pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO/" + f, 'RFO')
+        else:
+            print("neither PDO, nor RFO")
+    Mis = Mis.append(pdo, ignore_index = True)
+    
+Mis.to_hdf("C:/Users/d_floriello/Documents/PDO_RFO_estratti.h5", "PDO_RFO")
