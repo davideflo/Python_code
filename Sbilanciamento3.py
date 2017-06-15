@@ -717,21 +717,26 @@ DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sici.h5')
 DBB = pd.read_hdf('C:/Users/utente/Documents/Sbilanciamento/sard.h5')
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
-
+DBB = DBB1
+DBB = DBB2
+DBB = DBB3
+DBB = DBB4
+DBB = DBB5
+DBB = DBB6
 
 train2 = DBB.ix[DBB.index.date < datetime.date(2017, 1, 1)]
 train = DBB.sample(frac = 1)
 test = DBB.ix[DBB.index.date > datetime.date(2016, 12, 31)]
-test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
+#test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
 
 
 
 ###### check to see if the initial error is due to the model or some other pecularity
 ###### happened in January 2017
-train2 = DBB.ix[DBB.index.date < datetime.date(2017, 2, 1)]
-train = DBB.sample(frac = 1)
-test = DBB.ix[DBB.index.date > datetime.date(2017, 1, 31)]
-test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
+#train2 = DBB.ix[DBB.index.date < datetime.date(2017, 2, 1)]
+#train = DBB.sample(frac = 1)
+#test = DBB.ix[DBB.index.date > datetime.date(2017, 1, 31)]
+#test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
 
 
 ### It seems the performances depend on the initial permutation of the trainingset
@@ -875,7 +880,7 @@ print np.min(amae)
 print scipy.stats.mstats.mquantiles(maek2, prob = [0.025, 0.975])
 print scipy.stats.mstats.mquantiles(mae, prob = [0.025, 0.975])
 
-zona = "NORD"
+zona = "SICI"
 
 plt.figure()
 plt.plot(maek2, color = 'green')
@@ -897,6 +902,9 @@ plt.title("Autocorrelazione errore percentuale forecast K2E zona " + zona)
 plt.figure()
 plotting.autocorrelation_plot(mae)
 plt.title("Autocorrelazione errore percentuale forecast AXO zona " + zona)
+plt.figure()
+plotting.autocorrelation_plot(amae, color = 'orange')
+plt.title("Autocorrelazione errore percentuale assoluto forecast AXO zona " + zona)
 
 
 plt.figure() 
