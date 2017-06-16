@@ -173,7 +173,21 @@ diff.median()
 
 
 
-
+###############################################################################
+def ListingExtractor(s):
+    E = [re.findall(r'"(.*?)"', s)][0]
+    Es = [re.findall(r' (.*?)=', s)][0]
+    if len(E) >0:
+        if "E" not in Es[0]:
+            Es = Es[1:]
+            E = E[1:]
+        OEs = ["E" + str(r) for r in range(1,97,1)]
+        mis = np.repeat(0.0, 96)
+        for n in range(len(Es)):
+            mis[OEs.index(Es[n])] = float(E[n].replace(",", "."))
+        return mis.tolist()
+    else:
+        return np.repeat(0.0, 96).tolist()
 ###############################################################################
 def Replacer(s):
     return s.replace(",",".")
@@ -202,16 +216,14 @@ def SOSExtractor(infile):
             tbi = []
             day = str(er)[(str(er).find(">")+1):(str(er).find(">")+3)] 
             #print(day)
-            mis = ReMeasureExtractor(str(er))
-            if len(mis) < 96:
-                pass
-            else:
-                tbi.append(str(pod[0])[5:19])
-                tbi.append(day)
-                tbi.append(datetime.date(y,m,int(day)))
-                tbi.extend(mis)
-                dix[count] = tbi
-                count += 1
+            #mis = ReMeasureExtractor(str(er))
+            mis = ListingExtractor(str(er))
+            tbi.append(str(pod[0])[5:19])
+            tbi.append(day)
+            tbi.append(datetime.date(y,m,int(day)))
+            tbi.extend(mis)
+            dix[count] = tbi
+            count += 1
     print("--- %s seconds ---" % (time.time() - start_time))
     dix = pd.DataFrame.from_dict(dix, orient = 'index')
     return dix
@@ -223,6 +235,19 @@ def ReduceSOS(x):
         vec[list(range(3,99,4)).index(h)] = x[h] + x[h+1] + x[h+2] + x[h+3]
     X.extend(vec.tolist())
     return X
+###############################################################################
+def OrdinatingExtractor(s):
+    E = [re.findall(r'"(.*?)"', s)][0]
+    Es = [re.findall(r' (.*?)=', s)][0]
+    Es = [e[1:] for e in Es]     
+    nEs = np.array([int(e) for e in Es], dtype = int)
+    permuted = np.argsort(nEs)
+    E = [E[p] for p in permuted]
+    if len(E) > 96:
+        E = E[1:]
+    mis = list(map(Replacer, E))
+    mis2 = list(map(float, mis))
+    return mis2
 ###############################################################################
 def PDOMeasureExtractor(s):
     E = [re.findall(r'"(.*?)"', s)][0]
@@ -254,27 +279,41 @@ def PDOExtractor(infile, flusso):
         Er = b.find_all('Ea')
         for er in Er:
             tbi = []
-            day = str(er)[(str(er).find(">")+1):(str(er).find(">")+3)] 
-            #print(day)
-            mis = PDOMeasureExtractor(str(er))
-            if len(mis) < 95:
+            mis = ListingExtractor(str(er))
+            day = str(er)[(str(er).find(">")+1):(str(er).find(">")+3)]
+            if sum(mis) <= 0 or day == '':
                 pass
+            #print(day)
+#            mis = PDOMeasureExtractor(str(er))
+#            mis = OrdinatingExtractor(str(er))
             else:
+                
                 tbi.append(str(pod[0])[5:19])
                 tbi.append(day)
                 tbi.append(datetime.date(y,m,int(day)))
                 tbi.append(zona)
                 tbi.append(flusso)
-                if 'AEM Cremona' in infile:
-                    mis = reversed(mis)
+#                if 'AEM Cremona' in infile:
+#                    mis = reversed(mis)
                 tbi.extend(mis)
                 dix[count] = tbi
                 count += 1
     print("--- %s seconds ---" % (time.time() - start_time))
     dix = pd.DataFrame.from_dict(dix, orient = 'index')
-    dix.columns = cl
-    return dix
+    if dix.shape[0] > 0:
+        dix.columns = cl
+        return dix
+    else:
+        print('empty dataframe')        
 ###############################################################################
+def PDOReducer(x):
+    ret = [x[0], x[2], x[3], x[4]]
+    vec = np.repeat(0.0, 24)
+    for h in range(5,101,4):
+        vec[list(range(5,101,4)).index(h)] = x[h] + x[h+1] + x[h+2] + x[h+3]
+    ret.extend(vec.tolist())
+    return ret
+###############################################################################♥
 
 mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 
         'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
@@ -420,4 +459,19 @@ for f in files:
             print("neither PDO, nor RFO")
     Mis = Mis.append(pdo, ignore_index = True)
     
+Mis["date"] = pd.to_datetime(Mis["date"])    
+Mis["date"].dt.year
+
+Mis = Mis.ix[Mis["date"].dt.year > 2015]
+    
 Mis.to_hdf("C:/Users/d_floriello/Documents/PDO_RFO_estratti.h5", "PDO_RFO")
+Mis.to_csv("PDO_RFO_estratti.csv")
+
+infile = "H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO/" + f
+infile = "H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz
+
+Mis.apply(PDOReducer, axis = 1)
+
+
+
+
