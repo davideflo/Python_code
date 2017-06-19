@@ -306,14 +306,50 @@ def PDOExtractor(infile, flusso):
     else:
         print('empty dataframe')        
 ###############################################################################
-def PDOReducer(x):
+def singlePDOReducer(x):
     ret = [x[0], x[2], x[3], x[4]]
     vec = np.repeat(0.0, 24)
     for h in range(5,101,4):
         vec[list(range(5,101,4)).index(h)] = x[h] + x[h+1] + x[h+2] + x[h+3]
     ret.extend(vec.tolist())
     return ret
-###############################################################################♥
+###############################################################################
+def PDOReducer(df):
+    DF = OrderedDict()
+    diffs = OrderedDict()
+    for i in range(df.shape[0]):
+        pod = df['POD'].ix[i]
+        dt = df['date'].ix[i]
+        #flux = df['flusso'].ix[i]
+        dfp = df.ix[df['POD'] == pod]
+        dfpd = dfp.ix[dfp['date'] == dt]
+        if dfpd.shape[0] == 1:
+            DF[i] = singlePDOReducer(dfpd.values.ravel().tolist())
+        elif dfpd.shape[0] > 1:
+            Xrfo = dfpd.ix[dfpd['flusso'] == 'RFO']
+            Xpdo = dfpd.ix[dfpd['flusso'] == 'PDO']
+            if Xrfo.shape[0] > 0:
+                ll = [pod, dt]
+                ll.append(Xrfo[Xrfo.columns[5:]].diff().mean().mean())
+                Xrfo = Xrfo.drop_duplicates(subset = ['POD', 'date', 'zona', 'flusso'], keep = 'last')
+                ll.append(Xrfo['flusso'].values[0])
+                DF[i] = singlePDOReducer(Xrfo.values.ravel().tolist())
+                diffs[i] = ll
+            elif Xrfo.shape[0] == 0 and Xpdo.shape[0] > 0:
+                ll = [pod, dt]
+                ll.append(Xrfo[Xrfo.columns[5:]].diff().mean().mean())
+                Xpdo = Xpdo.drop_duplicates(subset = ['POD', 'date', 'zona', 'flusso'],keep = 'last')
+                ll.append(Xrfo['flusso'].values[0])
+                DF[i] = singlePDOReducer(Xpdo.values.ravel().tolist())
+                diffs[i] = ll
+            else:
+                pass
+        else:
+            pass
+    DF = pd.DataFrame.from_dict(DF, orient = 'index').reset_index()            
+    diffs = pd.DataFrame.from_dict(diffs, orient = 'index').reset_index()            
+    return DF, diffs
+###############################################################################
 
 mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 
         'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
@@ -472,6 +508,13 @@ infile = "H:/Energy Management/02. EDM/01. MISURE/ZIP/" + unz
 
 Mis.apply(PDOReducer, axis = 1)
 
+df = pd.read_hdf("C:/Users/d_floriello/Documents/PDO_RFO_estratti.h5")
 
+df = df.drop_duplicates(keep = 'last')
 
+df = df.reset_index()
+df = df.drop('index', 1)
 
+DF, diffs = PDOReducer(df)
+
+DF.to_hdf("C:/Users/d_floriello/Documents/DB_misure.h5", "misure")
