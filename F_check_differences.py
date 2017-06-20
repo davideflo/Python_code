@@ -518,3 +518,19 @@ df = df.drop('index', 1)
 DF, diffs = PDOReducer(df)
 
 DF.to_hdf("C:/Users/d_floriello/Documents/DB_misure.h5", "misure")
+
+###############################################################################
+def MakeMOCRPP(pdo, sos, crpp, m):
+    ### @PARAM: crpp is the 2017 one ad m is the target month for the CRPP
+    ### m is a string
+    diz = OrderedDict()
+    crpp_pods = list(set(crpp['POD'].values.ravel().tolist()))
+    for p in crpp_pods:
+        if crpp['Trattamento_' + m].ix[crpp['POD'] == p] == 1:
+            pdo_p = pdo.ix[pdo['POD'] == p]
+            sos_p = sos.ix[sos['Pod'] == p]
+            pdo_ = pdo_p.ix[pdo_p['DATA'].values.month == int(m)]
+            sos_ = sos_p.ix[sos_p['DATA'].values.month == int(m)]
+            
+
+
