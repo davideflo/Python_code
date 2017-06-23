@@ -96,6 +96,22 @@ def EndsDaylightSaving(vd):
         dls = 1
     return dls
 ####################################################################################################
+def Bridge(vd):
+    
+    bridge = 0
+    if vd.weekday() == 0:
+        Tues = vd + datetime.timedelta(days = 1)
+        if AddHolidaysDate(Tues) == 1:
+            bridge = 1
+    elif vd.weekday() == 4:
+        Thur = vd - datetime.timedelta(days = 1)
+        if AddHolidaysDate(Thur) == 1:
+            bridge = 1    
+    else:
+        pass
+    
+    return bridge
+####################################################################################################
 def GetMeanCurve(df, var):
     mc = OrderedDict()
     for y in [2015, 2016]:
@@ -153,11 +169,13 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     dts = OrderedDict()
     df = df.ix[df.index.date >= datetime.date(2016,1,3)]
     for i in df.index.tolist():
+        bri = Bridge(i.date())
         dls = StartsDaylightSaving(i.date())
         edls = EndsDaylightSaving(i.date())
         ll = []        
         hvector = np.repeat(0, 24)
         dvector = np.repeat(0, 7)
+        mvector = np.repeat(0,12)
         wd = i.weekday()        
         td = 2
         if wd == 0:
@@ -166,6 +184,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
         dvector[wd] = 1
         h = i.hour
         hvector[h] = 1
+        mvector[(i.month-1)] = 1
         dy = i.timetuple().tm_yday
         Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
@@ -173,8 +192,9 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
         hol = AddHolidaysDate(i.date())
         ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
         ll.extend(dvector.tolist())
+        ll.extend(mvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], dls, edls])
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], bri, dls, edls])
         ll.extend(cmym.tolist())
         if df.ix[i].shape[0] > 1:
             y = df['MO [MWh]'].ix[i].sum()
@@ -185,9 +205,9 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
         ll.extend([y])
         dts[i] =  ll
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
-    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
+    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','holiday','perc','daylightsaving','endsdaylightsaving',
+    'pday','tmax','pioggia','vento','holiday','perc','ponte','daylightsaving','endsdaylightsaving',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
@@ -206,9 +226,13 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
     dr = pd.date_range(start, end, freq = 'H')
     for i in dr:
         #print i
+        bri = Bridge(i.date())
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
         ll = []        
         hvector = np.repeat(0, 24)
         dvector = np.repeat(0, 7)
+        mvector = np.repeat(0,12)
         wd = i.weekday()        
         td = 2
         if wd == 0:
@@ -217,24 +241,26 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
         dvector[wd] = 1
         h = i.hour
         hvector[h] = 1
+        mvector[(i.month-1)] = 1
         dy = i.timetuple().tm_yday
         Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         hol = AddHolidaysDate(i.date())
         ll.extend(dvector.tolist())
+        ll.extend(mvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol])
+        ll.extend([dy, Tmax, rain, wind, hol, bri, dls, edls])
         ll.extend(cmym.tolist())
         if db[str(h + 1)].ix[db["Giorno"] == i.date()].shape[0] > 0:
             ll.extend([db[str(h + 1)].ix[db["Giorno"] == i.date()].values[0]])
             dts[i] =  ll
         else:
-            pass
+            ll.extend([0])
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
-    dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom',
+    dts.columns = [['Lun','Mar','Mer','Gio','Ven','Sab','Dom','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','holiday',
+    'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
@@ -545,6 +571,43 @@ def convertDates(vec):
     CD = vec.apply(lambda x: datetime.datetime(year = int(str(x)[6:10]), month = int(str(x)[3:5]), day = int(str(x)[:2]), hour = int(str(x)[11:13])))
     return CD
 ####################################################################################################
+def Get_OutOfSample(df, db, zona):
+    diz = OrderedDict()
+    db["Giorno"] = pd.to_datetime(db["Giorno"])
+    db = db.ix[db["Area"] == zona]
+    df = df.ix[df["CODICE RUC"] == "UC_DP1608_" + zona]
+    df = df.ix[df.index.date > datetime.date(2015,12,31)]
+    for i in df.index.tolist():
+        Day = i.date()
+        dbd = db[db.columns[3:]].ix[db["Giorno"] == Day].sum()
+        dfd = df.ix[df.index.date == Day]
+        for hour in range(24):
+            dfdh = dfd.ix[dfd.index.hour == hour]
+            sam = dbd.ix[str(hour + 1)]
+            if dfdh.shape[0] == 0:
+                diz[datetime.datetime(i.year, i.month, i.day, hour = 2)] = 0
+            elif dfdh.shape[0] == 2:
+                diz[datetime.datetime(i.year, i.month, i.day, hour = 2)] = dfdh["MO [MWh]"].sum() - sam
+            else:
+                diz[i] = dfdh["MO [MWh]"] - sam
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    diz.columns = [['MO [MWh]']]
+    return diz
+####################################################################################################
+def MakeSplittedDataset(df, db, meteo, zona):
+    ### @PARAM: df --> misurato di Terna, db --> database misure orarie giornaliere    
+    final = max(df.index.date)
+    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
+    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
+    final_date = str(final.year) + '-' + strm + '-' + strd
+    psample = percentageConsumption(db, zona, '2016-01-01', final_date)
+    psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
+    dts = OrderedDict()
+    df = df.ix[df.index.date >= datetime.date(2016,1,3)]
+    for i in df.index.tolist():
+        
+    
+####################################################################################################♀
     
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
 k2e = k2e.set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:k2e.shape[0]])
@@ -585,6 +648,10 @@ mi6 = mi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D
 mi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2017.xlsx')
 mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 mi = mi6.append(mi7)
+###############################
+start = time.time()
+oos = Get_OutOfSample(nord, DB, "NORD")
+time.time() - start
 ###############################
 cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
 cnord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:cnord.shape[0]]
