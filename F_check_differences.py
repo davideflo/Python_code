@@ -571,13 +571,12 @@ def MakeMOCRPP(pdo, sos, crpp, m, mprec):
                     'consumo_sos_' + m , 'consumo_sos_' + mprec, 'consumo_sos_tot', 'diff_m_pdo_sos', 'diff_tot']]
     return diz
 ###############################################################################
-def BuildCRPP():
+def BuildCRPP(ddir):
     diz = OrderedDict()
     sos = pd.read_hdf("C:/Users/d_floriello/Documents/sos_elaborati_finiti.h5")
     sos.ix[sos['DATA'] > datetime.date(2016,5,31)]
     crpp = pd.read_excel("C:/Users/d_floriello/Documents/CRPP2017.xlsx")
-    crpp6 = pd.read_excel("C:/Users/d_floriello/Documents/CRPP2016.xlsx")
-    bud = "Z:/AREA BO&B/13. BUDGET/Budget2017/06. Giugno"
+    bud = "Z:/AREA BO&B/13. BUDGET/Budget2017/" + ddir 
     all_subdir = [x for x in os.walk(bud)]
     for a in all_subdir:
         for file in a[2]:
@@ -588,7 +587,7 @@ def BuildCRPP():
                     pass
                 else:
                     df = pd.read_excel(a[0] + '/' + file, sheetname = s)
-                    if df.shape[0] == 0:
+                    if df.shape[0] == 0 or 'Codice POD' not in df.columns:
                         pass
                     else:
                         cp = list(set(df['Codice POD'].values.ravel().tolist()))
@@ -599,23 +598,14 @@ def BuildCRPP():
                                 zona = crpp['ZONA'].ix[ixp]
                             dfp = df.ix[df['Codice POD'] == pod]
                             dfp = dfp.reset_index()
-                            eng16 = np.repeat(0,12)
                             eng17 = np.repeat(0,12)
-                            tratt16 = np.repeat(0,12)
                             tratt17 = np.repeat(0,12)
                             for r in range(dfp.shape[0]):
                                 strm = str(int(dfp['Mese rif.'].ix[r])) if len(str(int(dfp['Mese rif.'].ix[r]))) > 1 else '0' + str(int(dfp['Mese rif.'].ix[r]))
-                                if dfp['Mese rif.'].ix[r] <= dfp['Data inizio fornitura'].ix[r].month:
-                                    eng16[(int(dfp['Mese rif.'].ix[r]) - 1)] = dfp['Energia totale'].ix[r]
-                                    if crpp6.ix[crpp6['POD'] == pod].shape[0] > 0:
-                                        tratt16[(int(dfp['Mese rif.'].ix[r]) - 1)] = crpp6['Trattamento_' + strm].ix[crpp6['POD'] == pod]
-                                else:
-                                    eng17[(int(dfp['Mese rif.'].ix[r]) - 1)] = dfp['Energia totale'].ix[r]
-                                    tratt17[(int(dfp['Mese rif.'].ix[r]) - 1)] = crpp['Trattamento_' + strm].ix[ixp]
+                                eng17[(int(dfp['Mese rif.'].ix[r]) - 1)] = dfp['Energia totale'].ix[r]
+                                tratt17[(int(dfp['Mese rif.'].ix[r]) - 1)] = crpp['Trattamento_' + strm].ix[ixp]
                             tot = [pod, zona]
-                            tot.extend(eng16.tolist())
                             tot.extend(eng17.tolist())
-                            tot.extend(tratt16.tolist())
                             tot.extend(tratt17.tolist())
                             diz[pod] = tot
     SP = list(set(sos['Pod'].values.ravel().tolist()))
@@ -628,34 +618,102 @@ def BuildCRPP():
         sos_p = sos_p.set_index(pd.to_datetime(sos_p['DATA']))
         cons_sos_p = sos_p.resample('M').sum()
         if cons_sos_p.shape[0] == 12:
-            eng16 = np.repeat(0,12)
             eng17 = np.repeat(0,12)
             for i in cons_sos_p.index.tolist():
-                y = i.year
                 m = i.month
-                if y == 2016:
-                    eng16[m-1] = cons_sos_p.ix[i].sum()
-                else:
-                    eng17[m-1] = cons_sos_p.ix[i].sum()
+                eng17[m-1] = cons_sos_p.ix[i].sum()
                 tot = [sp, zona]
-                tot.extend(eng16.tolist())
                 tot.extend(eng17.tolist())
-                tot.extend(np.repeat(1,24).tolist())
+                tot.extend(np.repeat(1,12).tolist())
             diz[sp] = tot
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
-    diz.columns = [['pod', 'zona', 'Consumo_01_2016', 'Consumo_02_2016','Consumo_03_2016','Consumo_04_2016',
-                    'Consumo_05_2016','Consumo_06_2016','Consumo_07_2016','Consumo_08_2016','Consumo_09_2016',
-                    'Consumo_10_2016','Consumo_11_2016','Consumo_12_2016','Consumo_01_2017','Consumo_02_2017',
+    diz.columns = [['pod', 'zona','Consumo_01_2017','Consumo_02_2017',
                     'Consumo_03_2017','Consumo_04_2017','Consumo_05_2017','Consumo_06_2017','Consumo_07_2017',
                     'Consumo_08_2017','Consumo_09_2017','Consumo_10_2017','Consumo_11_2017','Consumo_12_2017',
-                    'Trattamento_01_2016', 'Trattamento_02_2016','Trattamento_03_2016','Trattamento_04_2016',
-                    'Trattamento_05_2016','Trattamento_06_2016','Trattamento_07_2016','Trattamento_08_2016','Trattamento_09_2016',
-                    'Trattamento_10_2016','Trattamento_11_2016','Trattamento_12_2016','Trattamento_01_2017','Trattamento_02_2017',
+                    'Trattamento_01_2017','Trattamento_02_2017',
                     'Trattamento_03_2017','Trattamento_04_2017','Trattamento_05_2017','Trattamento_06_2017','Trattamento_07_2017',
                     'Trattamento_08_2017','Trattamento_09_2017','Trattamento_10_2017','Trattamento_11_2017','Trattamento_12_2017']]
     return diz
 ###############################################################################
+def BuildCRPP2016():
+    diz = OrderedDict()
+    sos = pd.read_hdf("C:/Users/d_floriello/Documents/sos_elaborati_finiti.h5")
+    crpp6 = pd.read_excel("C:/Users/d_floriello/Documents/CRPP2016.xlsx")
+    bud = "Z:/AREA BO&B/13. BUDGET/Budget2016/Final"
+    all_subdir = [x for x in os.walk(bud)]
+    for a in all_subdir:
+        for file in a[2]:
+            print(a[0] + '/' + file)
+            sn = pd.ExcelFile(a[0] + '/' + file, on_demand = True).sheet_names
+            for s in sn:
+                if 'PIVOT' in s or 'EMO' in s:
+                    pass
+                else:
+                    df = pd.read_excel(a[0] + '/' + file, sheetname = s)
+                    if df.shape[0] == 0 or 'Codice POD' not in df.columns:
+                        pass
+                    else:
+                        cp = list(set(df['Codice POD'].values.ravel().tolist()))
+                        for pod in cp:
+                            zona = ''
+                            if pod in crpp['POD'].values.ravel().tolist():
+                                ixp = crpp['POD'].values.ravel().tolist().index(pod)
+                                zona = crpp['ZONA'].ix[ixp]
+                            dfp = df.ix[df['Codice POD'] == pod]
+                            dfp = dfp.reset_index()
+                            eng16 = np.repeat(0,12)
+                            tratt16 = np.repeat(0,12)
+                            for r in range(dfp.shape[0]):
+                                strm = str(int(dfp['Mese rif.'].ix[r])) if len(str(int(dfp['Mese rif.'].ix[r]))) > 1 else '0' + str(int(dfp['Mese rif.'].ix[r]))
+                                eng16[(int(dfp['Mese rif.'].ix[r]) - 1)] = dfp['Energia totale'].ix[r]
+                                if crpp6.ix[crpp6['POD'] == pod].shape[0] > 0:
+                                    tratt16[(int(dfp['Mese rif.'].ix[r]) - 1)] = crpp6['Trattamento_' + strm].ix[crpp6['POD'] == pod]
+                            tot = [pod, zona]
+                            tot.extend(eng16.tolist())
+                            tot.extend(tratt16.tolist())
+                            diz[pod] = tot
+    SP = list(set(sos['Pod'].values.ravel().tolist()))
+    for sp in SP:
+        zona = ''
+        if sp in crpp['POD'].values.ravel().tolist():
+            ixp = crpp['POD'].values.ravel().tolist().index(sp)
+            zona = crpp['ZONA'].ix[ixp]
+        sos_p = sos.ix[sos['Pod'] == sp]
+        sos_p = sos_p.set_index(pd.to_datetime(sos_p['DATA']))
+        cons_sos_p = sos_p.resample('M').sum()
+        if cons_sos_p.shape[0] == 12:
+            eng16 = np.repeat(0,12)
+            for i in cons_sos_p.index.tolist():
+                m = i.month
+                eng16[m-1] = cons_sos_p.ix[i].sum()
+                tot = [sp, zona]
+                tot.extend(eng16.tolist())
+                tot.extend(np.repeat(1,12).tolist())
+            diz[sp] = tot
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    diz.columns = [['pod', 'zona', 'Consumo_01_2016', 'Consumo_02_2016','Consumo_03_2016','Consumo_04_2016',
+                    'Consumo_05_2016','Consumo_06_2016','Consumo_07_2016','Consumo_08_2016','Consumo_09_2016',
+                    'Consumo_10_2016','Consumo_11_2016','Consumo_12_2016',
+                    'Trattamento_01_2016', 'Trattamento_02_2016','Trattamento_03_2016','Trattamento_04_2016',
+                    'Trattamento_05_2016','Trattamento_06_2016','Trattamento_07_2016','Trattamento_08_2016','Trattamento_09_2016',
+                    'Trattamento_10_2016','Trattamento_11_2016','Trattamento_12_2016']]
+    return diz
+###############################################################################
                             
-                        
+diz.to_excel("CRPP_artigianale.xlsx")                
 
+crpp2016 = BuildCRPP2016()
+crpp2016.to_excel("CRPP2016_artigianale.xlsx")
 
+Jan2017 = BuildCRPP("01. Gennaio/24-01-2017")
+Jan2017.to_excel("CRPP_Jan_2017_artigianale.xlsx")
+Feb2017 = BuildCRPP("02. Febbraio")
+Feb2017.to_excel("CRPP_Feb_2017_artigianale.xlsx")
+Mar2017 = BuildCRPP("03. Marzo")
+Mar2017.to_excel("CRPP_Mar_2017_artigianale.xlsx")
+Apr2017 = BuildCRPP("04. Aprile")
+Apr2017.to_excel("CRPP_Apr_2017_artigianale.xlsx")
+May2017 = BuildCRPP("05. Maggio")
+May2017.to_excel("CRPP_May_2017_artigianale.xlsx")
+Jun2017 = BuildCRPP("06. Giugno")
+Jun2017.to_excel("CRPP_Jun_2017_artigianale.xlsx")
