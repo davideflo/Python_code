@@ -572,43 +572,62 @@ def convertDates(vec):
     return CD
 ####################################################################################################
 def Get_OutOfSample(df, db, zona):
-    diz = OrderedDict()
     db["Giorno"] = pd.to_datetime(db["Giorno"])
     db = db.ix[db["Area"] == zona]
     df = df.ix[df["CODICE RUC"] == "UC_DP1608_" + zona]
     df = df.ix[df.index.date > datetime.date(2015,12,31)]
-    for i in df.index.tolist():
-        Day = i.date()
-        dbd = db[db.columns[3:]].ix[db["Giorno"] == Day].sum()
-        dfd = df.ix[df.index.date == Day]
-        for hour in range(24):
-            dfdh = dfd.ix[dfd.index.hour == hour]
-            sam = dbd.ix[str(hour + 1)]
-            if dfdh.shape[0] == 0:
-                diz[datetime.datetime(i.year, i.month, i.day, hour = 2)] = 0
-            elif dfdh.shape[0] == 2:
-                diz[datetime.datetime(i.year, i.month, i.day, hour = 2)] = dfdh["MO [MWh]"].sum() - sam
-            else:
-                diz[i] = dfdh["MO [MWh]"] - sam
-    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    dr = pd.date_range('2016-01-01', '2017-04-30', freq = 'D')
+    res = []
+    for i in dr.tolist():
+        if i.to_pydatetime().date() not in [datetime.date(2016,3,27), datetime.date(2016,10,30),datetime.date(2017,3,26), datetime.date(2017,10,29)]:
+            dbd = db[db.columns[3:]].ix[db["Giorno"] == i].sum()/1000
+            dfd = df.ix[df.index.date == i.to_pydatetime().date()]
+            res.extend((dfd['MO [MWh]'].values - dbd.values).tolist())
+        else:
+            dbd = db[db.columns[3:]].ix[db["Giorno"] == i].sum()/1000
+            dfd = df.ix[df.index.date == i.to_pydatetime().date()]
+            for hour in range(24):
+                dfdh = dfd.ix[dfd.index.hour == hour]
+                sam = dbd.ix[str(hour + 1)]
+                if dfdh.shape[0] == 0:
+                    res.append(0)
+                elif dfdh.shape[0] == 2:
+                    res.append(dfdh["MO [MWh]"].sum() - sam)
+                else:
+                    res.append(dfdh["MO [MWh]"].values[0] - sam)
+    diz = pd.DataFrame(res)
     diz.columns = [['MO [MWh]']]
+    diz = diz.set_index(pd.date_range('2016-01-01', '2017-12-31', freq = 'H')[:diz.shape[0]])
     return diz
 ####################################################################################################
-def MakeSplittedDataset(df, db, meteo, zona):
-    ### @PARAM: df --> misurato di Terna, db --> database misure orarie giornaliere    
-    final = max(df.index.date)
-    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
-    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
-    final_date = str(final.year) + '-' + strm + '-' + strd
-    psample = percentageConsumption(db, zona, '2016-01-01', final_date)
-    psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
-    dts = OrderedDict()
-    df = df.ix[df.index.date >= datetime.date(2016,1,3)]
-    for i in df.index.tolist():
-        
-    
-####################################################################################################♀
-    
+def removePerdite(df):
+    df2 = OrderedDict()
+    for i in range(df.shape[0]):
+        x = df.ix[i]
+        df2[i] = [x[1],x[3],x[4],x[10]/x[36],x[11]/x[36],x[12]/x[36],x[13]/x[36],x[14]/x[36],
+                  x[15]/x[36],x[16]/x[36],x[17]/x[36],x[18]/x[36],x[19]/x[36],x[20]/x[36],
+                  x[21]/x[36],x[22]/x[36],x[23]/x[36],x[24]/x[36],x[25]/x[36],x[26]/x[36],x[27]/x[36],x[28]/x[36],
+                  x[29]/x[36],x[30]/x[36],x[31]/x[36],x[32]/x[36],x[33]/x[36],x[34]/x[36]]
+    df2 = pd.DataFrame.from_dict(df2, orient = 'index')
+    df2.columns = [["POD", "Area", "Giorno",  "1","2","3","4","5","6","7","8","9","10","11","12","13","14","15",
+         "16","17","18","19","20","21","22","23","24", "25"]]
+    return df2
+####################################################################################################
+#def MakeSplittedDataset(df, db, meteo, zona):
+#    ### @PARAM: df --> misurato di Terna, db --> database misure orarie giornaliere    
+#    final = max(df.index.date)
+#    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
+#    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
+#    final_date = str(final.year) + '-' + strm + '-' + strd
+#    psample = percentageConsumption(db, zona, '2016-01-01', final_date)
+#    psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
+#    dts = OrderedDict()
+#    df = df.ix[df.index.date >= datetime.date(2016,1,3)]
+#    for i in df.index.tolist():
+#        
+#    
+####################################################################################################
+
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
 k2e = k2e.set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:k2e.shape[0]])
 #db = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016_noperd.xlsx", converters = {'1': str, '2': str, '3': str,
@@ -640,6 +659,10 @@ DB = db.append(dt, ignore_index = True)
 
 sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento2.xlsx')
 
+db2016 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016.xlsm", sheetname = "DB_SI_perd")
+db2 = removePerdite(db2016)
+db2.to_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_originale.h5", "db2016")
+
 
 nord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_NORD']
 nord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:nord.shape[0]]
@@ -649,6 +672,7 @@ mi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2017.xlsx')
 mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 mi = mi6.append(mi7)
 ###############################
+import time
 start = time.time()
 oos = Get_OutOfSample(nord, DB, "NORD")
 time.time() - start
