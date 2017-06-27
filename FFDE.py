@@ -96,6 +96,63 @@ def ZIPExtractor():
     new_last_date.write(M)
     return 1    
 ####################################################################################################
+def D_Monthly_Aggregator2016(month):
+    cl = ['E', 'F']
+    for h in range(24):
+        cl.append(str(h) + '.A')
+        cl.append(str(h) + '.B')
+        cl.append(str(h) + '.C')
+        cl.append(str(h) + '.D')
+    cl.append('G')
+    Aggdf = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2016/Aggregatore_orari-2016.xlsx")
+    Aggdf.columns = [['POD', 'Area', 'Giorno', '1', '2', '3', '4', '5', '6',
+                    '7', '8', '9', '10', '11', '12',
+                    '13', '14', '15', '16', '17', '18',
+                    '19', '20', '21', '22', '23', '24']]
+    m = month
+    diz = OrderedDict()
+    count = 0
+    strm = str(m) if len(str(m)) > 1 else "0" + str(m)        
+    crppm = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2016/" + strm + "-2016/_All_CRPP_" + strm + "_2016.xlsx")
+    pathm = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2016/2016-" + strm + "/Giornalieri/CSV"
+    csvfiles = os.listdir(pathm)
+    csvfiles = [cf for cf in csvfiles if 'T1' in cf and '.txt' not in cf]
+    for cf in csvfiles:
+        zona = ""        
+        pod = cf[10:24]
+        date = datetime.datetime(2017, int(cf[2:4]), int(cf[5:7]))
+        if crppm["ZONA"].ix[crppm["POD"] == pod].values.size > 0:
+            zona = crppm["ZONA"].ix[crppm["POD"] == pod].values[0]
+        df = pd.read_csv(pathm + "/" + cf, sep = ";", dtype = object)
+        df.columns = cl
+        vec = np.repeat(0.0, 24)
+        td = []
+        for h in range(24):
+            ha = str(h) + '.A'
+            hb = str(h) + '.B'
+            hc = str(h) + '.C'
+            hd = str(h) + '.D'
+            va = Converter(str(df[ha].ix[0]))
+            vb = Converter(str(df[hb].ix[0]))
+            vc = Converter(str(df[hc].ix[0]))
+            vd = Converter(str(df[hd].ix[0]))
+            vec[h] = np.sum([va, vb, vc, vd], dtype = np.float64)
+            
+        td.append(pod)
+        td.append(zona)
+        td.append(date)
+        td.extend(vec.tolist())
+        diz[count] = td
+        count += 1
+            
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')    
+    diz.columns = [['POD', 'Area', 'Giorno', '1', '2', '3', '4', '5', '6',
+                    '7', '8', '9', '10', '11', '12',
+                    '13', '14', '15', '16', '17', '18',
+                    '19', '20', '21', '22', '23', '24']]
+    Aggdf = Aggdf.append(diz, ignore_index = True)
+    return Aggdf
+####################################################################################################
 def D_Monthly_Aggregator(month):
     cl = ['E', 'F']
     for h in range(24):
