@@ -128,15 +128,243 @@ sql_Argonfile2 = """SELECT id_contratto,
        FROM mnh_common.v_aut_simil_template
        WHERE cd_tp_punto = 'EE' """
 
-##########################################################
 
-sql = """
+        
+sql_Argonfile4 = """
+select min (ag.cd_agenzia) cd_agenzia,
+         min (az.s_denominazione) ds_agenzia,
+         min (trim (ag.s_cognome || ' ' || ag.s_nome)) ds_agente,
+         min (cl.s_denominazione) ds_cliente,
+         fl.cd_punto,
+         min (fl.s_pod_pdr) s_pod,
+         min (ct.d_firma) d_firma,
+         min (fl.d_iniz_forn) over (partition by fl.cd_contratto) d_contr_dal,
+         case
+            when sum (case when fl.d_fine_forn is null then 1 else 0 end) over (partition by fl.cd_contratto) = 0 then
+               max (fl.d_fine_forn) over (partition by fl.cd_contratto)
+            else
+               null
+         end
+            d_contr_al,
+         fl.cd_prodotto cd_listino,
+         min (nvl (sc.n_cons_attualizz, sc.n_cons_contr)) n_energia_aa,
+         max (case when extract (month from fp.d_periodo) = 1 then dm.n_valore else null end) n_cons_gen,
+         max (case when extract (month from fp.d_periodo) = 2 then dm.n_valore else null end) n_cons_feb,
+         max (case when extract (month from fp.d_periodo) = 3 then dm.n_valore else null end) n_cons_mar,
+         max (case when extract (month from fp.d_periodo) = 4 then dm.n_valore else null end) n_cons_apr,
+         max (case when extract (month from fp.d_periodo) = 5 then dm.n_valore else null end) n_cons_mag,
+         max (case when extract (month from fp.d_periodo) = 6 then dm.n_valore else null end) n_cons_giu,
+         max (case when extract (month from fp.d_periodo) = 7 then dm.n_valore else null end) n_cons_lug,
+         max (case when extract (month from fp.d_periodo) = 8 then dm.n_valore else null end) n_cons_ago,
+         max (case when extract (month from fp.d_periodo) = 9 then dm.n_valore else null end) n_cons_set,
+         max (case when extract (month from fp.d_periodo) = 10 then dm.n_valore else null end) n_cons_ott,
+         max (case when extract (month from fp.d_periodo) = 11 then dm.n_valore else null end) n_cons_nov,
+         max (case when extract (month from fp.d_periodo) = 12 then dm.n_valore else null end) n_cons_dic,
+         max (case when extract (month from stm.d_periodo) = 1 then stm.n_ener_attiva else null end) n_stima_gen,
+         max (case when extract (month from stm.d_periodo) = 2 then stm.n_ener_attiva else null end) n_stima_feb,
+         max (case when extract (month from stm.d_periodo) = 3 then stm.n_ener_attiva else null end) n_stima_mar,
+         max (case when extract (month from stm.d_periodo) = 4 then stm.n_ener_attiva else null end) n_stima_apr,
+         max (case when extract (month from stm.d_periodo) = 5 then stm.n_ener_attiva else null end) n_stima_mag,
+         max (case when extract (month from stm.d_periodo) = 6 then stm.n_ener_attiva else null end) n_stima_giu,
+         max (case when extract (month from stm.d_periodo) = 7 then stm.n_ener_attiva else null end) n_stima_lug,
+         max (case when extract (month from stm.d_periodo) = 8 then stm.n_ener_attiva else null end) n_stima_ago,
+         max (case when extract (month from stm.d_periodo) = 9 then stm.n_ener_attiva else null end) n_stima_set,
+         max (case when extract (month from stm.d_periodo) = 10 then stm.n_ener_attiva else null end) n_stima_ott,
+         max (case when extract (month from stm.d_periodo) = 11 then stm.n_ener_attiva else null end) n_stima_nov,
+         max (case when extract (month from stm.d_periodo) = 12 then stm.n_ener_attiva else null end) n_stima_dic
+    from mnh_common.v_punti_fornitura fl
+         join mnh_common.t_prodotti pr
+            on pr.cd_prodotto = fl.cd_prodotto
+         left join mnh_common.t_agenti ag
+            on ag.cd_agente = fl.cd_agente
+         left join mnh_common.t_agenzie az
+            on ag.cd_agenzia = az.cd_agenzia
+         join mnh_common.t_clienti cl
+            on cl.cd_cliente = fl.cd_intestatario
+         left join mnh_common.t_contratti ct
+            on ct.cd_contratto = fl.cd_contratto
+         left join mnh_billing.t_stime_ee_aa sc
+            on sc.cd_punto = fl.cd_punto
+         left join mnh_billing.r_forniture_periodi fp
+    on fp.id_fornitura = fl.id_fornitura and fp.d_periodo between to_date('01/01/2017','dd/mm/yyyy') and to_date('31/12/2017','dd/mm/yyyy')
+         left join mnh_billing.t_doc_misure dm
+            on     dm.id_documento = fp.id_doc_fatt
+               and dm.d_periodo = fp.d_periodo
+               and dm.cd_punto = fl.cd_punto
+               and dm.cd_tp_grandezza_fatt = 'E_MM_TOT'
+               and dm.cd_fascia = 'F0'
+         left join mnh_logistica.t_misure_ee stm
+            on     stm.cd_tp_misura = 'CURVE_STIMA'
+               and stm.id_stato in (10, 20, 30)
+               and stm.cd_punto = fl.cd_punto
+               and stm.d_periodo = fp.d_periodo
+   where fl.cd_tp_punto = 'EE'
+       group by fl.cd_punto,
+         fl.d_iniz_forn,
+         fl.cd_contratto,
+         fl.d_fine_forn,
+         fl.cd_prodotto
+"""
+
+####################################################################################################
+
+sql_Argonfile3 = """
+SELECT riep.cd_agenzia,
+         riep.ds_agenzia,
+         dett.ds_agente,
+         dett.ds_intestatario_fatt as ds_cliente,
+         punti.cd_punto,
+         dett.s_pod_pdr,
+         contr.d_firma,
+         punti.d_valido_dal,
+         punti.d_valido_al,
+         punti.cd_prodotto as cd_listino,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '1' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_gen,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '2' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_feb,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '3' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_mar,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '4' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_apr,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '5' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_mag,            
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '6' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_giu,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '7' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_lug,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '8' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_ago,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '9' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_set,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '10' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_ott,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '11' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_nov,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '12' AND dett.cd_regola_provv like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS gett_dic,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '1' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_gen,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '2' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_feb,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '3' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_mar,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '4' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_apr,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '5' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_mag,            
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '6' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_giu,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '7' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_lug,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '8' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_ago,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '9' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_set,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '10' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_ott,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '11' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_nov,
+         SUM (CASE 
+              WHEN EXTRACT (MONTH FROM riep.d_periodo) = '12' AND dett.cd_regola_provv not like '%GETTONE_%'
+              THEN dett.n_imp
+              ELSE 0
+              END) AS provv_dic
+    FROM mnh_crm.v_age_calcolo_provvigioni riep
+         JOIN mnh_crm.v_age_remunerazioni_dett dett
+            ON dett.id_remunerazione = riep.id_remunerazione
+         LEFT JOIN mnh_common.v_forniture_punti_lookup punti
+            ON punti.s_pod_pdr = dett.s_pod_pdr
+         LEFT JOIN mnh_common.t_contratti contr
+            ON contr.cd_contratto = punti.cd_contratto
+   WHERE TO_CHAR (riep.d_periodo, 'yyyy') = '2017'
+       and riep.id_fornitore =  1
+GROUP BY riep.cd_agenzia,
+         riep.ds_agenzia,
+         dett.ds_agente,
+         dett.ds_intestatario_fatt,
+         punti.cd_punto,
+         dett.s_pod_pdr,
+         contr.d_firma,
+         punti.d_valido_dal,
+         punti.d_valido_al,
+         punti.cd_prodotto
+"""
+####################################################################################################
+
+sql= """
 with ta as (
 -- T8 marg
 select /*+ materialize */ * from (
-"""
-
-sql = """
 SELECT sub.id_fornitura,
        to_char(extract( month from (trunc (sub.d_periodo,'mm')))) d_periodo,
 SUM(
@@ -173,13 +401,11 @@ SUM(
       -- NVL(gppb_f3_imp,0)
        ) as somma_mese      
   FROM mnh_billing.t_documenti doc 
-"""
-"""
-     join  mnh_billing.v_report_componenti_margini sub on (doc.id_documento=sub.id_documento and doc.id_stato in (40,60)
+     join  mnh_billing.v_report_componenti_margini SUB on (doc.id_documento=sub.id_documento and doc.id_stato in (40,60)
                  )
       join mnh_billing.r_doc_periodi rdp 
        on (sub.id_documento=rdp.id_documento and sub.d_periodo=rdp.d_periodo and sub.id_fornitura=rdp.id_fornitura
-       and TRUNC(rdp.d_periodo,'YYYY') = [anno di competenza:D:01/01/2014]
+       and TRUNC(rdp.d_periodo,'YYYY') = to_date('01/01/2017','dd/mm/yyyy')
        )
         LEFT  JOIN mnh_common.V_SYS_CST_PROP_PUNTI cp_punti
                          on cp_punti.cd_punto = rdp.cd_punto
@@ -196,24 +422,13 @@ SUM(
         LEFT JOIN mnh_common.V_SYS_CST_PROP_PRODOTTI cp_prod_pun
                         ON cp_prod_pun.cd_prodotto = rdp.cd_prodotto
                         and   cp_prod_pun.CD_CST_PROP = 'SPREAD_PUN'
-                        and   rdp.d_periodo between cp_prod_pun.D_VALIDO_DAL and nvl(cp_prod_pun.D_VALIDO_AL, rdp.d_periodo)                        
-                      
+                        and   rdp.d_periodo between cp_prod_pun.D_VALIDO_DAL and nvl(cp_prod_pun.D_VALIDO_AL, rdp.d_periodo)                                              
   group by sub.id_fornitura,trunc (sub.d_periodo,'mm')) tt
-  """
-  
-  
-  
-"""
 pivot (
 max(somma_mese)
 FOR d_periodo 
    in ('1' as gen, '2' as feb,  '3' as mar, '4' as apr, '5' as mag, '6' as giu, '7' as lug,
         '8' as ago, '9' as sett, '10' as ott, '11' as nov, '12' as dic) )) 
-"""
-cursor.execute(sql)
-
-        
-"""        
 -- Inizio query      
 select * from (
 select  az.s_denominazione AS agenzia,
@@ -429,7 +644,7 @@ join ta marg on marg.id_fornitura= temp.id_fornitura
    LEFT OUTER JOIN mnh_billing.r_doc_periodi rdp
     ON rdp.s_pod_pdr = temp.s_pod --
        and rdp.id_fornitura=temp.id_fornitura
-      AND TRUNC (rdp.d_periodo, 'yyyy') = [anno di competenza:D:01/01/2014]
+      AND TRUNC (rdp.d_periodo, 'yyyy') = to_date('01/01/2017','dd/mm/yyyy')
       and rdp.id_documento in ( select id_documento from  mnh_billing.t_documenti doc
                     where doc.id_stato IN (40, 60)  
                             and cd_sezionale='FATT_EE')                           
@@ -462,7 +677,7 @@ mnh_billing.t_parametri par
 --T12  gett_age_pod  
       LEFT OUTER JOIN
                    (  SELECT   gett.cd_agente,
-                               [anno di competenza:D:01/01/2014] 
+                               to_date('01/01/2017','dd/mm/yyyy') 
                                AS perido_anno,
                                 od.s_pod,
                                 SUM (gett.n_imp) AS gett_agente
@@ -479,7 +694,7 @@ mnh_billing.t_parametri par
                                           'GETTONE_13M_EE')
                                 AND gett.id_ordine = od.id_ordine
                                 AND gett.n_riga = od.n_riga
-                                and TRUNC (gett.d_periodo, 'yyyy') = [anno di competenza:D:01/01/2014]
+                                and TRUNC (gett.d_periodo, 'yyyy') = to_date('01/01/2017','dd/mm/yyyy')
                      GROUP BY   gett.cd_agente,
                                 od.s_pod) gett_age_pod
                  ON gett_age_pod.cd_agente = ag.cd_agente
@@ -515,8 +730,8 @@ group by  temp.s_pod,
            PRODOTTO_5,
            PRODOTTO_5_DA,
            PRODOTTO_6,
-           PRODOTTO_6_DA) 
-"""
+           PRODOTTO_6_DA)"""
 
+sql = "select * from MNH_REPORT.V__RPT__000000000217"
 
 cursor.execute(sql)
