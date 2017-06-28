@@ -16,9 +16,11 @@ import calendar
 import scipy
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
+import sklearn.preprocessing
 #from sklearn.tree import DecisionTreeRegressor
 from collections import OrderedDict
 import datetime
+import time
 #from statsmodels.tsa.stattools import adfuller
 
 today = datetime.datetime.now()
@@ -149,6 +151,49 @@ def percentageConsumption(db, zona, di, df):
         totd = np.sum(np.nan_to_num([AllX["CONSUMO_TOT_" + strm].ix[y] for y in AllX.index if AllX["POD"].ix[y] in pods]))/1000
         #totd = All2["CONSUMO_TOT"].ix[All2["POD"].values.ravel() in pods].sum()
         tot = AllX["CONSUMO_TOT_" + strm].sum()/1000
+        p = totd/tot
+        diz[d] = [p]
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    return diz
+####################################################################################################
+def percentageConsumption2(db, zona, di, df):
+    dr = pd.date_range(di, df, freq = 'D')
+    All2016 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.h5")
+    All1 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_Jan_2017_artigianale.h5")  
+    All2 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_Feb_2017_artigianale.h5")  
+    All3 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_Mar_2017_artigianale.h5")  
+    All4 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_Apr_2017_artigianale.h5")  
+    All5 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_May_2017_artigianale.h5")  
+    All6 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_Jun_2017_artigianale.h5")  
+        
+    diz = OrderedDict()
+    dbz = db.ix[db["Area"] == zona]
+    for d in dr:
+        drm = d.month
+        strm = str(drm) if len(str(drm)) > 1 else "0" + str(drm)  
+        dry = d.year
+        if dry == 2017 and drm == 1:
+            All = All1
+            strm = '03'
+        elif dry == 2017 and drm == 2:
+            All = All2
+            strm = '03'
+        elif dry == 2017 and drm == 3:
+            All = All3
+        elif dry == 2017 and drm == 4:
+            All = All4
+        elif dry == 2017 and drm == 5:
+            All = All5
+        elif dry == 2017 and drm == 6:
+            All = All6
+        elif dry == 2016:
+            All = All2016
+        else:
+            pass
+        pods = dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()
+        AllX = All.ix[All["Trattamento_"+ strm] == 1]
+        totd = np.sum(np.nan_to_num([AllX["Consumo_" + strm].ix[y] for y in AllX.index if AllX["pod"].ix[y] in pods]))/1000
+        tot = AllX["Consumo_" + strm].sum()/1000
         p = totd/tot
         diz[d] = [p]
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
@@ -571,6 +616,19 @@ def convertDates(vec):
     CD = vec.apply(lambda x: datetime.datetime(year = int(str(x)[6:10]), month = int(str(x)[3:5]), day = int(str(x)[:2]), hour = int(str(x)[11:13])))
     return CD
 ####################################################################################################
+def Get_SampleAsTS(db, zona):
+    db["Giorno"] = pd.to_datetime(db["Giorno"])
+    db = db.ix[db["Area"] == zona]
+    dr = pd.date_range('2016-01-01', '2017-04-30', freq = 'D')
+    res = []
+    for i in dr.tolist():
+        dbd = db[db.columns[3:]].ix[db["Giorno"] == i].sum()/1000
+        res.extend(dbd.values.tolist())
+        diz = pd.DataFrame(res)
+    diz.columns = [['MO [MWh]']]
+    diz = diz.set_index(pd.date_range('2016-01-01', '2017-12-31', freq = 'H')[:diz.shape[0]])
+    return diz
+####################################################################################################
 def Get_OutOfSample(df, db, zona):
     db["Giorno"] = pd.to_datetime(db["Giorno"])
     db = db.ix[db["Area"] == zona]
@@ -613,6 +671,21 @@ def removePerdite(df):
          "16","17","18","19","20","21","22","23","24", "25"]]
     return df2
 ####################################################################################################
+def reduceDB(db):
+    ndb = OrderedDict()
+    db24 = db[db.columns[:27]].ix[db["25"] == 0]
+    db25 = db.ix[db["25"] > 0].reset_index(drop = True)
+    for r in range(db25.shape[0]):
+        nl = db25[db25.columns[:5]].ix[r].values.tolist()
+        nl.append(db25[db25.columns[5:7]].ix[r].sum())
+        nl.extend(db25[db25.columns[7:]].ix[r].values.tolist())
+        ndb[r] = nl
+    ndb = pd.DataFrame.from_dict(ndb, orient = 'index')
+    ndb.columns = [["POD", "Area", "Giorno", "1","2","3","4","5","6","7","8","9","10","11","12","13","14","15",
+         "16","17","18","19","20","21","22","23","24"]]
+    NDB = db24.append(ndb, ignore_index = True)
+    return NDB
+####################################################################################################
 #def MakeSplittedDataset(df, db, meteo, zona):
 #    ### @PARAM: df --> misurato di Terna, db --> database misure orarie giornaliere    
 #    final = max(df.index.date)
@@ -627,6 +700,15 @@ def removePerdite(df):
 #        
 #    
 ####################################################################################################
+db2016 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016.xlsm", sheetname = "DB_SI_perd")
+db2 = removePerdite(db2016)
+db2.to_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_originale.h5", "db2016")
+
+db = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_originale.h5")
+
+ndb = reduceDB(db)
+ndb.to_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_trattato.h5", "ndb")
+
 
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
 k2e = k2e.set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:k2e.shape[0]])
@@ -659,9 +741,6 @@ DB = db.append(dt, ignore_index = True)
 
 sbil = pd.read_excel('C:/Users/utente/Documents/misure/aggregato_sbilanciamento2.xlsx')
 
-db2016 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016.xlsm", sheetname = "DB_SI_perd")
-db2 = removePerdite(db2016)
-db2.to_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_originale.h5", "db2016")
 
 
 nord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_NORD']
@@ -672,10 +751,32 @@ mi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2017.xlsx')
 mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
 mi = mi6.append(mi7)
 ###############################
-import time
 start = time.time()
-oos = Get_OutOfSample(nord, DB, "NORD")
+oos = Get_OutOfSample(cnord, DB, "CNOR")
 time.time() - start
+start = time.time()
+sam = Get_SampleAsTS(DB, "CNOR")
+time.time() - start
+cross = scipy.signal.correlate(sklearn.preprocessing.scale(sam.resample('M').mean().values), sklearn.preprocessing.scale(oos.resample('M').mean().values), mode = 'same')
+npcross = np.convolve(sam.resample('M').mean().values.ravel(), oos.resample('M').mean().values.ravel(), mode = "same")
+
+plt.figure()
+plt.plot(npcross, color = 'red')
+v =  [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
+for vx in v:
+    plt.axvline(x = vx, color = 'black')
+
+
+plt.figure()
+sam.resample('M').mean().plot()
+oos.resample('M').mean().plot()
+
+
+plt.figure()
+plt.plot(cross.ravel())
+v =  [744, 1440,2184,2904,3648,4368,5192,5856,6576,7320,8040,8784]
+for vx in v:
+    plt.axvline(x = vx, color = 'black')
 ###############################
 cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
 cnord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:cnord.shape[0]]
@@ -1325,3 +1426,8 @@ plt.figure()
 plt.plot(Y[2831:3576])
 plt.axvline(x = 2831, color = 'black',  linewidth=2.0)
 plt.axvline(x = 3575, color = 'black',  linewidth=2.0)
+
+
+pc2 = percentageConsumption2(DB, "CSUD", '2017-01-01', '2017-05-31')
+pc = percentageConsumption(DB, "CSUD", '2017-01-01', '2017-05-31')
+   
