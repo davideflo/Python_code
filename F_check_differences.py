@@ -586,6 +586,7 @@ def BuildCRPP(ddir):
                 if 'PIVOT' in s or 'EMO' in s:
                     pass
                 else:
+                    print('opening sheet {}'.format(s))
                     df = pd.read_excel(a[0] + '/' + file, sheetname = s)
                     if df.shape[0] == 0 or 'Codice POD' not in df.columns:
                         pass
@@ -627,12 +628,12 @@ def BuildCRPP(ddir):
                 tot.extend(np.repeat(1,12).tolist())
             diz[sp] = tot
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
-    diz.columns = [['pod', 'zona','Consumo_01_2017','Consumo_02_2017',
-                    'Consumo_03_2017','Consumo_04_2017','Consumo_05_2017','Consumo_06_2017','Consumo_07_2017',
-                    'Consumo_08_2017','Consumo_09_2017','Consumo_10_2017','Consumo_11_2017','Consumo_12_2017',
-                    'Trattamento_01_2017','Trattamento_02_2017',
-                    'Trattamento_03_2017','Trattamento_04_2017','Trattamento_05_2017','Trattamento_06_2017','Trattamento_07_2017',
-                    'Trattamento_08_2017','Trattamento_09_2017','Trattamento_10_2017','Trattamento_11_2017','Trattamento_12_2017']]
+    diz.columns = [['pod', 'zona','Consumo_01','Consumo_02',
+                    'Consumo_03','Consumo_04','Consumo_05','Consumo_06','Consumo_07',
+                    'Consumo_08','Consumo_09','Consumo_10','Consumo_11','Consumo_12',
+                    'Trattamento_01','Trattamento_02',
+                    'Trattamento_03','Trattamento_04','Trattamento_05','Trattamento_06','Trattamento_07',
+                    'Trattamento_08','Trattamento_09','Trattamento_10','Trattamento_11','Trattamento_12']]
     return diz
 ###############################################################################
 def BuildCRPP2016():
@@ -691,12 +692,12 @@ def BuildCRPP2016():
                 tot.extend(np.repeat(1,12).tolist())
             diz[sp] = tot
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
-    diz.columns = [['pod', 'zona', 'Consumo_01_2016', 'Consumo_02_2016','Consumo_03_2016','Consumo_04_2016',
-                    'Consumo_05_2016','Consumo_06_2016','Consumo_07_2016','Consumo_08_2016','Consumo_09_2016',
-                    'Consumo_10_2016','Consumo_11_2016','Consumo_12_2016',
-                    'Trattamento_01_2016', 'Trattamento_02_2016','Trattamento_03_2016','Trattamento_04_2016',
-                    'Trattamento_05_2016','Trattamento_06_2016','Trattamento_07_2016','Trattamento_08_2016','Trattamento_09_2016',
-                    'Trattamento_10_2016','Trattamento_11_2016','Trattamento_12_2016']]
+    diz.columns = [['pod', 'zona','Consumo_01','Consumo_02',
+                    'Consumo_03','Consumo_04','Consumo_05','Consumo_06','Consumo_07',
+                    'Consumo_08','Consumo_09','Consumo_10','Consumo_11','Consumo_12',
+                    'Trattamento_01','Trattamento_02',
+                    'Trattamento_03','Trattamento_04','Trattamento_05','Trattamento_06','Trattamento_07',
+                    'Trattamento_08','Trattamento_09','Trattamento_10','Trattamento_11','Trattamento_12']]
     return diz
 ###############################################################################
                             
@@ -705,7 +706,7 @@ diz.to_excel("CRPP_artigianale.xlsx")
 crpp2016 = BuildCRPP2016()
 crpp2016.to_excel("CRPP2016_artigianale.xlsx")
 
-Jan2017 = BuildCRPP("01. Gennaio/24-01-2017")
+Jan2017 = BuildCRPP("01. Gennaio/11-01-2017")
 Jan2017.to_excel("CRPP_Jan_2017_artigianale.xlsx")
 Feb2017 = BuildCRPP("02. Febbraio")
 Feb2017.to_excel("CRPP_Feb_2017_artigianale.xlsx")
