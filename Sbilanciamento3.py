@@ -21,6 +21,8 @@ import sklearn.preprocessing
 from collections import OrderedDict
 import datetime
 import time
+import os
+from sklearn.externals import joblib
 #from statsmodels.tsa.stattools import adfuller
 
 today = datetime.datetime.now()
@@ -256,7 +258,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
-def MakeExtendedDatasetGivenPOD(db, meteo, pod):
+def MakeExtendedDatasetGivenPOD(db, meteo, pod, end):
 #### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
 #### and the sample curve
 #### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
@@ -265,7 +267,7 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
     db = db.ix[db["POD"] == pod].reset_index(drop = True)
     dts = OrderedDict()
     start = str(db["Giorno"].ix[0])[:10]
-    end =  str(db["Giorno"].ix[db.shape[0]-1])[:10]
+#    end =  str(db["Giorno"].ix[db.shape[0]-1])[:10]
 #    if db["Giorno"].ix[db.shape[0]-1] > datetime.datetime(2017,3,31):
 #        end = '2017-04-02'
     dr = pd.date_range(start, end, freq = 'H')
@@ -287,7 +289,7 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
         h = i.hour
         hvector[h] = 1
         mvector[(i.month-1)] = 1
-        dy = i.timetuple().tm_yday
+        #dy = i.timetuple().tm_yday
         Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
         wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
@@ -295,7 +297,7 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
         ll.extend(dvector.tolist())
         ll.extend(mvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol, bri, dls, edls])
+        ll.extend([Tmax, rain, wind, hol, bri, dls, edls])
         ll.extend(cmym.tolist())
         if db[str(h + 1)].ix[db["Giorno"] == i.date()].shape[0] > 0:
             ll.extend([db[str(h + 1)].ix[db["Giorno"] == i.date()].values[0]])
@@ -305,7 +307,7 @@ def MakeExtendedDatasetGivenPOD(db, meteo, pod):
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
     dts.columns = [['Lun','Mar','Mer','Gio','Ven','Sab','Dom','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving',
+    'tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
     return dts
 ####################################################################################################
@@ -544,14 +546,14 @@ def EvaluateImbalance(val, imb, zona, pun):
     diz.columns = [["Val_sbil", "gain"]]
     return diz
 ####################################################################################################
-def podwiseForecast(db, meteo, zona):
+def podwiseForecast(db, meteo, zona, end):
     removed = []
     fdf = OrderedDict()
     podlist = list(set(db["POD"].ix[db["Area"] == zona].values.ravel().tolist()))
     for pod in podlist:
         if db.ix[db["POD"] == pod].shape[0] > 366:
             print 'Avanzamento: {} %'.format((podlist.index(pod) + 1)/len(podlist))
-            DBP = MakeExtendedDatasetGivenPOD(DB, meteo, pod)
+            DBP = MakeExtendedDatasetGivenPOD(DB, meteo, pod, end)
             
             train2 = DBP.ix[DBP.index.date < datetime.date(2017, 1, 1)]
             train = DBP.sample(frac = 1)
@@ -686,19 +688,106 @@ def reduceDB(db):
     NDB = db24.append(ndb, ignore_index = True)
     return NDB
 ####################################################################################################
-#def MakeSplittedDataset(df, db, meteo, zona):
-#    ### @PARAM: df --> misurato di Terna, db --> database misure orarie giornaliere    
-#    final = max(df.index.date)
-#    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
-#    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
-#    final_date = str(final.year) + '-' + strm + '-' + strd
-#    psample = percentageConsumption(db, zona, '2016-01-01', final_date)
-#    psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
-#    dts = OrderedDict()
-#    df = df.ix[df.index.date >= datetime.date(2016,1,3)]
-#    for i in df.index.tolist():
-#        
-#    
+def SampleAtDay(db, dtd, zona):
+    db = db.ix[db["Area"] == zona]
+    return list(set(db["POD"].ix[db["Giorno"] == dtd].tolist()))
+####################################################################################################
+def MakeSplittedDataset(df, db, meteo, zona):
+    ### @PARAM: df --> misurato di Terna, db --> database misure orarie giornaliere    
+    final = max(df.index.date)
+    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
+    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
+    final_date = str(final.year) + '-' + strm + '-' + strd
+    psample = percentageConsumption2(db, zona, '2016-01-01', final_date)
+    psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
+    df = df.ix[df.index.date >= datetime.date(2016,1,3)]
+    OOS = Get_OutOfSample(df, db, zona)
+    df_oos = MakeExtendedDatasetWithSampleCurve(OOS, db, meteo, zona)
+    if os.path.exists("C:/Users/utente/Documents/Sbilanciamento/" + zona + "/Out_Of_Sample"):
+        df_oos.to_hdf("C:/Users/utente/Documents/Sbilanciamento/" + zona + "/Out_Of_Sample/dataset")
+    else:
+        os.makedirs("C:/Users/utente/Documents/Sbilanciamento/" + zona + "/Out_Of_Sample")
+    
+    crpp2017 = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP_2017.h5")
+    
+    removed = []
+    fdf = OrderedDict()
+    podlist = list(set(db["POD"].ix[db["Area"] == zona].values.ravel().tolist()))
+    for pod in podlist:
+        if db.ix[db["POD"] == pod].shape[0] > 366:
+            print 'Avanzamento: {} %'.format((podlist.index(pod) + 1)/len(podlist))
+            DBP = MakeExtendedDatasetGivenPOD(DB, meteo, pod)
+            
+            train2 = DBP.ix[DBP.index.date < datetime.date(2017, 1, 1)]
+            train = DBP.sample(frac = 1)
+            test = DBP.ix[DBP.index.date > datetime.date(2016, 12, 31)]
+            #test = test.ix[test.index.date < datetime.date(2017, 4, 12)]
+            if test['y'].sum() < 10e-6:
+                removed.append(pod)
+                continue
+            
+            brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+            
+            brf.fit(train[train.columns[:60]], train[train.columns[60]])
+            yhat_train = brf.predict(train2[train2.columns[:60]])
+            
+            rfR2 = 1 - (np.sum((train2[train2.columns[60]] - yhat_train)**2))/(np.sum((train2[train2.columns[60]] - np.mean(train2[train2.columns[60]]))**2))
+            print 'R-squared per pod {} = {}'.format(pod, rfR2)
+            
+            
+            yhat_test = brf.predict(test[test.columns[:60]])
+            rfR2_test = 1 - (np.sum((test[test.columns[60]] - yhat_test)**2))/(np.sum((test[test.columns[60]] - np.mean(test[test.columns[60]]))**2))
+            print 'R-squared test per pod {} = {}'.format(pod, rfR2_test)
+            
+            if yhat_test.size < 2185:
+                cc = np.concatenate([yhat_test, np.repeat(0, 2185 - yhat_test.size)]).tolist()
+            else:
+                cc = yhat_test.tolist()
+            
+            fdf[pod] = cc
+        else:
+            removed.append(pod)
+    
+    fdf = pd.DataFrame.from_dict(fdf, orient = "columns")
+    fdf = fdf.set_index(pd.date_range('2017-01-01', '2017-12-31', freq = 'H')[:fdf.shape[0]])    
+    
+####################################################################################################
+def LearnPodwiseModels(db, meteo, zona, end):
+    if os.path.exists("C:/Users/utente/Documents/Sbilanciamento/" + zona + "/Podwise_models"):
+        pass
+    else:
+        os.makedirs("C:/Users/utente/Documents/Sbilanciamento/" + zona + "/Podwise_models")
+    removed = []
+    podlist = list(set(db["POD"].ix[db["Area"] == zona].values.ravel().tolist()))
+    for pod in podlist:
+        print 'Avanzamento: {} %'.format((podlist.index(pod) + 1)/len(podlist))
+        DBP = MakeExtendedDatasetGivenPOD(DB, meteo, pod, end)
+            
+        train2 = DBP.ix[DBP.index.date < datetime.date(2017, 1, 1)]
+        train = DBP.sample(frac = 1)
+        test = DBP.ix[DBP.index.date > datetime.date(2017, 1, 3)]
+            
+        if test['y'].sum() < 10e-6:
+            removed.append(pod)
+            continue
+            
+        brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+            
+        brf.fit(train[train.columns[:74]], train[train.columns[74]])
+        yhat_train = brf.predict(train2[train2.columns[:74]])
+            
+        rfR2 = 1 - (np.sum((train2[train2.columns[74]] - yhat_train)**2))/(np.sum((train2[train2.columns[74]] - np.mean(train2[train2.columns[74]]))**2))
+        print 'R-squared per pod {} = {}'.format(pod, rfR2)
+            
+            
+        yhat_test = brf.predict(test[test.columns[:74]])
+        rfR2_test = 1 - (np.sum((test[test.columns[74]] - yhat_test)**2))/(np.sum((test[test.columns[74]] - np.mean(test[test.columns[74]]))**2))
+        print 'R-squared test per pod {} = {}'.format(pod, rfR2_test)
+
+        joblib.dump(brf, "C:/Users/utente/Documents/Sbilanciamento/" + zona + "/Podwise_models/" + pod + "_model.pkl")           
+           
+    
+    return removed
 ####################################################################################################
 db2016 = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/DB_2016.xlsm", sheetname = "DB_SI_perd")
 db2 = removePerdite(db2016)
@@ -708,6 +797,7 @@ db = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_originale.h5"
 
 ndb = reduceDB(db)
 ndb.to_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_trattato.h5", "ndb")
+db = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_trattato.h5")
 
 
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
@@ -759,9 +849,12 @@ sam = Get_SampleAsTS(DB, "CNOR")
 time.time() - start
 cross = scipy.signal.correlate(sklearn.preprocessing.scale(sam.resample('M').mean().values), sklearn.preprocessing.scale(oos.resample('M').mean().values), mode = 'same')
 npcross = np.convolve(sam.resample('M').mean().values.ravel(), oos.resample('M').mean().values.ravel(), mode = "same")
+import statsmodels.tsa.stattools
+
+ccf = statsmodels.tsa.stattools.ccf(sam.resample('D').sum().values.ravel(),oos.resample('D').sum().values.ravel())
 
 plt.figure()
-plt.plot(npcross, color = 'red')
+plt.plot(ccf, color = 'red')
 v =  [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
 for vx in v:
     plt.axvline(x = vx, color = 'black')
@@ -799,7 +892,7 @@ sud.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sud.shape[0]]
 rc6 = pd.read_excel('C:/Users/utente/Documents/PUN/Bari 2016.xlsx')
 rc6 = rc6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 rc7 = pd.read_excel('C:/Users/utente/Documents/PUN/Bari 2017.xlsx')
-rc7 = rc7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+rc7 = rc7.set_index(pd.date_range('2017-01-01', '2017-05-31', freq = 'D'))
 rc = rc6.append(rc7)
 ###############################
 sici = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SICI']
@@ -1428,6 +1521,7 @@ plt.axvline(x = 2831, color = 'black',  linewidth=2.0)
 plt.axvline(x = 3575, color = 'black',  linewidth=2.0)
 
 
-pc2 = percentageConsumption2(DB, "CSUD", '2017-01-01', '2017-05-31')
-pc = percentageConsumption(DB, "CSUD", '2017-01-01', '2017-05-31')
+pc2 = percentageConsumption2(DB, "CNOR", '2017-01-01', '2017-05-31')
+pc = percentageConsumption(DB, "CNOR", '2017-01-01', '2017-05-31')
    
+rem = LearnPodwiseModels(DB, rc, "SUD", end = '2017-05-31')
