@@ -602,9 +602,16 @@ def BuildCRPP(ddir):
                             eng17 = np.repeat(0,12)
                             tratt17 = np.repeat(0,12)
                             for r in range(dfp.shape[0]):
-                                strm = str(int(dfp['Mese rif.'].ix[r])) if len(str(int(dfp['Mese rif.'].ix[r]))) > 1 else '0' + str(int(dfp['Mese rif.'].ix[r]))
+                                tipo_misura = 0
+                                if dfp['Tipo misuratore'].ix[r] == 'MIS_CURVA':
+                                    tipo_misura = 1
+                                elif dfp['Tipo misuratore'].ix[r] == 'TOT_FASCIA':
+                                    tipo_misura = 3
+                                else:
+                                    tipo_misura = 2
+                                #strm = str(int(dfp['Mese rif.'].ix[r])) if len(str(int(dfp['Mese rif.'].ix[r]))) > 1 else '0' + str(int(dfp['Mese rif.'].ix[r]))
                                 eng17[(int(dfp['Mese rif.'].ix[r]) - 1)] = dfp['Energia totale'].ix[r]
-                                tratt17[(int(dfp['Mese rif.'].ix[r]) - 1)] = crpp['Trattamento_' + strm].ix[ixp]
+                                tratt17[(int(dfp['Mese rif.'].ix[r]) - 1)] = tipo_misura
                             tot = [pod, zona]
                             tot.extend(eng17.tolist())
                             tot.extend(tratt17.tolist())
@@ -639,7 +646,7 @@ def BuildCRPP(ddir):
 def BuildCRPP2016():
     diz = OrderedDict()
     sos = pd.read_hdf("C:/Users/d_floriello/Documents/sos_elaborati_finiti.h5")
-    crpp6 = pd.read_excel("C:/Users/d_floriello/Documents/CRPP2016.xlsx")
+    crpp = pd.read_excel("C:/Users/d_floriello/Documents/CRPP2016.xlsx")
     bud = "Z:/AREA BO&B/13. BUDGET/Budget2016/Final"
     all_subdir = [x for x in os.walk(bud)]
     for a in all_subdir:
@@ -665,10 +672,17 @@ def BuildCRPP2016():
                             eng16 = np.repeat(0,12)
                             tratt16 = np.repeat(0,12)
                             for r in range(dfp.shape[0]):
-                                strm = str(int(dfp['Mese rif.'].ix[r])) if len(str(int(dfp['Mese rif.'].ix[r]))) > 1 else '0' + str(int(dfp['Mese rif.'].ix[r]))
+                                tipo_misura = 0
+                                if dfp['Tipo misuratore'].ix[r] == 'MIS_CURVA':
+                                    tipo_misura = 1
+                                elif dfp['Tipo misuratore'].ix[r] == 'TOT_FASCIA':
+                                    tipo_misura = 3
+                                else:
+                                    tipo_misura = 2
+                                #strm = str(int(dfp['Mese rif.'].ix[r])) if len(str(int(dfp['Mese rif.'].ix[r]))) > 1 else '0' + str(int(dfp['Mese rif.'].ix[r]))
                                 eng16[(int(dfp['Mese rif.'].ix[r]) - 1)] = dfp['Energia totale'].ix[r]
-                                if crpp6.ix[crpp6['POD'] == pod].shape[0] > 0:
-                                    tratt16[(int(dfp['Mese rif.'].ix[r]) - 1)] = crpp6['Trattamento_' + strm].ix[crpp6['POD'] == pod]
+                                if crpp.ix[crpp['POD'] == pod].shape[0] > 0:
+                                    tratt16[(int(dfp['Mese rif.'].ix[r]) - 1)] = tipo_misura
                             tot = [pod, zona]
                             tot.extend(eng16.tolist())
                             tot.extend(tratt16.tolist())
@@ -718,3 +732,16 @@ May2017 = BuildCRPP("05. Maggio")
 May2017.to_excel("CRPP_May_2017_artigianale.xlsx")
 Jun2017 = BuildCRPP("06. Giugno")
 Jun2017.to_excel("CRPP_Jun_2017_artigianale.xlsx")
+
+
+sos = pd.read_hdf("C:/Users/d_floriello/Documents/sos_elaborati_finiti.h5")
+
+sos2 = sos.groupby(['Pod', 'DATA']).agg(OrderedDict({'1':sum,'2':sum,'3':sum,'4':sum,'5':sum,
+                                                     '6':sum,'7':sum,'8':sum,'9':sum,
+                                                     '10':sum,'11':sum,'12':sum,'13':sum,
+                                                     '14':sum,'15':sum,'16':sum,'17':sum,
+                                                     '18':sum,'19':sum,'20':sum,'21':sum,
+                                                     '22':sum,'23':sum,'24':sum}))
+
+sos2 = sos2[['1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
+                '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']]
