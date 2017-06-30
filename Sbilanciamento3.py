@@ -192,10 +192,11 @@ def percentageConsumption2(db, zona, di, df):
             All = All2016
         else:
             pass
-        pods = dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()
+        pods = list(set(dbz["POD"].ix[dbz["Giorno"] == d].values.ravel().tolist()))
         AllX = All.ix[All["Trattamento_"+ strm] == 1]
-        totd = np.sum(np.nan_to_num([AllX["Consumo_" + strm].ix[y] for y in AllX.index if AllX["pod"].ix[y] in pods]))/1000
-        tot = AllX["Consumo_" + strm].sum()/1000
+        AllX = AllX.ix[AllX["zona"] == zona]
+        totd = np.sum(np.nan_to_num([AllX["Consumo_" + strm].ix[y] for y in range(AllX.shape[0]) if AllX["pod"].ix[y] in pods]))
+        tot = AllX["Consumo_" + strm].sum()
         p = totd/tot
         diz[d] = [p]
     diz = pd.DataFrame.from_dict(diz, orient = 'index')
@@ -211,7 +212,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
     strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
     final_date = str(final.year) + '-' + strm + '-' + strd
-    psample = percentageConsumption(db, zona, '2016-01-01', final_date)
+    psample = percentageConsumption2(db, zona, '2016-01-01', final_date)
     psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
     df = df.ix[df.index.date >= datetime.date(2016,1,3)]
@@ -797,7 +798,6 @@ db = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_originale.h5"
 
 ndb = reduceDB(db)
 ndb.to_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_trattato.h5", "ndb")
-db = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_trattato.h5")
 
 
 k2e = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregato_copia.xlsx", sheetname = 'Forecast k2E', skiprows = [0,1,2])
@@ -820,6 +820,9 @@ db = db[["POD", "Area", "Giorno", "1","2","3","4","5","6","7","8","9","10","11",
 #dt = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregatore_orari - 17_03.xlsm",
 #                   skiprows = [0], sheetname = "Consumi base 24")
 
+db = pd.read_hdf("C:/Users/utente/Documents/Sbilanciamento/DB_2016_trattato.h5")
+
+
 dt = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/Aggregatore_orari-2017.xlsx")
 
 dt.columns = [str(i) for i in dt.columns]
@@ -838,8 +841,16 @@ nord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:nord.shape[0
 mi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2016.xlsx')
 mi6 = mi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 mi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Milano 2017.xlsx')
-mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+mi7 = mi7.set_index(pd.date_range('2017-01-01', '2017-05-31', freq = 'D'))
 mi = mi6.append(mi7)
+###############################
+cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
+cnord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:cnord.shape[0]]
+fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
+fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
+fi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2017.xlsx')
+fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-05-31', freq = 'D'))
+fi = fi6.append(fi7)
 ###############################
 start = time.time()
 oos = Get_OutOfSample(cnord, DB, "CNOR")
@@ -870,21 +881,16 @@ plt.plot(cross.ravel())
 v =  [744, 1440,2184,2904,3648,4368,5192,5856,6576,7320,8040,8784]
 for vx in v:
     plt.axvline(x = vx, color = 'black')
-###############################
-cnord = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CNOR']
-cnord.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:cnord.shape[0]]
-fi6 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2016.xlsx')
-fi6 = fi6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
-fi7 = pd.read_excel('C:/Users/utente/Documents/PUN/Firenze 2017.xlsx')
-fi7 = fi7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
-fi = fi6.append(fi7)
+
+plt.figure()    
+plt.plot(sam.resample('M').sum().values.ravel()/(sam.resample('M').sum().values.ravel() + oos.resample('M').sum().values.ravel()))
 ###############################
 csud = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_CSUD']
 csud.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:csud.shape[0]]
 ro6 = pd.read_excel('C:/Users/utente/Documents/PUN/Roma 2016.xlsx')
 ro6 = ro6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 ro7 = pd.read_excel('C:/Users/utente/Documents/PUN/Fiumicino 2017.xlsx')
-ro7 = ro7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+ro7 = ro7.set_index(pd.date_range('2017-01-01', '2017-05-31', freq = 'D'))
 ro = ro6.append(ro7)
 ###############################
 sud = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SUD']
@@ -900,7 +906,7 @@ sici.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sici.shape[0
 pa6 = pd.read_excel('C:/Users/utente/Documents/PUN/Palermo 2016.xlsx')
 pa6 = pa6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 pa7 = pd.read_excel('C:/Users/utente/Documents/PUN/Palermo 2017.xlsx')
-pa7 = pa7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+pa7 = pa7.set_index(pd.date_range('2017-01-01', '2017-05-31', freq = 'D'))
 pa = pa6.append(pa7)
 ###############################
 sard = sbil.ix[sbil['CODICE RUC'] == 'UC_DP1608_SARD']
@@ -908,7 +914,7 @@ sard.index = pd.date_range('2015-01-01', '2017-12-31', freq = 'H')[:sard.shape[0
 ca6 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2016.xlsx')
 ca6 = ca6.ix[:365].set_index(pd.date_range('2016-01-01', '2016-12-31', freq = 'D'))
 ca7 = pd.read_excel('C:/Users/utente/Documents/PUN/Cagliari 2017.xlsx')
-ca7 = ca7.set_index(pd.date_range('2017-01-01', '2017-04-30', freq = 'D'))
+ca7 = ca7.set_index(pd.date_range('2017-01-01', '2017-05-31', freq = 'D'))
 ca = ca6.append(ca7)
 
 ######### mean behaviour per month ############                 ####################################
@@ -1520,8 +1526,21 @@ plt.plot(Y[2831:3576])
 plt.axvline(x = 2831, color = 'black',  linewidth=2.0)
 plt.axvline(x = 3575, color = 'black',  linewidth=2.0)
 
+zone = ["NORD", "CNOR", "CSUD", "SUD", "SICI", "SARD"]
+for z in zone:
+    pc2 = percentageConsumption2(DB, z, '2017-01-01', '2017-05-31')
+    plt.figure()
+    pc2.plot()
 
-pc2 = percentageConsumption2(DB, "CNOR", '2017-01-01', '2017-05-31')
+pc2 = percentageConsumption2(DB, "CNOR", '2016-01-01', '2017-05-31')
 pc = percentageConsumption(DB, "CNOR", '2017-01-01', '2017-05-31')
    
 rem = LearnPodwiseModels(DB, rc, "SUD", end = '2017-05-31')
+
+sos = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/sos_aggregati.xlsx")
+
+sos.to_hdf("C:/Users/utente/Documents/Sbilanciamento/sos_aggregati.h5", "sos")
+
+H = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.xlsx")
+H.to_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.h5", "CRPP2016")
+    
