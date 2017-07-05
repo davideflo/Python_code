@@ -216,7 +216,8 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     psample = psample.set_index(pd.date_range('2016-01-01', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
     df = df.ix[df.index.date >= datetime.date(2016,1,3)]
-    for i in df.index.tolist():
+    indices = pd.date_range('2016-01-03', final_date, freq = 'H')
+    for i in indices:
         bri = Bridge(i.date())
         dls = StartsDaylightSaving(i.date())
         edls = EndsDaylightSaving(i.date())
@@ -244,9 +245,9 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
         ll.extend(hvector.tolist())        
         ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], bri, dls, edls])
         ll.extend(cmym.tolist())
-        if df.ix[i].shape[0] > 1:
+        if np.where(df.index == i)[0].size > 1:
             y = df['MO [MWh]'].ix[i].sum()
-        elif df.ix[i].shape[0] == 0:
+        elif np.where(df.index == i)[0].size == 0:
             print "ends daylight saving"
             y = 0
         else:
@@ -258,14 +259,11 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
     't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
     'pday','tmax','pioggia','vento','holiday','perc','ponte','daylightsaving','endsdaylightsaving',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
+    
     return dts
 ####################################################################################################
 def CorrectionDataset(test, yhat_test, db, meteo, zona, short = False):
-#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
-#### and the sample curve
-#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
-#### every day will have a dummy variable representing it
-    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+
     start = min(test.index.date) 
     strm = str(start.month) if len(str(start.month)) > 1 else "0" + str(start.month)
     strd = str(start.day) if len(str(start.day)) > 1 else "0" + str(start.day)
@@ -281,7 +279,13 @@ def CorrectionDataset(test, yhat_test, db, meteo, zona, short = False):
     strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
     final_date = str(final.year) + '-' + strm + '-' + strd
 
-    sad = Get_SampleAsTS_AtDay(db, zona, start_date, final_date)
+    final2 = max(test.index.date) + datetime.timedelta(days = 1)
+    strm = str(final2.month) if len(str(final2.month)) > 1 else "0" + str(final2.month)
+    strd = str(final2.day) if len(str(final2.day)) > 1 else "0" + str(final2.day)
+    final2_date = str(final2.year) + '-' + strm + '-' + strd
+
+
+    sad = Get_SampleAsTS_AtDay(db, zona, start_date, final2_date)
     pc2 = percentageConsumption2(db, zona, start_date, final_date)
     yht = pd.DataFrame({'yhat': yhat_test}).set_index(test.index)
     est_sample = []
@@ -292,20 +296,15 @@ def CorrectionDataset(test, yhat_test, db, meteo, zona, short = False):
     
     ES = pd.DataFrame({"sam_hat": est_sample})
     ES = ES.set_index(test.index)
-    add = pd.DataFrame({"sam_hat":np.repeat(0, 24)})
-    add = add.set_index(pd.date_range('2017-03-26', '2017-03-27', freq = 'H')[:add.shape[0]])
-    ES = ES.append(add.ix[2])
-    ES = ES.sort_index()
     
     TE = pd.DataFrame({'y': test['y'].values.ravel().tolist()}).set_index(test.index)
-    TE['y'].ix[datetime.datetime(2017,3,26,2)] = 0
     TE = TE['y'].sort_index()
     
-    DFE = pd.DataFrame({"error": sad.values.ravel() - ES.values.ravel(), "yy": TE})
+    DFE = pd.DataFrame({"error": sad.values.ravel()[:ES.values.ravel().size] - ES.values.ravel(), "yy": TE})
     
     if short:
         TE2 = TE.ix[TE.index.date >= start2]
-        DFE = pd.DataFrame({"error": (sad.values.ravel() - ES.values.ravel())[:TE2.shape[0]], "yy": TE2})
+        DFE = pd.DataFrame({"error": (sad.values.ravel()[:ES.values.ravel().size] - ES.values.ravel())[:TE2.shape[0]], "yy": TE2})
         return DFE
     else:    
         dts = OrderedDict()
@@ -321,7 +320,8 @@ def CorrectionDataset(test, yhat_test, db, meteo, zona, short = False):
             td = 3
             if wd == 0:
                 td = 4
-            cmym = DFE["error"].ix[DFE.index.date == (i.date()- datetime.timedelta(days = td))].values.ravel()
+            #cmym = DFE["error"].ix[DFE.index.date == (i.date()- datetime.timedelta(days = td))].values.ravel()
+            cmym = DFE["error"].ix[DFE.index == (i- datetime.timedelta(days = td))].values.ravel()
             dvector[wd] = 1
             h = i.hour
             hvector[h] = 1
@@ -345,10 +345,13 @@ def CorrectionDataset(test, yhat_test, db, meteo, zona, short = False):
             ll.extend([y])
             dts[i] =  ll
         dts = pd.DataFrame.from_dict(dts, orient = 'index')
+#        dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom','Jan','Feb','March','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
+#        't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+#        'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving',
+#        'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
         dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom','Jan','Feb','March','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
         't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
-        'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving',
-        'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
+        'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving','r','y']]                
         return dts
 ####################################################################################################
 def MakeExtendedDatasetGivenPOD(db, meteo, pod, end):
@@ -1157,6 +1160,7 @@ print rfR2
 yhat_test = brf.predict(test[test.columns[:76]])
 rfR2_test = 1 - (np.sum((test[test.columns[76]] - yhat_test)**2))/(np.sum((test[test.columns[76]] - np.mean(test[test.columns[76]]))**2))
 print rfR2_test
+print r2_score(test[test.columns[76]], yhat_test)
 
 ############################# TEST on error adjustment #############################################
 
@@ -1185,19 +1189,19 @@ TE = TE['y'].sort_index()
 DFE = pd.DataFrame({"error": sad.values.ravel() - ES.values.ravel(), "yy": TE})
 
 
-DTE = CorrectionDataset(test, yhat_test, DB, mi, "NORD", True)
+DTE = CorrectionDataset(test, yhat_test, DB, mi, "NORD")
 
 params = {'n_estimators': 500, 'max_depth': 48, 'min_samples_split': 2,
           'learning_rate': 0.01, 'loss': 'ls', 'criterion': 'friedman_mse'}
 gbm = GradientBoostingRegressor(**params)
 
 ##### NORMAL
-gbm.fit(X = DTE[DTE.columns[:75]], y = DTE['y'])
-mse = mean_squared_error(DTE['y'], gbm.predict(DTE[DTE.columns[:75]]))
+gbm.fit(X = DTE[DTE.columns[:52]], y = DTE['y'])
+mse = mean_squared_error(DTE['y'], gbm.predict(DTE[DTE.columns[:52]]))
 print mse
-R2 = r2_score(DTE["y"].reshape(DTE["y"].size, 1), gbm.predict(DTE[DTE.columns[:75]]))
+R2 = r2_score(DTE["y"].reshape(DTE["y"].size, 1), gbm.predict(DTE[DTE.columns[:52]]))
 print R2
-yg_train_n = gbm.predict(DTE[DTE.columns[:75]])
+yg_train_n = gbm.predict(DTE[DTE.columns[:52]])
 ##### SHORT = True
 gbm.fit(X = DTE['error'].reshape(DTE["error"].size, 1), y = DTE['yy'])
 mse = mean_squared_error(DTE['yy'], gbm.predict(DTE['error'].reshape(DTE["error"].size, 1)))
@@ -1227,7 +1231,7 @@ plt.plot(TE.values.ravel() - yg_train_n, color = "grey")
 plt.figure()
 plotting.autocorrelation_plot(TE.values.ravel() - yg_train_n)
 
-gerror = test['y'] - np.concatenate((yhat_test[:71].tolist(), yg_train_n.tolist()), axis = 0)
+gerror = test['y'] - np.concatenate((yhat_test[:72].tolist(), yg_train_n.tolist()), axis = 0)
 
 plt.figure()
 plt.plot(test['y'])
@@ -1236,8 +1240,9 @@ plt.plot(np.concatenate((yhat_test[:71].tolist(), yg_train_n.tolist()), axis = 0
 plt.figure()
 plt.hist(test['y'], bins = 20)
 plt.figure()
-plt.hist(np.concatenate((yhat_test[:71].tolist(), yg_train_n.tolist()), axis = 0), bins = 20, color = 'red')
+plt.hist(np.concatenate((yhat_test[:72].tolist(), yg_train_n.tolist()), axis = 0), bins = 20, color = 'red')
 
+plt.figure();plt.plot(yhat_test, color = 'red');plt.plot(DTE['r'].values.ravel())
 
 plt.figure()
 plt.plot(gerror, color = 'grey')
@@ -1264,6 +1269,23 @@ plt.axhline(y = max(gMAE))
 plt.axhline(y = min(gMAE))
 plt.figure()
 plt.hist(gMAE, bins = 20, color = "yellow")
+
+feature_importance = gbm.feature_importances_
+feature_importance = 100.0 * (feature_importance / feature_importance.max())
+sorted_idx = np.argsort(feature_importance)
+pos = np.arange(sorted_idx.shape[0]) + .5
+plt.figure()
+plt.barh(pos, feature_importance[sorted_idx], align='center')
+plt.yticks(pos, DTE.columns[sorted_idx])
+plt.xlabel('Relative Importance')
+plt.title('Variable Importance')
+plt.show()
+
+from sklearn.ensemble.partial_dependence import plot_partial_dependence
+
+features = [50, 51, (50, 51)]
+plt.figure()
+fig, axs = plot_partial_dependence(gbm, DTE[DTE.columns[:52]], [6]) 
 ####################################################################################################
 
 plt.figure()
@@ -1682,6 +1704,9 @@ yhat_test_n = brfn.predict(DBTN)
 ###### Try with error on sample
 yhat_test_n = brf.predict(DBTN)
 
+DTEf = CorrectionDataset(DBTN, yhat_test_n, DB, mi2017, "NORD")
+
+
 sad = Get_SampleAsTS_AtDay(DB, "NORD", '2017-07-02', '2017-07-03')
 pc2 = percentageConsumption2(DB, "NORD", '2017-07-02', '2017-07-03')
 yht = pd.DataFrame({'yhat': yhat_test_n}).set_index(DBTN.index)
@@ -1712,7 +1737,7 @@ ytn = ytn.set_index(DBTN.index)
 ytn.plot(color = 'dimgrey')
 
 
-ytn.to_excel("NORD_previsione_2017-07-05.xlsx")
+ytn.to_excel("NORD_previsione_2017-07-06.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
