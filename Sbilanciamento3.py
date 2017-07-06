@@ -354,6 +354,88 @@ def CorrectionDataset(test, yhat_test, db, meteo, zona, short = False):
         'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving','r','y']]                
         return dts
 ####################################################################################################
+def CorrectionDatasetForecast(test, yhat_test, db, meteo, zona, short = False):
+
+    start = min(test.index.date) 
+    strm = str(start.month) if len(str(start.month)) > 1 else "0" + str(start.month)
+    strd = str(start.day) if len(str(start.day)) > 1 else "0" + str(start.day)
+    start_date = str(start.year) + '-' + strm + '-' + strd
+    
+    start2 = min(test.index.date) + datetime.timedelta(days = 3)
+    strm = str(start2.month) if len(str(start2.month)) > 1 else "0" + str(start2.month)
+    strd = str(start2.day) if len(str(start2.day)) > 1 else "0" + str(start2.day)
+    start2_date = str(start2.year) + '-' + strm + '-' + strd    
+    
+    final = max(test.index.date)
+    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
+    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
+    final_date = str(final.year) + '-' + strm + '-' + strd
+
+    final2 = max(test.index.date) + datetime.timedelta(days = 1)
+    strm = str(final2.month) if len(str(final2.month)) > 1 else "0" + str(final2.month)
+    strd = str(final2.day) if len(str(final2.day)) > 1 else "0" + str(final2.day)
+    final2_date = str(final2.year) + '-' + strm + '-' + strd
+
+
+    sad = Get_SampleAsTS_AtDay(db, zona, start_date, final2_date)
+    pc2 = percentageConsumption2(db, zona, start_date, final_date)
+    yht = pd.DataFrame({'yhat': yhat_test}).set_index(test.index)
+    est_sample = []
+    for i in pc2.index:
+        yhtd = yht.ix[yht.index.date == pd.to_datetime(i).date()].values.ravel()
+        res = (yhtd * pc2.ix[i].values).tolist()
+        est_sample.extend(res)
+    
+    ES = pd.DataFrame({"sam_hat": est_sample})
+    ES = ES.set_index(test.index)
+    
+    DFE = pd.DataFrame({"error": sad.values.ravel()[:ES.values.ravel().size] - ES.values.ravel()})
+    
+    if short:
+        TE2 = TE.ix[TE.index.date >= start2]
+        DFE = pd.DataFrame({"error": (sad.values.ravel()[:ES.values.ravel().size] - ES.values.ravel())[:TE2.shape[0]]})
+        return DFE
+    else:    
+        dts = OrderedDict()
+        for i in pd.date_range(start2_date, final_date, freq = "H"):
+            bri = Bridge(i.date())
+            dls = StartsDaylightSaving(i.date())
+            edls = EndsDaylightSaving(i.date())
+            ll = []        
+            hvector = np.repeat(0, 24)
+            dvector = np.repeat(0, 7)
+            mvector = np.repeat(0,12)
+            wd = i.weekday()        
+            td = 3
+            if wd == 0:
+                td = 4
+            #cmym = DFE["error"].ix[DFE.index.date == (i.date()- datetime.timedelta(days = td))].values.ravel()
+            cmym = DFE["error"].ix[DFE.index == (i- datetime.timedelta(days = td))].values.ravel()
+            dvector[wd] = 1
+            h = i.hour
+            hvector[h] = 1
+            mvector[(i.month-1)] = 1
+            dy = i.timetuple().tm_yday
+            Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+            rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+            wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+            hol = AddHolidaysDate(i.date())
+            ll.extend(dvector.tolist())
+            ll.extend(mvector.tolist())
+            ll.extend(hvector.tolist())        
+            ll.extend([dy, Tmax, rain, wind, hol, bri, dls, edls])
+            ll.extend(cmym.tolist())
+            dts[i] =  ll
+        dts = pd.DataFrame.from_dict(dts, orient = 'index')
+#        dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom','Jan','Feb','March','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
+#        't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+#        'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving',
+#        'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23','y']]
+        dts.columns = [['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom','Jan','Feb','March','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
+        't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
+        'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving','r']]                
+        return dts
+####################################################################################################
 def MakeExtendedDatasetGivenPOD(db, meteo, pod, end):
 #### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
 #### and the sample curve
