@@ -17,7 +17,7 @@ import scipy
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 import sklearn.preprocessing
-#from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeRegressor
 from collections import OrderedDict
 import datetime
 import time
@@ -389,8 +389,9 @@ def CorrectionDatasetForecast(test, yhat_test, db, meteo, zona, short = False):
     ES = pd.DataFrame({"sam_hat": est_sample})
     ES = ES.set_index(test.index)
     
-    DFE = pd.DataFrame({"error": sad.values.ravel()[:ES.values.ravel().size] - ES.values.ravel()})
-    
+    sad = sad.ix[sad.index.date <= ES.index.date[-1]]
+    DFE = pd.DataFrame({"error": sad.values.ravel() - ES.values.ravel()})
+    DFE = DFE.set_index(ES.index)
     if short:
         TE2 = TE.ix[TE.index.date >= start2]
         DFE = pd.DataFrame({"error": (sad.values.ravel()[:ES.values.ravel().size] - ES.values.ravel())[:TE2.shape[0]]})
@@ -410,15 +411,15 @@ def CorrectionDatasetForecast(test, yhat_test, db, meteo, zona, short = False):
             if wd == 0:
                 td = 4
             #cmym = DFE["error"].ix[DFE.index.date == (i.date()- datetime.timedelta(days = td))].values.ravel()
-            cmym = DFE["error"].ix[DFE.index == (i- datetime.timedelta(days = td))].values.ravel()
+            cmym = DFE["error"].ix[DFE.index == (i - datetime.timedelta(days = td))].values.ravel()
             dvector[wd] = 1
             h = i.hour
             hvector[h] = 1
             mvector[(i.month-1)] = 1
             dy = i.timetuple().tm_yday
-            Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-            rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
-            wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+            Tmax = meteo['Tmax'].ix[meteo.index.date == i.date()].values.ravel()[0]
+            rain = meteo['pioggia'].ix[meteo.index.date == i.date()].values.ravel()[0]
+            wind = meteo['vento'].ix[meteo.index.date == i.date()].values.ravel()[0]
             hol = AddHolidaysDate(i.date())
             ll.extend(dvector.tolist())
             ll.extend(mvector.tolist())
@@ -690,6 +691,7 @@ def EvaluateImbalance(val, imb, zona, pun):
         valsbil = 0
         valdiff = 0
         if i in pun.index:
+            i = i.to_pydatetime()
             dp = pun[zona].ix[i]
             ### dentro la banda:
             if np.abs(imb["Sbil_perc"].ix[i]) <= 0.15: 
@@ -1227,8 +1229,8 @@ test = DBB.ix[DBB.index.date > datetime.date(2017, 1, 31)]
 ### It seems the performances depend on the initial permutation of the trainingset
 ### Google: cross validation with random forest sklearn
 
-#ffregr = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
-ffregr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
+#bre =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
+bre = AdaBoostRegressor(DecisionTreeRegressor(criterion = 'mse', max_depth = 24), n_estimators=3000)
 
 brf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
 
@@ -1244,6 +1246,8 @@ rfR2_test = 1 - (np.sum((test[test.columns[76]] - yhat_test)**2))/(np.sum((test[
 print rfR2_test
 print r2_score(test[test.columns[76]], yhat_test)
 
+zona = "SICI"
+pd.DataFrame({'volumi_forecast': yhat_test}).set_index(test.index).to_excel("C:/Users/utente/Documents/Sbilanciamento/Backtesting/volumi" + zona + ".xlsx")
 ############################# TEST on error adjustment #############################################
 
 sad = Get_SampleAsTS_AtDay(DB, "NORD", '2017-02-01', '2017-04-30')
@@ -1291,6 +1295,17 @@ print mse
 R2 = r2_score(DTE["yy"].reshape(DTE["yy"].size, 1), gbm.predict(DTE['error'].reshape(DTE["error"].size, 1)))
 print R2
 yg_train_n = gbm.predict(DTE['error'].reshape(DTE["error"].size, 1))
+
+############# simpler model ################
+bre = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+
+DTE2 = DTE
+DTE = DTE.sample(frac = 1)
+
+bre.fit(DTE[DTE.columns[:52]], DTE['y'])
+
+ye = bre.predict(DTE[DTE.columns[:52]])
+print r2_score(DTE['y'], ye)
 
 plt.figure()
 plt.plot(test['y'].ix[-yg_train_n.size:].values.ravel(), color = "navy", marker = "o", lw = 4)
@@ -1372,7 +1387,7 @@ fig, axs = plot_partial_dependence(gbm, DTE[DTE.columns[:52]], [6])
 
 plt.figure()
 plt.plot(yhat_test, color = 'blue', marker = 'o')
-plt.plot(test[test.columns[76]].values.ravel(), color = 'red', marker = '+')
+plt.plot(test['y'].values.ravel(), color = 'red', marker = '+')
 
 pd.DataFrame.from_dict({'prediction': yhat_test.tolist()}, orient = 'columns').set_index(test.index).to_excel('backtesting_SARD.xlsx')
 #### graphical comparison with k2e
@@ -1434,7 +1449,7 @@ plt.title("Forecast zona SARD")
 ##############################
 
 
-error = test[test.columns[63]].values.ravel() - yhat_test    
+error = test['y'].values.ravel() - yhat_test    
 
 
 k2e_error = test[test.columns[63]].values.ravel() - tnk2e.values.ravel()[:tnk2e.values.ravel().size - 1] 
@@ -1458,7 +1473,9 @@ plt.figure()
 plt.hist(error, bins = 20)   
 
 maek2 = k2e_error/test[test.columns[63]].values.ravel()
-mae = error/test[test.columns[63]].values.ravel()
+mae = error/test['y'].values.ravel()
+
+mae[np.where(test['y'].values.ravel() == 0)[0]] = 0
 
 print np.mean(maek2)
 print np.median(maek2)
@@ -1474,7 +1491,10 @@ print np.min(mae)
 
 ###### ABSOLUTE ERRORS ########
 amaek2 = np.abs(k2e_error)/test[test.columns[63]].values.ravel()
-amae = np.abs(error)/test[test.columns[63]].values.ravel()
+amae = np.abs(error)/test['y'].values.ravel()
+
+amae[np.where(test['y'].values.ravel() == 0)[0]] = 0
+
 
 print np.mean(amaek2)
 print np.median(amaek2)
@@ -1492,7 +1512,7 @@ print np.min(amae)
 print scipy.stats.mstats.mquantiles(maek2, prob = [0.025, 0.975])
 print scipy.stats.mstats.mquantiles(mae, prob = [0.025, 0.975])
 
-zona = "SICI"
+zona = "SARD"
 
 plt.figure()
 plt.plot(maek2, color = 'green')
@@ -1541,6 +1561,7 @@ K2E = getImbalance(k2e_error, tsak2e.values.ravel()[:tsak2e.values.ravel().size 
 
 AXO = getImbalance(axo_error, yhat_test)
 
+##### convert values to numbers and remove the round brackets from the excel file in the file below
 val = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/valorizzazione_sbilanciamento.xlsx")
 pun = pd.read_excel("C:/Users/utente/Documents/DB_Borse_Elettriche_PER MI_17_conMacro - Copy.xlsm", sheetname = "DB_Dati")
 pun = pun.set_index(pd.date_range("2017-01-01", "2018-01-02", freq = "H")[:pun.shape[0]])
@@ -1548,6 +1569,8 @@ pun = pun.ix[pun.index.date <= today.date()]
 pun = pun[pun.columns[[12,16,19,24,27,28,30]]]
 pun.columns = [["PUN","CNOR","CSUD","NORD","SARD","SICI","SUD"]]
 
+pun = pun.ix[pun.index >= axo_error.index[0]]
+pun = pun.ix[pun.index <= axo_error.index[-1]]
 ##### Test for valorization ####
 spn = nord["SBILANCIAMENTO FISICO [MWh]"].values.ravel()/nord["PV [MWh]"].values.ravel()
 prova = pd.DataFrame.from_dict({"Sbil": nord["SBILANCIAMENTO FISICO [MWh]"].values.ravel().tolist(),
@@ -1575,9 +1598,9 @@ imb_axo = EvaluateImbalance(val, AXO, "SUD", pun)
 imb_axo = EvaluateImbalance(val, AXO, "SICI", pun)
 imb_axo = EvaluateImbalance(val, AXO, "SARD", pun)
 
-
-imb_axo.mean()
-imb_axo.sum()
+zona = "SICI"
+print imb_axo.mean()
+print imb_axo.sum()
 imb_axo.to_excel("C:/Users/utente/Documents/Sbilanciamento/Backtesting/sbilanciamento_axo_" + zona + ".xlsx")
 
 #######
@@ -1786,7 +1809,10 @@ yhat_test_n = brfn.predict(DBTN)
 ###### Try with error on sample
 yhat_test_n = brf.predict(DBTN)
 
-DTEf = CorrectionDataset(DBTN, yhat_test_n, DB, mi2017, "NORD")
+DTEf = CorrectionDatasetForecast(DBTN, yhat_test_n, DB, mi2017, "NORD")
+
+yghat = gbm.predict(DTEf)
+yehat = bre.predict(DTEf)
 
 
 sad = Get_SampleAsTS_AtDay(DB, "NORD", '2017-07-02', '2017-07-03')
@@ -1811,6 +1837,7 @@ plt.figure()
 plt.plot(pred_error)
 plt.figure()
 plt.plot(yhat_test_n[48:], color = "red", marker = 'o')
+plt.plot(yehat, color = "orange", marker = '*')
 plt.plot(yghat, color = "orange", marker = '*')
 
 
@@ -1819,7 +1846,7 @@ ytn = ytn.set_index(DBTN.index)
 ytn.plot(color = 'dimgrey')
 
 
-ytn.to_excel("NORD_previsione_2017-07-06.xlsx")
+ytn.to_excel("NORD_previsione_2017-07-08.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
