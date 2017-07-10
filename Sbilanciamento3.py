@@ -23,6 +23,8 @@ import datetime
 import time
 import os
 from sklearn.externals import joblib
+from statsmodels.tsa.ar_model import AR
+
 #from statsmodels.tsa.stattools import adfuller
 
 today = datetime.datetime.now()
@@ -269,7 +271,7 @@ def CorrectionDataset(test, yhat_test, db, meteo, zona, short = False):
     strd = str(start.day) if len(str(start.day)) > 1 else "0" + str(start.day)
     start_date = str(start.year) + '-' + strm + '-' + strd
     
-    start2 = min(test.index.date) + datetime.timedelta(days = 3)
+    start2 = min(test.index.date) + datetime.timedelta(days = 7)
     strm = str(start2.month) if len(str(start2.month)) > 1 else "0" + str(start2.month)
     strd = str(start2.day) if len(str(start2.day)) > 1 else "0" + str(start2.day)
     start2_date = str(start2.year) + '-' + strm + '-' + strd    
@@ -317,17 +319,17 @@ def CorrectionDataset(test, yhat_test, db, meteo, zona, short = False):
             dvector = np.repeat(0, 7)
             mvector = np.repeat(0,12)
             wd = i.weekday()        
-            td = 3
-            if wd == 0:
-                td = 4
+            td = 7
+#            if wd == 0:
+#                td = 4
             #cmym = DFE["error"].ix[DFE.index.date == (i.date()- datetime.timedelta(days = td))].values.ravel()
-            cmym = DFE["error"].ix[DFE.index == (i- datetime.timedelta(days = td))].values.ravel()
+            cmym = DFE["error"].ix[DFE.index == (i - datetime.timedelta(days = td))].values.ravel()
             dvector[wd] = 1
             h = i.hour
             hvector[h] = 1
             mvector[(i.month-1)] = 1
             dy = i.timetuple().tm_yday
-            Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+            Tmax = meteo['Tmedia'].ix[meteo['DATA'] == i.date()].values.ravel()[0] - meteo['Tmedia'].ix[meteo['DATA'] == (i - datetime.timedelta(days = td)).date()].values.ravel()[0]
             rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
             wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
             hol = AddHolidaysDate(i.date())
@@ -500,10 +502,10 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
     strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
     final_date = str(future.year) + '-' + strm + '-' + strd
-    psample = percentageConsumption2(db, zona, '2017-06-30',final_date)
-    psample = psample.set_index(pd.date_range('2017-06-30', final_date, freq = 'D')[:psample.shape[0]])
+    psample = percentageConsumption2(db, zona, '2017-05-29',final_date)
+    psample = psample.set_index(pd.date_range('2017-05-29', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
-    dr = pd.date_range('2017-06-30', final_date, freq = 'H')
+    dr = pd.date_range('2017-05-29', final_date, freq = 'H')
     for i in dr[2*24:dr.size-1]:
         bri = Bridge(i.date())
         dls = StartsDaylightSaving(i.date())
@@ -1277,6 +1279,53 @@ DFE = pd.DataFrame({"error": sad.values.ravel() - ES.values.ravel(), "yy": TE})
 
 DTE = CorrectionDataset(test, yhat_test, DB, mi, "NORD")
 
+print np.corrcoef(DTE['r'], DTE['y'])
+plt.figure()
+plt.plot(np.correlate(DTE['r'], DTE['y'], 'same'))
+
+
+for h in range(24):
+    DTEh = DTE.ix[DTE['t' + str(h)] == 1]
+    plt.figure()
+    plt.scatter(DTEh['r'], DTEh['y'])
+    plt.title('error vs target_value at h = {}'.format(h))
+
+plt.figure()
+DTE[['r', 'y']].plot()
+
+############ error by day ############
+days = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+for d in days:
+    DTEd = DTE.ix[DTE[d] == 1]
+    plt.figure()
+    plt.hist(DTEd['r'], bins = 20)
+    print DTEd['r'].describe()
+############ error by hour ############
+bar = []
+std_bar = []
+std_y = []
+bar_T = []
+T_std = []
+for h in range(24):
+    DTEh = DTE.ix[DTE['t' + str(h)] == 1]
+    bar.append(np.corrcoef(DTEh['r'], DTEh['y'])[0,1])
+    std_bar.append(DTEh['r'].std())
+    std_y.append(DTEh['y'].std())
+    bar_T.append(np.corrcoef(DTEh['tmax'], DTEh['y'])[0,1])
+    T_std.append(DTEh['tmax'].std())
+plt.figure()
+plt.bar(np.arange(24),np.array(bar))
+plt.figure()
+plt.bar(np.arange(24),np.array(std_bar), color = 'yellow')
+plt.figure()
+plt.bar(np.arange(24),np.array(std_y), color = 'orange')
+plt.figure()
+plt.bar(np.arange(24),np.array(bar_T), color = 'coral')
+plt.figure()
+plt.bar(np.arange(24),np.array(T_std), color = 'red')
+
+print np.corrcoef(np.array(std_bar), np.array(std_y))
+
 params = {'n_estimators': 500, 'max_depth': 48, 'min_samples_split': 2,
           'learning_rate': 0.01, 'loss': 'ls', 'criterion': 'friedman_mse'}
 gbm = GradientBoostingRegressor(**params)
@@ -1773,10 +1822,10 @@ DBTN =  DBT.ix[DBT['holiday'] == 0]
 ################################ Separation holiday/non-holidays ###################################
 brfh = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
 
-brfh.fit(DBHtrain[DBHtrain.columns[:63]], DBHtrain[DBHtrain.columns[63]])
-yhat_train_h = brfh.predict(DBHtrain[DBHtrain.columns[:63]])
+brfh.fit(DBHtrain[DBHtrain.columns[:76]], DBHtrain[DBHtrain.columns[76]])
+yhat_train_h = brfh.predict(DBHtrain[DBHtrain.columns[:76]])
 
-rfR2H = 1 - (np.sum((DBHtrain[DBHtrain.columns[63]] - yhat_train_h)**2))/(np.sum((DBHtrain[DBHtrain.columns[63]] - np.mean(DBHtrain[DBHtrain.columns[63]]))**2))
+rfR2H = 1 - (np.sum((DBHtrain[DBHtrain.columns[76]] - yhat_train_h)**2))/(np.sum((DBHtrain[DBHtrain.columns[76]] - np.mean(DBHtrain[DBHtrain.columns[76]]))**2))
 print rfR2H
 
 yhat_test_h = brfh.predict(DBTH)
@@ -1785,7 +1834,7 @@ yth = pd.DataFrame.from_dict({'pred': yhat_test_h.tolist()})
 yth = yth.set_index(DBTH.index)
 yth.plot(color = 'orchid')
 
-yth.to_excel("SUD_previsione_2017-06-02.xlsx")
+yth.to_excel("NORD_previsione_2017-06-02.xlsx")
 ##########################
 brfn = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
 
@@ -1793,18 +1842,179 @@ params = {'n_estimators': 500, 'max_depth': 48, 'min_samples_split': 2,
           'learning_rate': 0.01, 'loss': 'ls', 'criterion': 'friedman_mse'}
 gbm = GradientBoostingRegressor(**params)
 
-gbm.fit(DBNtrain[DBNtrain.columns[:63]], DBNtrain['y'])
-mse = mean_squared_error(DBNtrain[DBNtrain.columns[63]], gbm.predict(DBNtrain[DBNtrain.columns[:63]]))
-yg_train_n = gbm.predict(DBNtrain[DBNtrain.columns[:63]])
+gbm.fit(DBNtrain[DBNtrain.columns[:76]], DBNtrain['y'])
+mse = mean_squared_error(DBNtrain[DBNtrain.columns[76]], gbm.predict(DBNtrain[DBNtrain.columns[:76]]))
+yg_train_n = gbm.predict(DBNtrain[DBNtrain.columns[:76]])
 
 
-brfn.fit(DBNtrain[DBNtrain.columns[:63]], DBNtrain['y'])
-yhat_train_n = brfn.predict(DBNtrain[DBNtrain.columns[:63]])
+brfn.fit(DBNtrain[DBNtrain.columns[:76]], DBNtrain['y'])
+yhat_train_n = brfn.predict(DBNtrain[DBNtrain.columns[:76]])
 
-rfR2n = 1 - (np.sum((DBNtrain[DBNtrain.columns[63]] - yhat_train_n)**2))/(np.sum((DBNtrain[DBNtrain.columns[63]] - np.mean(DBNtrain[DBNtrain.columns[63]]))**2))
+rfR2n = 1 - (np.sum((DBNtrain[DBNtrain.columns[76]] - yhat_train_n)**2))/(np.sum((DBNtrain[DBNtrain.columns[76]] - np.mean(DBNtrain[DBNtrain.columns[76]]))**2))
 print rfR2n
 
 yhat_test_n = brfn.predict(DBTN)
+
+eps = brfn.predict(DBN[DBN.columns[:76]]) - DBN['y']
+eps5 = eps.ix[eps.index.month == 5]
+plt.figure()
+eps5.ix[eps5.index.year == 2017].plot(color = 'black')
+plt.figure()
+plotting.autocorrelation_plot(eps5)
+
+ea = eps/DBN['y']
+ea5 = ea.ix[ea.index.month == 5]
+plt.figure()
+ea5.ix[ea5.index.year == 2017].plot(color = 'black')
+plt.figure()
+plotting.autocorrelation_plot(ea5)
+
+
+for h in range(24):
+    eps5h = eps5.ix[eps5.index.hour == h]
+    print eps5h.describe()
+    plt.figure()
+    plt.hist(eps5h, color = 'dimgrey', bins = 20)
+    plt.title('error may hour = {}'.format(h))
+    
+for h in range(24):
+    ea5h = ea5.ix[ea5.index.hour == h]
+    print ea5h.describe()
+    plt.figure()
+    plt.hist(ea5h, color = 'dimgrey', bins = 20)
+    plt.title('error may hour = {}'.format(h))
+
+plt.figure()
+scipy.stats.probplot(eps.values.ravel(), dist="norm", plot=plt)
+plt.show()
+
+model = AR(eps.values.ravel())
+model_fit = model.fit()
+window = model_fit.k_ar
+coef = model_fit.params
+
+yhat_test = brfn.predict(DBN[DBN.columns[:76]])
+
+history = eps.values.ravel()[eps.values.ravel().size -window:]
+history = [history[i] for i in range(history.size)]
+predictions = list()
+for t in range(DBN['y'].values.ravel().size):
+	# persistence
+	yhat = yhat_test[t]
+	error = yhat - DBN['y'].values.ravel()[t]
+	# predict error
+	length = len(history)
+	lag = [history[i] for i in range(length-window,length)]
+	pred_error = coef[0]
+	for d in range(window):
+		pred_error += coef[d+1] * lag[window-d-1]
+	# correct the prediction
+	yhat = yhat - pred_error
+	predictions.append(yhat)
+	history.append(error)
+	print('predicted=%f, expected=%f' % (yhat, DBN['y'].values.ravel()[t]))
+# error
+mse = mean_squared_error(DBN['y'].values.ravel(), predictions)
+print('Test MSE: %.3f' % mse)
+# plot predicted error
+plt.figure()
+plt.plot(DBN['y'].values.ravel())
+plt.plot(predictions, color='red')
+
+jun = []
+history = eps5.values.ravel()[eps5.values.ravel().size - window:]
+history = [history[i] for i in range(history.size)]
+for x in range(yhat_test_n.size):
+    yhat = yhat_test_n[x]
+    length = len(history)
+    lag = [history[i] for i in range(length - window,length)]
+    pred_error = coef[0]
+    for d in range(window):
+    		pred_error += coef[d+1] * lag[window-d-1]
+    jun.append(yhat - pred_error)
+    
+plt.figure()
+plt.plot(yhat_test_n, color = 'grey')
+plt.plot(np.array(jun), color = 'orange')
+plt.figure()
+plt.plot(np.array(jun) - yhat_test_n)
+
+
+days = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+for d in days:
+    epsd = eps.ix[DBN[d] == 1]
+    print epsd.describe()
+    plt.figure()
+    plt.plot(epsd.values.ravel()) 
+    plt.title(d)       
+    
+EPS = []
+for h in range(24):
+    epsd = eps.ix[DBN['Mer'] == 1]
+    eps5h = epsd.ix[epsd.index.hour == h]
+    EPS.append(eps5h.values.ravel())    
+    print eps5h.describe()
+plt.figure()
+plt.boxplot(EPS)
+plt.title('Mer')
+
+plt.figure()
+plt.scatter(DBB['tmax'].resample('D').mean().values.ravel(), eps.resample('D').mean().values.ravel())
+plt.figure()
+plt.scatter(DBB['tmax'].ix[DBB.index.year == 2017].resample('D').mean().values.ravel(), DBB['y'].ix[DBB.index.year == 2017].resample('D').max().values.ravel())
+np.corrcoef(DBB['tmax'].resample('D').mean().values.ravel(), DBB['y'].resample('D').mean().values.ravel())
+plt.figure()
+plt.scatter(eps.ix[DBN.index.year == 2017].resample('D').mean().values.ravel(), DBN['y'].ix[DBN.index.year == 2017].resample('D').max().values.ravel())
+
+
+DFC = pd.DataFrame({'T': DBN['tmax'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel(),
+                    'T2': DBN['tmax'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel()**2,
+                    'T3': DBN['tmax'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel()**3,
+                    'Lun': DBN['Lun'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel(),
+                    'Mar': DBN['Mar'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel(),
+                    'Mer': DBN['Mer'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel(),
+                    'Gio': DBN['Gio'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel(),
+                    'Ven': DBN['Ven'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel(),
+                    'Sab': DBN['Sab'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel(),
+                    'Dom': DBN['Dom'].ix[DBN.index.year == 2017].resample('D').mean().values.ravel(),
+                    'y': DBN['y'].ix[DBN.index.year == 2017].resample('D').max().values.ravel()})
+DFC = DFC.dropna()
+
+from sklearn.linear_model import LinearRegression
+
+lm = LinearRegression(fit_intercept = True)
+lm.fit(X = DFC[DFC.columns[:10]], y = DFC['y'])
+
+print r2_score(DFC['y'], lm.predict(DFC[DFC.columns[:10]]))
+
+DBTNC = pd.DataFrame({'T': DBTN['tmax'].resample('D').mean().values.ravel(),
+                    'T2': DBTN['tmax'].resample('D').mean().values.ravel()**2,
+                    'T3': DBTN['tmax'].resample('D').mean().values.ravel()**3,
+                    'Lun': DBTN['Lun'].resample('D').mean().values.ravel(),
+                    'Mar': DBTN['Mar'].resample('D').mean().values.ravel(),
+                    'Mer': DBTN['Mer'].resample('D').mean().values.ravel(),
+                    'Gio': DBTN['Gio'].resample('D').mean().values.ravel(),
+                    'Ven': DBTN['Ven'].resample('D').mean().values.ravel(),
+                    'Sab': DBTN['Sab'].resample('D').mean().values.ravel(),
+                    'Dom': DBTN['Dom'].resample('D').mean().values.ravel()})
+
+DBTNC = DBTNC.dropna()
+
+diff = lm.predict(DBTNC)
+print lm.coef_
+
+DFF = OrderedDict()
+dr = pd.date_range('2017-01-03', '2017-05-31', freq = 'D')
+for i in dr:
+    ll = []
+    ll.append(DBB['tmax'].ix[DBB.index.date == i.date()].values[0] - DBB['tmax'].ix[DBB.index.date == (i.date() - datetime.timedelta(days = 365))].values[0])
+    ll.append(DBB['tmax'].ix[DBB.index.date == i.date()].mean() - DBB['tmax'].ix[DBB.index.date == (i.date() - datetime.timedelta(days = 7))].mean())
+    ll.append(DBB['y'].ix[DBB.index.date == i.date()].mean() - DBB['y'].ix[DBB.index.date == (i.date() - datetime.timedelta(days = 365))].mean())
+    ll.append(DBB['y'].ix[DBB.index.date == i.date()].mean() - DBB['y'].ix[DBB.index.date == (i.date() - datetime.timedelta(days = 7))].mean())
+    DFF[i.date()] = ll
+    
+DFF = pd.DataFrame.from_dict(DFF, orient = 'index')
+
 
 ###### Try with error on sample
 yhat_test_n = brf.predict(DBTN)
@@ -1846,7 +2056,7 @@ ytn = ytn.set_index(DBTN.index)
 ytn.plot(color = 'dimgrey')
 
 
-ytn.to_excel("NORD_previsione_2017-07-08.xlsx")
+ytn.to_excel("NORD_previsione_2017-06.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
