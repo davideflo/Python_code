@@ -16,6 +16,9 @@ if __name__ == '__main__':
     import EE_interp
     from pyper import *
     
+    count_fails = 0    
+    done = False
+    
     r = R("C://Program Files//R//R-3.3.3//bin//R")
     r.run("library(webshot)")
     r.run("today <- Sys.Date()")
@@ -27,10 +30,18 @@ if __name__ == '__main__':
     
     print "Today's {}".format(today)
     
-        
-    NewMeteoExtractor.Extractor()
-    NewMeteoExtractor.ExtractorMoreDays()
-        
+    try:    
+        NewMeteoExtractor.Extractor()
+        NewMeteoExtractor.ExtractorMoreDays()
+    except:
+        count_fails += 1
+        while count_fails <= 3:
+            NewMeteoExtractor.Extractor()
+            NewMeteoExtractor.ExtractorMoreDays()
+            done = True
+            if done:
+                break
+            
     print 'Extraction Forward Meteo Done'
         
         
