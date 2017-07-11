@@ -29,6 +29,7 @@ from statsmodels.tsa.ar_model import AR
 
 today = datetime.datetime.now()
 ####################################################################################################
+####################################################################################################
 ### @param: y1 and y2 are the years to be compared; y1 < y2 and y1 will bw taken as reference, unless it is a leap year
 def SimilarDaysError(df, y1, y2):
     errors = []
@@ -438,6 +439,72 @@ def CorrectionDatasetForecast(test, yhat_test, db, meteo, zona, short = False):
         't0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18','t19','t20','t21','t22','t23',
         'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving','r']]                
         return dts
+####################################################################################################
+def DifferentialDataset(df, db, zona, meteo):
+    DFF = OrderedDict()
+    db = db.ix[db["Area"] == zona]
+    dr = pd.date_range('2016-01-08', '2017-05-31', freq = 'H')
+    counter = 0
+    for i in dr:
+        counter += 1
+        if counter % 100 == 0:
+            print 'avanzamento = {}'.format(counter/dr.size)
+        ll = []
+        bri = Bridge(i.date())
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
+        bri7 = Bridge(i.date() - datetime.timedelta(days = 7))
+        dls7 = StartsDaylightSaving(i.date() - datetime.timedelta(days = 7))
+        edls7 = EndsDaylightSaving(i.date() - datetime.timedelta(days = 7))
+        hvector = np.repeat(0, 24)
+        h = i.hour
+        hvector[h] = 1
+        ll.extend([bri, dls, edls, bri7, dls7, edls7])
+        ll.extend([AddHolidaysDate(i.date()), AddHolidaysDate(i.date() - datetime.timedelta(days = 7))])
+        sam_d = db[db.columns[3:]].ix[db["Giorno"] == i.date()].sum(axis = 0).values.ravel()/1000
+        sam_w = db[db.columns[3:]].ix[db["Giorno"] == (i.date() - datetime.timedelta(days = 7))].sum(axis = 0).values.ravel()/1000
+        ll.extend(hvector.tolist())
+        ll.append(sam_d[h] - sam_w[h])
+#        ll.append(meteo['Tmax'].ix[meteo.index.date == i.date()].values[0] - meteo['Tmax'].ix[meteo.index.date == (i.date() - datetime.timedelta(days = 365))].values[0])
+#        ll.append(df['y'].ix[DBB.index.date == i.date()].mean() - DBB['y'].ix[DBB.index.date == (i.date() - datetime.timedelta(days = 365))].mean())
+        ll.append(meteo['Tmax'].ix[meteo.index.date == i.date()].mean() - meteo['Tmax'].ix[meteo.index.date == (i.date() - datetime.timedelta(days = 7))].mean())
+
+        if df['MO [MWh]'].ix[df.index == i].shape[0] == 0:
+            y1 = 0
+        elif df['MO [MWh]'].ix[df.index == i].shape[0] > 1:
+            y1 = df['MO [MWh]'].ix[df.index == i].sum()
+        else:
+            y1 = df['MO [MWh]'].ix[df.index == i].values[0]
+        
+        if df['MO [MWh]'].ix[df.index == (i - datetime.timedelta(days = 7))].shape[0] == 0:
+            y7 = 0
+        elif df['MO [MWh]'].ix[df.index == (i - datetime.timedelta(days = 7))].shape[0] > 1:
+            y7 = df['MO [MWh]'].ix[df.index == (i - datetime.timedelta(days = 7))].sum()
+        else:
+            y7 = df['MO [MWh]'].ix[df.index == (i - datetime.timedelta(days = 7))].values[0]
+            
+        Y = y1 - y7
+        ll.append(Y)
+        DFF[i] = ll
+    
+    DFF = pd.DataFrame.from_dict(DFF, orient = 'index')
+    DFF.columns = [['ponte','daylightsaving','endsdaylightsaving','ponte7','daylightsaving7','endsdaylightsaving7',
+                    'hol', 'hol7','t0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14',
+                    't15','t16','t17','t18','t19','t20','t21','t22','t23','diff_sample','diff_tmax','diff_zona']] 
+    
+    month = ["Jan", "Feb", "March","Apr", "May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    for m in month:
+        im = month.index(m)
+        M = DFF.index.month == (im+1)        
+        atm = [int(x) for x in M]
+        DFF[m] = atm
+    
+    DFF = DFF[["Jan", "Feb", "March","Apr", "May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+               'ponte','daylightsaving','endsdaylightsaving','ponte7','daylightsaving7','endsdaylightsaving7',
+               'hol', 'hol7','t0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14',
+               't15','t16','t17','t18','t19','t20','t21','t22','t23','diff_tmax','diff_sample','diff_zona']]
+    
+    return DFF   
 ####################################################################################################
 def MakeExtendedDatasetGivenPOD(db, meteo, pod, end):
 #### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
@@ -2015,7 +2082,44 @@ for i in dr:
     
 DFF = pd.DataFrame.from_dict(DFF, orient = 'index')
 
+start = time.time()
+DFF = DifferentialDataset(nord, DB, mi, "NORD")
+print time.time() - start
 
+#DFF = DFF.ix[DFF.index.date > datetime.date(2016,1,7)]
+
+col = ['blue', 'yellow', 'green', 'black', 'orange','red','purple', 'pink', 'indigo', 'orchid', 'salmon','purple']
+plt.figure()
+for m in range(1,13,1): 
+    #plt.figure()
+    plt.scatter(DFF['diff_tmax'].ix[DFF.index.month == m].values.ravel(),DFF['diff_sample'].ix[DFF.index.month == m].values.ravel(), color = col[m-1])
+    print 'corr month {} = {}'.format(m, DFF[['diff_zona', 'diff_sample']].ix[DFF.index.month == m].corr())
+    
+
+drf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+
+DFFT = DFF.ix[DFF.index.date < datetime.date(2017,4,1)]
+Te = DFF.ix[DFF.index.date > datetime.date(2017,3,31)]
+DFFT2 = DFFT.sample(frac = 1)
+
+drf.fit(DFFT2[DFFT2.columns[:45]], DFFT2['diff_sample'])
+
+print r2_score(DFFT2['diff_sample'], drf.predict(DFFT2[DFFT2.columns[:45]]))
+
+plt.figure()
+plt.plot(Te['diff_sample'].values.ravel())
+plt.plot(drf.predict(Te[Te.columns[:45]]), color = 'green')
+
+plt.figure()
+plt.plot(DFF['diff_sample'].ix[DFF.index.month == 6].values.ravel())
+plt.plot(DFF['diff_zona'].ix[DFF.index.month == 6].values.ravel())
+
+D = DFF['diff_zona'].ix[DFF.index.month == 6].values.ravel() - DFF['diff_sample'].ix[DFF.index.month == 6].values.ravel()
+
+DFF.to_hdf("C:/Users/utente/Documents/Sbilanciamento/differential_dataset.h5", "DFD")
+
+plt.figure()
+plt.plot(D)
 ###### Try with error on sample
 yhat_test_n = brf.predict(DBTN)
 
