@@ -440,7 +440,7 @@ def CorrectionDatasetForecast(test, yhat_test, db, meteo, zona, short = False):
         'pday','tmax','pioggia','vento','holiday','ponte','daylightsaving','endsdaylightsaving','r']]                
         return dts
 ####################################################################################################
-def DifferentialDataset(df, db, zona, meteo):
+def DifferentialDataset(df, db, meteo, zona):
     DFF = OrderedDict()
     db = db.ix[db["Area"] == zona]
     dr = pd.date_range('2016-01-08', '2017-05-31', freq = 'H')
@@ -503,6 +503,57 @@ def DifferentialDataset(df, db, zona, meteo):
                'ponte','daylightsaving','endsdaylightsaving','ponte7','daylightsaving7','endsdaylightsaving7',
                'hol', 'hol7','t0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14',
                't15','t16','t17','t18','t19','t20','t21','t22','t23','diff_tmax','diff_sample','diff_zona']]
+    
+    return DFF   
+####################################################################################################
+def DifferentialDatasetForecast(db, meteo, zona, di, df):
+    DFF = OrderedDict()
+    db = db.ix[db["Area"] == zona]
+    dr = pd.date_range(di, df, freq = 'H')
+    counter = 0
+    for i in dr:
+        counter += 1
+        if counter % 100 == 0:
+            print 'avanzamento = {}'.format(counter/dr.size)
+        ll = []
+        bri = Bridge(i.date())
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
+        bri7 = Bridge(i.date() - datetime.timedelta(days = 7))
+        dls7 = StartsDaylightSaving(i.date() - datetime.timedelta(days = 7))
+        edls7 = EndsDaylightSaving(i.date() - datetime.timedelta(days = 7))
+        hvector = np.repeat(0, 24)
+        h = i.hour
+        hvector[h] = 1
+        ll.extend([bri, dls, edls, bri7, dls7, edls7])
+        ll.extend([AddHolidaysDate(i.date()), AddHolidaysDate(i.date() - datetime.timedelta(days = 7))])
+        sam_d = db[db.columns[3:]].ix[db["Giorno"] == i.date()].sum(axis = 0).values.ravel()/1000
+        sam_w = db[db.columns[3:]].ix[db["Giorno"] == (i.date() - datetime.timedelta(days = 7))].sum(axis = 0).values.ravel()/1000
+        ll.extend(hvector.tolist())
+        ll.append(sam_d[h] - sam_w[h])
+#        ll.append(meteo['Tmax'].ix[meteo.index.date == i.date()].values[0] - meteo['Tmax'].ix[meteo.index.date == (i.date() - datetime.timedelta(days = 365))].values[0])
+#        ll.append(df['y'].ix[DBB.index.date == i.date()].mean() - DBB['y'].ix[DBB.index.date == (i.date() - datetime.timedelta(days = 365))].mean())
+        ll.append(meteo['Tmax'].ix[meteo.index.date == i.date()].mean() - meteo['Tmax'].ix[meteo.index.date == (i.date() - datetime.timedelta(days = 7))].mean())
+
+
+        DFF[i] = ll
+    
+    DFF = pd.DataFrame.from_dict(DFF, orient = 'index')
+    DFF.columns = [['ponte','daylightsaving','endsdaylightsaving','ponte7','daylightsaving7','endsdaylightsaving7',
+                    'hol', 'hol7','t0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14',
+                    't15','t16','t17','t18','t19','t20','t21','t22','t23','diff_sample','diff_tmax']] 
+    
+    month = ["Jan", "Feb", "March","Apr", "May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    for m in month:
+        im = month.index(m)
+        M = DFF.index.month == (im+1)        
+        atm = [int(x) for x in M]
+        DFF[m] = atm
+    
+    DFF = DFF[["Jan", "Feb", "March","Apr", "May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+               'ponte','daylightsaving','endsdaylightsaving','ponte7','daylightsaving7','endsdaylightsaving7',
+               'hol', 'hol7','t0','t1','t2','t3','t4','t5','t6','t7','t8','t9','t10','t11','t12','t13','t14',
+               't15','t16','t17','t18','t19','t20','t21','t22','t23','diff_tmax','diff_sample']]
     
     return DFF   
 ####################################################################################################
@@ -569,10 +620,10 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
     strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
     final_date = str(future.year) + '-' + strm + '-' + strd
-    psample = percentageConsumption2(db, zona, '2017-05-29',final_date)
-    psample = psample.set_index(pd.date_range('2017-05-29', final_date, freq = 'D')[:psample.shape[0]])
+    psample = percentageConsumption2(db, zona, '2017-07-07',final_date)
+    psample = psample.set_index(pd.date_range('2017-07-07', final_date, freq = 'D')[:psample.shape[0]])
     dts = OrderedDict()
-    dr = pd.date_range('2017-05-29', final_date, freq = 'H')
+    dr = pd.date_range('2017-07-07', final_date, freq = 'H')
     for i in dr[2*24:dr.size-1]:
         bri = Bridge(i.date())
         dls = StartsDaylightSaving(i.date())
@@ -902,7 +953,7 @@ def Get_OutOfSample(df, db, zona):
     db = db.ix[db["Area"] == zona]
     df = df.ix[df["CODICE RUC"] == "UC_DP1608_" + zona]
     df = df.ix[df.index.date > datetime.date(2015,12,31)]
-    dr = pd.date_range('2016-01-01', '2017-04-30', freq = 'D')
+    dr = pd.date_range('2016-01-01', '2017-05-31', freq = 'D')
     res = []
     for i in dr.tolist():
         if i.to_pydatetime().date() not in [datetime.date(2016,3,27), datetime.date(2016,10,30),datetime.date(2017,3,26), datetime.date(2017,10,29)]:
@@ -2083,8 +2134,17 @@ for i in dr:
 DFF = pd.DataFrame.from_dict(DFF, orient = 'index')
 
 start = time.time()
-DFF = DifferentialDataset(nord, DB, mi, "NORD")
+DFF = DifferentialDataset(DB, mi, "NORD")
 print time.time() - start
+
+
+mi = mi.append(mi2017)
+mi = mi[['Tmedia', 'Tmin', 'Tmax','VENTOMEDIA','PIOGGIA']]
+mi.columns = [[u'Tmin', u'Tmax', u'Tmedia', u'vento', u'pioggia']]
+mi = mi.ix[mi.index.date < datetime.date(2017,3,30)]
+mi = mi.append(mi2017)
+
+DFFN = DifferentialDatasetForecast(DB, mi, "NORD", '2017-07-09','2017-07-14')
 
 #DFF = DFF.ix[DFF.index.date > datetime.date(2016,1,7)]
 
@@ -2102,13 +2162,20 @@ DFFT = DFF.ix[DFF.index.date < datetime.date(2017,4,1)]
 Te = DFF.ix[DFF.index.date > datetime.date(2017,3,31)]
 DFFT2 = DFFT.sample(frac = 1)
 
-drf.fit(DFFT2[DFFT2.columns[:45]], DFFT2['diff_sample'])
+drf.fit(DFFT2[DFFT2.columns[:53]], DFFT2['diff_sample'])
 
-print r2_score(DFFT2['diff_sample'], drf.predict(DFFT2[DFFT2.columns[:45]]))
+print r2_score(DFFT2['diff_sample'], drf.predict(DFFT2[DFFT2.columns[:53]]))
+print mean_squared_error(Te['diff_sample'], drf.predict(Te[Te.columns[:53]]))
+print 1 - (np.sum((Te['diff_sample'] - drf.predict(Te[Te.columns[:53]])**2)))/(np.sum((Te['diff_sample'] - np.mean(Te['diff_sample']))**2))
 
 plt.figure()
 plt.plot(Te['diff_sample'].values.ravel())
-plt.plot(drf.predict(Te[Te.columns[:45]]), color = 'green')
+plt.plot(drf.predict(Te[Te.columns[:53]]), color = 'green')
+
+ds = drf.predict(DFFN[DFFN.columns[:53]])
+
+plt.figure()
+plt.plot(ds)
 
 plt.figure()
 plt.plot(DFF['diff_sample'].ix[DFF.index.month == 6].values.ravel())
@@ -2120,6 +2187,31 @@ DFF.to_hdf("C:/Users/utente/Documents/Sbilanciamento/differential_dataset.h5", "
 
 plt.figure()
 plt.plot(D)
+
+DFS = Get_SampleAsTS_AtDay(DB, "NORD",'2017-01-01', '2017-05-31')
+
+plt.figure()
+plt.plot(nord['MO [MWh]'].ix[nord.index.date > datetime.date(2016,12,31)].values.ravel())
+plt.plot(DFS.values.ravel())
+plt.figure()
+plt.scatter(nord['MO [MWh]'].ix[DFS.index].values.ravel()[:DFS.shape[0]], DFS.values.ravel())
+oos = nord['MO [MWh]'].ix[DFS.index].values.ravel() - DFS.values.ravel()
+oos[np.where(np.isnan((nord['MO [MWh]'].ix[DFS.index].values.ravel() - DFS.values.ravel())))[0]] = 0
+plt.figure()
+plt.plot(oos)
+
+nd = nord['MO [MWh]'].ix[DFS.index].values.ravel()[:DFS.shape[0]]
+nd[2018] = 0
+
+
+from sklearn.linear_model import RANSACRegressor
+lm = RANSACRegressor(LinearRegression())
+lm.fit(DFS.values.ravel().reshape(-1,1), nd)
+
+plt.figure()
+plt.scatter(DFS.values.ravel(), nd)
+plt.plot(lm.predict(np.arange(120).reshape(-1,1)))
+#plt.plot(DFS.values.ravel()*lm.coef_ + lm.intercept_)
 ###### Try with error on sample
 yhat_test_n = brf.predict(DBTN)
 
@@ -2159,8 +2251,11 @@ ytn = pd.DataFrame.from_dict({'pred': yhat_test_n.tolist()})
 ytn = ytn.set_index(DBTN.index)
 ytn.plot(color = 'dimgrey')
 
+DD = DifferentialDatasetForecast(DB, mi2017, "NORD", '2017-07-07','2017-07-11')
 
-ytn.to_excel("NORD_previsione_2017-06.xlsx")
+YH = DD['diff_sample'].ix[DD.index.date == datetime.date(2017,7,9)].values.ravel()*1.98 + yht.ix[yht.index.date == datetime.date(2017,7,12)].values.ravel()
+YH = pd.DataFrame({'NORD':YH}).set_index(pd.date_range('2017-07-12', '2017-07-13', freq = 'H')[:24])
+YH.to_excel("NORD_previsione_2017-07-12.xlsx")
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 bfr =  AdaBoostRegressor(RandomForestRegressor(criterion = 'mse', max_depth = 24, n_jobs = 1), n_estimators=3000)
