@@ -65,7 +65,7 @@ def Get_OutOfSample(df, db, zona):
     db = db.ix[db["Area"] == zona]
     df = df.ix[df["CODICE RUC"] == "UC_DP1608_" + zona]
     df = df.ix[df.index.date > datetime.date(2015,12,31)]
-    dr = pd.date_range('2016-01-01', '2017-04-30', freq = 'D')
+    dr = pd.date_range('2016-01-01', '2017-05-31', freq = 'D')
     res = []
     for i in dr.tolist():
         if i.to_pydatetime().date() not in [datetime.date(2016,3,27), datetime.date(2016,10,30),datetime.date(2017,3,26), datetime.date(2017,10,29)]:
@@ -293,6 +293,7 @@ def MakeExtendedDatasetWithSampleCurve(df, db, meteo, zona):
         if wd == 0:
             td = 3
         cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        #cmyd = db[db.columns[3:]].ix[db["Giorno"] == i.date()].sum(axis = 0).values.ravel()/1000
         dvector[wd] = 1
         h = i.hour
         hvector[h] = 1
@@ -681,3 +682,127 @@ def MakeForecastDataset(db, meteo, zona, time_delta = 1):
     'pday','tmax','pioggia','vento','holiday','perc','ponte','daylightsaving','endsdaylightsaving',
     'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23']]
     return dts
+####################################################################################################
+def MakeExtendedDatasetWithSampleCurve2(df, db, meteo, zona, di, fd = None):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
+#### every day will have a dummy variable representing it
+    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    final = max(df.index.date)
+    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
+    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
+    final_date = str(final.year) + '-' + strm + '-' + strd
+    if not fd is None:
+        final_date = fd
+    to_dt = datetime.datetime.strptime(di, '%Y-%m-%d')    
+    psample = percentageConsumption2(db, zona, di, final_date)
+    psample = psample.set_index(pd.date_range(di, final_date, freq = 'D')[:psample.shape[0]])
+    oos = Get_OutOfSample(df, db, zona)
+    oos = oos.ix[oos.index.date >= to_dt.date()]
+    dts = OrderedDict()
+    df = df.ix[df.index.date >= (to_dt + datetime.timedelta(days = 2)).date()]
+    indices = pd.date_range((to_dt + datetime.timedelta(days = 2)).strftime("%Y-%m-%d"), final_date, freq = 'H')
+    for i in indices:
+        bri = Bridge(i.date())
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
+        bri7 = Bridge(i.date() - datetime.timedelta(days = 7))
+        dls7 = StartsDaylightSaving(i.date() - datetime.timedelta(days = 7))
+        edls7 = EndsDaylightSaving(i.date() - datetime.timedelta(days = 7))
+        ll = []        
+        hvector = np.repeat(0, 24)
+        dvector = np.repeat(0, 7)
+        mvector = np.repeat(0,12)
+        wd = i.weekday()        
+        td = 2
+        if wd == 0:
+            td = 3
+        cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        cmyd = db[db.columns[3:]].ix[db["Giorno"] == i.date()].sum(axis = 0).values.ravel()/1000
+        dvector[wd] = 1
+        h = i.hour
+        hvector[h] = 1
+        mvector[(i.month-1)] = 1
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        rain = meteo['PIOGGIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        wind = meteo['VENTOMEDIA'].ix[meteo['DATA'] == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
+        ll.extend(dvector.tolist())
+        ll.extend(mvector.tolist())
+        ll.extend(hvector.tolist())        
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], bri, dls, edls, bri7, dls7, edls7])
+        ll.append(meteo['Tmax'].ix[meteo.index.date == i.date()].mean() - meteo['Tmax'].ix[meteo.index.date == (i.date() - datetime.timedelta(days = 7))].mean())
+        ll.extend(cmym.tolist())
+        
+        y_sample = cmyd[h]        
+        y_oos = oos.ix[oos.index.date == i.date()].values.ravel()[h]        
+        
+        ll.extend([y_sample])
+        ll.extend([y_oos])
+        
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns =[['Lun','Mar','Mer','Gio','Ven','Sab','Dom','Gen','Feb','March','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic',
+    't0','t1','t2','t3','t4'	,'t5'	,'t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18'	,'t19','t20','t21','t22','t23',
+    'pday','tmax','pioggia','vento','hol','perc','ponte','dls','edls','ponte7','dls7','edls7','diff_tmax',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23'	,'ysample','yoos']]
+    return dts
+####################################################################################################
+def MakeForecastDataset2(db, meteo, zona, di, time_delta = 1):
+#### @PARAM: df is the dataset from Terna, db, All zona those for computing the perc consumption
+#### and the sample curve
+#### @BRIEF: extended version of the quasi-omonimous function in Sbilanciamento.py
+#### every day will have a dummy variable representing it
+    #wdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    future = datetime.datetime.now() + datetime.timedelta(days = time_delta + 1)
+    strm = str(future.month) if len(str(future.month)) > 1 else "0" + str(future.month)
+    strd = str(future.day) if len(str(future.day)) > 1 else "0" + str(future.day)
+    final_date = str(future.year) + '-' + strm + '-' + strd
+    psample = percentageConsumption2(db, zona, di,final_date)
+    psample = psample.set_index(pd.date_range(di, final_date, freq = 'D')[:psample.shape[0]])
+    dts = OrderedDict()
+    dr = pd.date_range(di, final_date, freq = 'H')
+    for i in dr[2*24:dr.size-1]:
+        bri = Bridge(i.date())
+        dls = StartsDaylightSaving(i.date())
+        edls = EndsDaylightSaving(i.date())
+        bri7 = Bridge(i.date() - datetime.timedelta(days = 7))
+        dls7 = StartsDaylightSaving(i.date() - datetime.timedelta(days = 7))
+        edls7 = EndsDaylightSaving(i.date() - datetime.timedelta(days = 7))
+        ll = []        
+        hvector = np.repeat(0, 24)
+        dvector = np.repeat(0, 7)
+        mvector = np.repeat(0,12)
+        wd = i.weekday()        
+        td = 2
+        if wd == 0:
+            td = 3
+        cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        dvector[wd] = 1
+        h = i.hour
+        hvector[h] = 1
+        mvector[(i.month-1)] = 1
+        dy = i.timetuple().tm_yday
+        Tmax = meteo['Tmax'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        rain = meteo['pioggia'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        wind = meteo['vento'].ix[meteo.index.date == i.date()].values.ravel()[0]
+        hol = AddHolidaysDate(i.date())
+        ps = psample.ix[psample.index.date == (i.date() - datetime.timedelta(days = td))]
+        ll.extend(dvector.tolist())
+        ll.extend(mvector.tolist())
+        ll.extend(hvector.tolist())        
+        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], bri, dls, edls, bri7, dls7, edls7])
+        ll.append(meteo['Tmax'].ix[meteo.index.date == i.date()].mean() - meteo['Tmax'].ix[meteo.index.date == (i.date() - datetime.timedelta(days = 7))].mean())
+        ll.extend(cmym.tolist())
+      
+        dts[i] =  ll
+    dts = pd.DataFrame.from_dict(dts, orient = 'index')
+    dts.columns =[['Lun','Mar','Mer','Gio','Ven','Sab','Dom','Gen','Feb','March','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic',
+    't0','t1','t2','t3','t4'	,'t5'	,'t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18'	,'t19','t20','t21','t22','t23',
+    'pday','tmax','pioggia','vento','hol','perc','ponte','dls','edls','ponte7','dls7','edls7','diff_tmax',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23'	]]
+    return dts
+####################################################################################################

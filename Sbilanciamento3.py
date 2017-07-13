@@ -925,7 +925,11 @@ def convertDates(vec):
 def Get_SampleAsTS(db, zona):
     db["Giorno"] = pd.to_datetime(db["Giorno"])
     db = db.ix[db["Area"] == zona]
-    dr = pd.date_range('2016-01-01', '2017-04-30', freq = 'D')
+    final = max(db["Giorno"])
+    strm = str(final.month) if len(str(final.month)) > 1 else "0" + str(final.month)
+    strd = str(final.day) if len(str(final.day)) > 1 else "0" + str(final.day)
+    final_date = str(final.year) + '-' + strm + '-' + strd
+    dr = pd.date_range('2016-01-01', final_date, freq = 'D')
     res = []
     for i in dr.tolist():
         dbd = db[db.columns[3:]].ix[db["Giorno"] == i].sum()/1000
@@ -2332,3 +2336,64 @@ sos.to_hdf("C:/Users/utente/Documents/Sbilanciamento/sos_aggregati.h5", "sos")
 H = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.xlsx")
 H.to_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.h5", "CRPP2016")
     
+####################################################################################################
+#DBB = MakeExtendedDatasetWithSampleCurve2(nord, DB, mi, "NORD", '2017-01-01','2017-05-31')
+#    
+#DBB[['ysample', 'yoos']].plot()    
+#DBB[['ysample', 'yoos']].corr()    
+#    
+#DBtrain = DBB.sample(frac = 1)
+#
+#brs = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+#
+#brs.fit(DBtrain[DBtrain.columns[:80]], DBtrain['ysample'])
+#yhat_train = brs.predict(DBtrain[DBtrain.columns[:80]])
+#
+##rfR2 = 1 - (np.sum((DBtrain[DBtrain.columns[61]] - yhat_train)**2))/(np.sum((DBtrain[DBtrain.columns[61]] - np.mean(DBtrain[DBtrain.columns[61]]))**2))
+##print rfR2
+#
+#print r2_score(DBB['ysample'], brs.predict(DBB[DBB.columns[:80]]))
+#
+#bro = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+#
+#bro.fit(DBtrain[DBtrain.columns[:80]], DBtrain['yoos'])
+#yhat_train = bro.predict(DBtrain[DBtrain.columns[:80]])
+#
+##rfR2 = 1 - (np.sum((DBtrain[DBtrain.columns[61]] - yhat_train)**2))/(np.sum((DBtrain[DBtrain.columns[61]] - np.mean(DBtrain[DBtrain.columns[61]]))**2))
+##print rfR2
+#
+#print r2_score(DBB['yoos'], bro.predict(DBB[DBB.columns[:80]]))
+#
+#plt.figure()
+#plt.plot(DBB['yoos'].values.ravel())
+#plt.plot(bro.predict(DBB[DBB.columns[:80]]))
+#   
+##DFT = MakeForecastDataset2(DB, mi2017, "NORD", '2017-06-01')   
+#   
+#DFT['ysample'] = trues    
+#   
+#DBB2 = DBB[DBB.columns[:81]]
+#   
+#DBB = DBB2.append(DFT.dropna())   
+#
+#
+#brs = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+#
+#brs.fit(DBB[DBB.columns[:80]], DBB['ysample'])
+#yhat_train = brs.predict(DBB[DBB.columns[:80]])
+#
+#   
+#tsample = brs.predict(DFT[DFT.columns[:80]])   
+#toos= bro.predict(DFT)   
+#
+#trues = Get_SampleAsTS(DB, "NORD")   
+#trues = trues.ix[DFT.index]
+#
+#plt.figure()
+#plt.plot(trues.values.ravel())
+#plt.plot(tsample, color = 'red')
+#
+#ty = tsample + toos
+#
+#plt.figure()
+#plt.plot(ty)
