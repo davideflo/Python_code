@@ -733,7 +733,7 @@ def MakeExtendedDatasetWithSampleCurve2(df, db, meteo, zona, di, fd = None):
         ll.extend(dvector.tolist())
         ll.extend(mvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], bri, dls, edls, bri7, dls7, edls7])
+        ll.extend([dy, Tmax, rain, wind, hol, bri, dls, edls, bri7, dls7, edls7])
         ll.append(meteo['Tmax'].ix[meteo.index.date == i.date()].mean() - meteo['Tmax'].ix[meteo.index.date == (i.date() - datetime.timedelta(days = 7))].mean())
         ll.extend(cmym.tolist())
         
@@ -741,14 +741,15 @@ def MakeExtendedDatasetWithSampleCurve2(df, db, meteo, zona, di, fd = None):
         y_oos = oos.ix[oos.index.date == i.date()].values.ravel()[h]        
         
         ll.extend([y_sample])
+        ll.append((ps[0].values[0])/(1 - ps[0].values[0]))
         ll.extend([y_oos])
         
         dts[i] =  ll
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
     dts.columns =[['Lun','Mar','Mer','Gio','Ven','Sab','Dom','Gen','Feb','March','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic',
     't0','t1','t2','t3','t4'	,'t5'	,'t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18'	,'t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','hol','perc','ponte','dls','edls','ponte7','dls7','edls7','diff_tmax',
-    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23'	,'ysample','yoos']]
+    'pday','tmax','pioggia','vento','hol','ponte','dls','edls','ponte7','dls7','edls7','diff_tmax',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23'	,'ysample','perc','yoos']]
     return dts
 ####################################################################################################
 def MakeForecastDataset2(db, meteo, zona, di, time_delta = 1):
@@ -781,6 +782,10 @@ def MakeForecastDataset2(db, meteo, zona, di, time_delta = 1):
         if wd == 0:
             td = 3
         cmym = db[db.columns[3:]].ix[db["Giorno"] == (i.date()- datetime.timedelta(days = td))].sum(axis = 0).values.ravel()/1000
+        if i.date() in pd.to_datetime(db["Giorno"].values.ravel().tolist()):
+            cmyd = db[db.columns[3:]].ix[db["Giorno"] == i.date()].sum(axis = 0).values.ravel()/1000
+        else:
+            cmyd = np.repeat(0,24)
         dvector[wd] = 1
         h = i.hour
         hvector[h] = 1
@@ -794,15 +799,24 @@ def MakeForecastDataset2(db, meteo, zona, di, time_delta = 1):
         ll.extend(dvector.tolist())
         ll.extend(mvector.tolist())
         ll.extend(hvector.tolist())        
-        ll.extend([dy, Tmax, rain, wind, hol, ps[0].values[0], bri, dls, edls, bri7, dls7, edls7])
+        ll.extend([dy, Tmax, rain, wind, hol, bri, dls, edls, bri7, dls7, edls7])
         ll.append(meteo['Tmax'].ix[meteo.index.date == i.date()].mean() - meteo['Tmax'].ix[meteo.index.date == (i.date() - datetime.timedelta(days = 7))].mean())
         ll.extend(cmym.tolist())
-      
+        ll.append(cmyd[h])
+        ll.append((ps[0].values[0])/(1 - ps[0].values[0]))
         dts[i] =  ll
     dts = pd.DataFrame.from_dict(dts, orient = 'index')
     dts.columns =[['Lun','Mar','Mer','Gio','Ven','Sab','Dom','Gen','Feb','March','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic',
     't0','t1','t2','t3','t4'	,'t5'	,'t6','t7','t8','t9','t10','t11','t12','t13','t14','t15','t16','t17','t18'	,'t19','t20','t21','t22','t23',
-    'pday','tmax','pioggia','vento','hol','perc','ponte','dls','edls','ponte7','dls7','edls7','diff_tmax',
-    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23'	]]
+    'pday','tmax','pioggia','vento','hol','ponte','dls','edls','ponte7','dls7','edls7','diff_tmax',
+    'r0','r1','r2','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','r14','r15','r16','r17','r18','r19','r20','r21','r22','r23'	,'ysample','perc']]
     return dts
 ####################################################################################################
+def MakeCompletedDatasets(df, db, meteo1, meteo2, zona, di1, di2, time_delta = 1, fd = None):
+    DBB = MakeExtendedDatasetWithSampleCurve2(df, db, meteo1, zona, di1, fd)
+    DFT = MakeForecastDataset2(db, meteo2, di2, time_delta)
+    TF = DFT.ix[DFT['ysample'] == 0]
+    TT = DFT.ix[DFT['ysample'] > 0]
+    TrainSample = DBB[DBB.columns[:81]].append(TT)
+    return TrainSample, DBB, TF
+    

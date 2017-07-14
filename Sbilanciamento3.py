@@ -2336,6 +2336,35 @@ sos.to_hdf("C:/Users/utente/Documents/Sbilanciamento/sos_aggregati.h5", "sos")
 H = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.xlsx")
 H.to_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.h5", "CRPP2016")
     
+####################################################################################################    
+sample = Get_SampleAsTS(DB, "NORD")
+oos = Get_OutOfSample(nord, DB, "NORD")
+
+sample = sample.ix[sample.index.year == 2017]
+oos = oos.ix[oos.index.year == 2017]
+oos = oos.ix[sample.index]
+
+bar = []
+std_bar_sam = []
+std_bar_oos = []
+
+plt.figure()
+for h in range(24):
+    bar.append(np.corrcoef(sample.ix[sample.index.hour == h].values.ravel(), oos.ix[oos.index.hour == h].values.ravel())[0,1])
+    std_bar_sam.append(sample.ix[sample.index.hour == h].std())
+    std_bar_oos.append(oos.ix[oos.index.hour == h].std())
+    
+plt.figure()
+plt.bar(np.arange(24),np.array(bar))
+plt.figure()
+plt.bar(np.arange(24),np.array(std_bar_sam), color = 'green')
+plt.figure()
+plt.bar(np.arange(24),np.array(std_bar_oos), color = 'yellow')
+
+for h in range(24):
+    plt.figure()    
+    plt.scatter(sample.ix[sample.index.hour == h].values.ravel() ,oos.ix[oos.index.hour == h].values.ravel())
+    plt.title(str(h))
 ####################################################################################################
 #DBB = MakeExtendedDatasetWithSampleCurve2(nord, DB, mi, "NORD", '2017-01-01','2017-05-31')
 #    
@@ -2343,32 +2372,55 @@ H.to_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.h5", "CR
 #DBB[['ysample', 'yoos']].corr()    
 #    
 #DBtrain = DBB.sample(frac = 1)
+#TStrain = TrainSample.sample(frac = 1)
 #
 #brs = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
 #
-#brs.fit(DBtrain[DBtrain.columns[:80]], DBtrain['ysample'])
-#yhat_train = brs.predict(DBtrain[DBtrain.columns[:80]])
+#brs.fit(TStrain[TStrain.columns[:79]], TStrain['ysample'])
+#yhat_train = brs.predict(TStrain[TStrain.columns[:79]])
 #
 ##rfR2 = 1 - (np.sum((DBtrain[DBtrain.columns[61]] - yhat_train)**2))/(np.sum((DBtrain[DBtrain.columns[61]] - np.mean(DBtrain[DBtrain.columns[61]]))**2))
 ##print rfR2
 #
-#print r2_score(DBB['ysample'], brs.predict(DBB[DBB.columns[:80]]))
+#print r2_score(TrainSample['ysample'], brs.predict(TrainSample[TrainSample.columns[:79]]))
 #
 #bro = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
 #
-#bro.fit(DBtrain[DBtrain.columns[:80]], DBtrain['yoos'])
-#yhat_train = bro.predict(DBtrain[DBtrain.columns[:80]])
+#bro.fit(DBtrain[DBtrain.columns[:81]], DBtrain['yoos'])
+#yhat_train = bro.predict(DBtrain[DBtrain.columns[:81]])
 #
 ##rfR2 = 1 - (np.sum((DBtrain[DBtrain.columns[61]] - yhat_train)**2))/(np.sum((DBtrain[DBtrain.columns[61]] - np.mean(DBtrain[DBtrain.columns[61]]))**2))
 ##print rfR2
 #
-#print r2_score(DBB['yoos'], bro.predict(DBB[DBB.columns[:80]]))
+#print r2_score(DBB['yoos'], bro.predict(DBB[DBB.columns[:81]]))
 #
 #plt.figure()
 #plt.plot(DBB['yoos'].values.ravel())
 #plt.plot(bro.predict(DBB[DBB.columns[:80]]))
 #   
 ##DFT = MakeForecastDataset2(DB, mi2017, "NORD", '2017-06-01')   
+#   
+#yos = bro.predict(TT)   
+#
+#Nhat = TT['ysample'] + yos   
+#
+#plt.figure()
+#plt.plot(Nhat)
+#   
+#yf_sample = brs.predict(TF[TF.columns[:79]])   
+#
+#pd.DataFrame({'campione': yf_sample}).set_index(TF.index).to_excel('campione_previsto_per_2017-07-15.xlsx')
+#
+#
+#TF2 = TF
+#TF2['ysample'] = np.concatenate((yf_sample[:24], p(np.arange(24))))
+#TF2['ysample'] = yf_sample
+#yf_oos = bro.predict(TF2)   
+#
+#yf = yf_sample + yf_oos
+#yf = pd.DataFrame({'prediction': yf}).set_index(TF.index)
+#
+#yf.ix[yf.index.date > datetime.date(2017,7,14)].plot()
 #   
 #DFT['ysample'] = trues    
 #   
@@ -2397,3 +2449,5 @@ H.to_hdf("C:/Users/utente/Documents/Sbilanciamento/CRPP2016_artigianale.h5", "CR
 #
 #plt.figure()
 #plt.plot(ty)
+#    
+#datetime.date(2017,6,3) in pd.to_datetime(DB["Giorno"].values.ravel().tolist())
