@@ -24,6 +24,7 @@ import time
 import os
 from sklearn.externals import joblib
 from statsmodels.tsa.ar_model import AR
+from sklearn.linear_model import RANSACRegressor, LinearRegression
 
 #from statsmodels.tsa.stattools import adfuller
 
@@ -819,4 +820,20 @@ def MakeCompletedDatasets(df, db, meteo1, meteo2, zona, di1, di2, time_delta = 1
     TT = DFT.ix[DFT['ysample'] > 0]
     TrainSample = DBB[DBB.columns[:81]].append(TT)
     return TrainSample, DBB, TF
-    
+####################################################################################################
+def Regress_OOS(DBB, TF2):
+    yf_oos = np.repeat(0,24)
+    TF3 = TF2.ix[TF2.index.date == datetime.datetime.now().date() + datetime.timedelta(days = 1)]
+    for h in range(24):
+#        lm = RANSACRegressor(base_estimator = LinearRegression(fit_intercept = True))
+        rf = RandomForestRegressor(criterion = 'mse', max_depth = 48, n_estimators = 24, n_jobs = 1)
+#        lm.fit(DBB[DBB.columns[:81]].ix[DBB.index.hour == h], DBB['yoos'].ix[DBB.index.hour == h])
+#        print r2_score(DBB['yoos'].ix[DBB.index.hour == h], lm.predict(DBB[DBB.columns[:81]].ix[DBB.index.hour == h]))
+        rf.fit(DBB[DBB.columns[:81]].ix[DBB.index.hour == h], DBB['yoos'].ix[DBB.index.hour == h])
+        print r2_score(DBB['yoos'].ix[DBB.index.hour == h], rf.predict(DBB[DBB.columns[:81]].ix[DBB.index.hour == h]))
+                
+        if TF3.ix[TF3.index.hour == h].shape[0] > 0:
+            yf_oos[h] = rf.predict(TF3.ix[TF3.index.hour == h])
+        else:
+            pass
+    return yf_oos
