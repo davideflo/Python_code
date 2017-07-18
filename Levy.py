@@ -67,17 +67,28 @@ lm.fit(X.reshape(-1,1), y)
 a = lm.coef_[0]
 b = lm.intercept_
 
+Sxy = np.sum(X*y)
+Sx = np.sum(X)
+Sy = np.sum(y)
+Sxx = np.sum(X**2)
+Syy = np.sum(y**2)
+n = X.size
+
+a = (n*Sxy - Sx*Sy)/(n*Sxx - Sx**2)
+b = (Sy - a*Sx)/(n)
+sdepsilon = np.sqrt((n*Syy - Sy**2 - a*(n*Sxy - Sx*Sy))/(n*(n-2)))
+
 residuals = y - lm.predict(X.reshape(-1,1))
 
 lam = -np.log(a)
 mu = b/(1 - a)
-sigma = np.std(residuals)*np.sqrt(2*lam/(1 - a**2))
+sigma = sdepsilon*np.sqrt(2*lam/(1 - a**2))
 
-S0 = 0
+S0 = np.mean(X)
 S = [S0]
 for i in range(1,229):
     rnv = scipy.stats.norm.rvs()
-    s = lam * (mu - S[i-1]) + sigma * rnv
+    s = lam * (mu - S[i-1]) + sigma * rnv + np.mean(X)
     S.append(s)
     
 plt.figure()
