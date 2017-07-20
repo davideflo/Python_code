@@ -20,7 +20,69 @@ import shutil
 import re
 #import unidecode
 
-
+###################################################################################################
+def Unareti_reducer(x):
+    X = [x[0], x[1], x[2]]
+    vec = np.repeat(0.0, 24)
+    for h in range(3,99,4):
+        vec[list(range(3,99,4)).index(h)] = x[h] + x[h+1] + x[h+2] + x[h+3]
+    X.extend(vec.tolist())
+    return X
+###############################################################################
+def Replacer(s):
+    return s.replace(",",".")
+####################################################################################################
+def Elabora_Unareti(df):
+    df = df.ix[df[df.columns[6]] == "Z001"]
+    diz = OrderedDict()
+    lop = list(set(df[df.columns[0]].values.ravel().tolist()))
+    count = 0
+    for p in lop:
+        dfp = df.ix[df[df.columns[0]] == p]
+        count += 1
+        dates = list(set(df[df.columns[2]].values.ravel().tolist()))
+        for d in dates:
+            dfpd = dfp.ix[dfp[dfp.columns[2]] == d]
+            mis = list(map(Replacer, dfpd[dfpd.columns[5]].values.ravel().tolist()))
+            mis2 = list(map(float, mis))
+            dd = datetime.date(int(str(d)[:4]), int(str(d)[4:6]), int(str(d)[6:]))
+            ll = [p, 'NORD', dd]
+            ll.extend(mis2)
+            diz[count] = ll 
+            count += 1
+    diz = pd.DataFrame.from_dict(diz, orient = 'index')
+    diz2 = OrderedDict()
+    for i in diz.index:
+        diz2[i] = Unareti_reducer(diz.ix[i].values.ravel())
+    diz2 = pd.DataFrame.from_dict(diz2, orient = 'index')    
+    diz2.columns = [['POD', 'Area', 'Giorno', '1', '2', '3', '4', '5', '6',
+                    '7', '8', '9', '10', '11', '12',
+                    '13', '14', '15', '16', '17', '18',
+                    '19', '20', '21', '22', '23', '24']]
+    return diz2
+####################################################################################################
+def Aggregate_Unareti():
+    path = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/Settimanali"
+    lof = os.listdir(path)
+    if os.path.exists("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/settimanali_elaborati.csv"):
+        sett = pd.read_csv("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/settimanali_elaborati.csv", sep = ";")
+        sett_el = sett.values.ravel().tolist()
+        todo = list(set(lof).difference(set(sett_el)))
+        Agg = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/Aggregati_Unareti_2017.xlsx")
+    else:
+        sett_el = []
+        todo = lof
+        Agg = pd.DataFrame()
+    for l in todo:
+        print(l)
+        if not 'ORARIE_VALIDATE_12883450152_03728900964_L_201705_201705211100.CSV' in l.upper() or not 'ORARIE_VALIDATE_12883450152_03728900964_L_201705_201705211100(2).csv' in l: 
+            df = pd.read_csv(path + '/' + l, sep = ";", header = None)
+            DF = Elabora_Unareti(df)
+            Agg = Agg.append(DF, ignore_index = True)
+        sett_el.extend(todo)
+    sett_el = pd.DataFrame.from_dict({'files': sett_el})
+    sett.to_csv("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/settimanali_elaborati.csv", sep = ";")
+    return Agg
 ####################################################################################################
 def Aggregator2(df):
     v = np.repeat(0.0, 24)    
@@ -231,8 +293,12 @@ def Aggregator(today):
     count = 0
     strm1 = str(m) if len(str(m)) > 1 else "0" + str(m)        
     strm2 = str(m-1) if len(str(m-1)) > 1 else "0" + str(m-1)        
-    crppm1 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm1 + "-2017/_All_CRPP_" + strm1 + "_2017.xlsx")
+#    crppm1 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm1 + "-2017/_All_CRPP_" + strm1 + "_2017.xlsx")
     crppm2 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm2 + "-2017/_All_CRPP_" + strm2 + "_2017.xlsx")
+    if strm1 == "07":
+        crppm1 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm1 + "-2017/_All_CRPP_" + strm1 + "_2017.xlsm", sheetname = "CRPP")        
+    else:
+        crppm1 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm1 + "-2017/_All_CRPP_" + strm1 + "_2017.xlsx")        
     pathm = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TBP"
     csvfiles = os.listdir(pathm)
     csvfiles = [cf for cf in csvfiles if 'T1' in cf and '.txt' not in cf]
