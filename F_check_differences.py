@@ -377,7 +377,7 @@ sos = OrderedDict()
 for i in range(SOS.shape[0]):
     sos[i] = ReduceSOS(SOS.ix[i])
 sos = pd.DataFrame.from_dict(sos, orient = 'index')
-sos.columns = [['Pod', 'DATA','1','2','3','4','5','6','7','8','9','10','11','12','13',
+sos.columns = [['Pod', 'Giorno','1','2','3','4','5','6','7','8','9','10','11','12','13',
                     '14','15','16','17','18','19',
                     '20','21','22','23','24']]
 
@@ -457,6 +457,7 @@ for s in subdir:
 
 
 #### os.walk returns a tuple --> look into the tuple
+DIR = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/"
 all_subdir = [x for x in os.walk(DIR)]
 all_subdir = [x for x in all_subdir if ('2016' in x or '2017' in x[0])]
 for sd in all_subdir:
@@ -579,6 +580,7 @@ def BuildCRPP(ddir):
     bud = "Z:/AREA BO&B/13. BUDGET/Budget2017/" + ddir 
     all_subdir = [x for x in os.walk(bud)]
     for a in all_subdir:
+        print(a)
         for file in a[2]:
             print(a[0] + '/' + file)
             sn = pd.ExcelFile(a[0] + '/' + file, on_demand = True).sheet_names
@@ -732,6 +734,8 @@ May2017 = BuildCRPP("05. Maggio")
 May2017.to_excel("CRPP_May_2017_artigianale.xlsx")
 Jun2017 = BuildCRPP("06. Giugno")
 Jun2017.to_excel("CRPP_Jun_2017_artigianale.xlsx")
+Jul2017 = BuildCRPP("07. Luglio")
+Jul2017.to_excel("CRPP_Jul_2017_artigianale.xlsx")
 
 
 sos = pd.read_hdf("C:/Users/d_floriello/Documents/sos_elaborati_finiti.h5")
