@@ -310,7 +310,7 @@ def singlePDOReducer(x):
     ret = [x[0], x[2], x[3], x[4]]
     vec = np.repeat(0.0, 24)
     for h in range(5,101,4):
-        vec[list(range(5,101,4)).index(h)] = x[h] + x[h+1] + x[h+2] + x[h+3]
+        vec[list(range(5,101,4)).index(h)] = float(x[h]) + float(x[h+1]) + float(x[h+2]) + float(x[h+3])
     ret.extend(vec.tolist())
     return ret
 ###############################################################################
@@ -318,6 +318,8 @@ def PDOReducer(df):
     DF = OrderedDict()
     diffs = OrderedDict()
     for i in range(df.shape[0]):
+        if i % 100 == 0:
+            print('avanzamento: {}'.format(i/df.shape[0]))        
         pod = df['POD'].ix[i]
         dt = df['date'].ix[i]
         #flux = df['flusso'].ix[i]
@@ -330,14 +332,18 @@ def PDOReducer(df):
             Xpdo = dfpd.ix[dfpd['flusso'] == 'PDO']
             if Xrfo.shape[0] > 0:
                 ll = [pod, dt]
-                ll.append(Xrfo[Xrfo.columns[5:]].diff().mean().mean())
+                SHAPE = Xrfo.shape[0]
+                ll.append(Xrfo[Xrfo.columns[5:]].diff().dropna().mean().mean())
+                ll.append(SHAPE)
                 Xrfo = Xrfo.drop_duplicates(subset = ['POD', 'date', 'zona', 'flusso'], keep = 'last')
                 ll.append(Xrfo['flusso'].values[0])
                 DF[i] = singlePDOReducer(Xrfo.values.ravel().tolist())
                 diffs[i] = ll
             elif Xrfo.shape[0] == 0 and Xpdo.shape[0] > 0:
                 ll = [pod, dt]
-                ll.append(Xrfo[Xrfo.columns[5:]].diff().mean().mean())
+                SHAPE = Xrfo.shape[0]
+                ll.append(Xrfo[Xrfo.columns[5:]].diff().dropna().mean().mean())
+                ll.append(SHAPE)
                 Xpdo = Xpdo.drop_duplicates(subset = ['POD', 'date', 'zona', 'flusso'],keep = 'last')
                 ll.append(Xrfo['flusso'].values[0])
                 DF[i] = singlePDOReducer(Xpdo.values.ravel().tolist())
@@ -457,6 +463,7 @@ for s in subdir:
 
 
 #### os.walk returns a tuple --> look into the tuple
+missing = []
 DIR = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/"
 all_subdir = [x for x in os.walk(DIR)]
 all_subdir = [x for x in all_subdir if ('2016' in x or '2017' in x[0])]
@@ -464,9 +471,10 @@ for sd in all_subdir:
     files = sd[2]
     for f in files:
         if 'PDO' in f or 'RFO' in f:
-            shutil.copy2(sd[0] + "/" + f, "H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO")
-            
-            
+            try:
+                shutil.copy2(sd[0] + "/" + f, "H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO")
+            except:
+                missing.append(sd[0] + "/" + f)
 ###############################################################################
 ############################# EXTRACTION ######################################
 ###############################################################################
@@ -511,7 +519,7 @@ Mis.apply(PDOReducer, axis = 1)
 
 df = pd.read_hdf("C:/Users/d_floriello/Documents/PDO_RFO_estratti.h5")
 
-df = df.drop_duplicates(keep = 'last')
+df = df.drop_duplicates(subset = ['POD','date', 'zona', 'flusso'], keep = 'last')
 
 df = df.reset_index()
 df = df.drop('index', 1)
@@ -519,6 +527,8 @@ df = df.drop('index', 1)
 DF, diffs = PDOReducer(df)
 
 DF.to_hdf("C:/Users/d_floriello/Documents/DB_misure.h5", "misure")
+DF.to_excel("C:/Users/d_floriello/Documents/DB_misure.xlsx")
+
 
 pdo = pd.read_hdf("C:/Users/d_floriello/Documents/DB_misure.h5")
 sos = pd.read_hdf("C:/Users/d_floriello/Documents/sos_elaborati_finiti.h5")
