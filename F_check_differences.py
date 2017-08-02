@@ -359,7 +359,7 @@ def PDOReducer(df):
 
 mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 
         'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
-anni = [2016, 2017]
+anni = [2015, 2016, 2017]
 
 SOS = pd.DataFrame()
 for a in anni:
@@ -464,9 +464,11 @@ for s in subdir:
 
 #### os.walk returns a tuple --> look into the tuple
 missing = []
-DIR = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/"
+DIR = "Z:/AREA BO&B/23.P-RNO - PD-RFO DISTRIBUTORI - BONUS/2015/"
+DIR = "Z:/AREA BO&B/23.P-RNO - PD-RFO DISTRIBUTORI - BONUS/2016/"
+DIR = "Z:/AREA BO&B/23.P-RNO - PD-RFO DISTRIBUTORI - BONUS/2017/"
 all_subdir = [x for x in os.walk(DIR)]
-all_subdir = [x for x in all_subdir if ('2016' in x or '2017' in x[0])]
+#all_subdir = [x for x in all_subdir if ('2015' in x or '2016' in x or '2017' in x[0])]
 for sd in all_subdir:
     files = sd[2]
     for f in files:
@@ -481,6 +483,7 @@ for sd in all_subdir:
 Mis = pd.DataFrame()
 
 files = os.listdir("H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO")
+files = [x for x in files if not 'old' in x]
 for f in files:
     if ".zip" in f.lower():
         zf = zipfile.ZipFile("H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO/" + f)
@@ -498,7 +501,7 @@ for f in files:
     else:                                                    
         if "PDO" in f:
             pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO/" + f, 'PDO')
-        elif "RFO" in unz:
+        elif "RFO" in f:
             pdo = PDOExtractor("H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO/" + f, 'RFO')
         else:
             print("neither PDO, nor RFO")
@@ -522,6 +525,7 @@ df = pd.read_hdf("C:/Users/d_floriello/Documents/PDO_RFO_estratti.h5")
 df = df.drop_duplicates(subset = ['POD','date', 'zona', 'flusso'], keep = 'last')
 
 df = df.reset_index()
+df.head()
 df = df.drop('index', 1)
 
 DF, diffs = PDOReducer(df)

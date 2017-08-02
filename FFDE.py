@@ -68,7 +68,7 @@ def Aggregate_Unareti():
         sett = pd.read_csv("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/settimanali_elaborati.csv", sep = ";")
         sett_el = sett.values.ravel().tolist()
         todo = list(set(lof).difference(set(sett_el)))
-        Agg = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/Aggregati_Unareti_2017.xlsx")
+        Agg = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/Unareti_elaborati.xlsx")
     else:
         sett_el = []
         todo = lof
@@ -81,7 +81,8 @@ def Aggregate_Unareti():
             Agg = Agg.append(DF, ignore_index = True)
         sett_el.extend(todo)
     sett_el = pd.DataFrame.from_dict({'files': sett_el})
-    sett.to_csv("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/settimanali_elaborati.csv", sep = ";")
+    sett_el.to_csv("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/settimanali_elaborati.csv", sep = ";")
+    Agg.to_excel("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/A2A Milano Reti Elettriche S.p.A_12883450152/2017/Unareti_elaborati.xlsx")
     return Agg
 ####################################################################################################
 def Aggregator2(df):
@@ -294,11 +295,16 @@ def Aggregator(today):
     strm1 = str(m) if len(str(m)) > 1 else "0" + str(m)        
     strm2 = str(m-1) if len(str(m-1)) > 1 else "0" + str(m-1)        
 #    crppm1 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm1 + "-2017/_All_CRPP_" + strm1 + "_2017.xlsx")
-    crppm2 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm2 + "-2017/_All_CRPP_" + strm2 + "_2017.xlsx")
+#    crppm2 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm2 + "-2017/_All_CRPP_" + strm2 + "_2017.xlsx")
     if strm1 == "07":
         crppm1 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm1 + "-2017/_All_CRPP_" + strm1 + "_2017.xlsm", sheetname = "CRPP")        
     else:
         crppm1 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm1 + "-2017/_All_CRPP_" + strm1 + "_2017.xlsx")        
+    if strm2 == "07":
+        crppm2 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm2 + "-2017/_All_CRPP_" + strm2 + "_2017.xlsm", sheetname = "CRPP")        
+    else:
+        crppm2 = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm2 + "-2017/_All_CRPP_" + strm2 + "_2017.xlsx")        
+    
     pathm = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TBP"
     csvfiles = os.listdir(pathm)
     csvfiles = [cf for cf in csvfiles if 'T1' in cf and '.txt' not in cf]
