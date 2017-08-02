@@ -145,10 +145,10 @@ def DaConferire(l, prof, setmonth, pp):
         return l[0]
 ####################################################################################################
 
-doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170705 Report Fatturato Gas_Maggio.xlsx'
+doc1 = 'Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2016-2017/20170802 Report Fatturato Gas_Giugno.xlsx'
 #doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
 doc2 = 'Z:/AREA ENERGY MANAGEMENT GAS/ESITI TRASPORTATORI/Report 218_Anagrafica Clienti.xls'
-doc3 = 'Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1707/Anagrafica TIS EVOLUTION.xlsm'
+doc3 = 'Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1708/Anagrafica TIS EVOLUTION.xlsm'
 
 
 df181 = pd.read_excel(doc1, sheetname = 'Report fatturato GAS', skiprows = [0,1], converters={'PDR': str,'REMI': str,
