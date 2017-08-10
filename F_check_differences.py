@@ -531,7 +531,7 @@ df = df.drop('index', 1)
 DF, diffs = PDOReducer(df)
 
 DF.to_hdf("C:/Users/d_floriello/Documents/DB_misure.h5", "misure")
-DF.to_excel("C:/Users/d_floriello/Documents/DB_misure.xlsx")
+DF.to_csv("C:/Users/d_floriello/Documents/DB_misure.csv")
 
 
 pdo = pd.read_hdf("C:/Users/d_floriello/Documents/DB_misure.h5")
@@ -542,6 +542,13 @@ pdo = pdo.drop('index', 1)
 pdo.columns = [['POD', 'DATA', 'zona', 'flusso', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
                 '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']]
 
+import pickle
+lf = os.listdir('H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO')
+with open('H:/Energy Management/02. EDM/01. MISURE/PDO_fatti.txt', 'wb') as fp:
+    pickle.dump(lf, fp)
+
+with open('H:/Energy Management/02. EDM/01. MISURE/PDO_fatti.txt', 'rb') as fp:
+    lf2 = pickle.load(fp)
 ###############################################################################
 def MakeMOCRPP(pdo, sos, crpp, m, mprec):
     ### @PARAM: crpp is the 2017 one ad m is the target month for the CRPP
