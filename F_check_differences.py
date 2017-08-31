@@ -737,7 +737,15 @@ def BuildCRPP2016():
                     'Trattamento_08','Trattamento_09','Trattamento_10','Trattamento_11','Trattamento_12']]
     return diz
 ###############################################################################
-                            
+def convertToTS(df):
+    diz = []
+    dates = pd.to_datetime(df.index)
+    for d in df.index:
+        diz.extend(df.ix[d].values.ravel().tolist())
+    diz = pd.DataFrame({'x': diz}).set_index(pd.date_range(dates[0], dates[-1].date() + datetime.timedelta(days = 19), freq = 'H')[:len(diz)])                     
+    return diz
+###############################################################################
+                
 diz.to_excel("CRPP_artigianale.xlsx")                
 
 crpp2016 = BuildCRPP2016()
@@ -770,3 +778,31 @@ sos2 = sos.groupby(['Pod', 'DATA']).agg(OrderedDict({'1':sum,'2':sum,'3':sum,'4'
 
 sos2 = sos2[['1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
                 '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']]
+                
+                
+agg = agg.drop_duplicates(subset = ['POD', 'Area', 'Giorno'], keep = 'last')                
+agg = agg.set_index(pd.to_datetime(agg['Giorno']))
+
+sa2a = agg[agg.columns[3:]].resample('D').sum()/1000
+
+mdf2 = pd.DataFrame()
+for e in enel:
+    mdf2 = mdf2.append(mdf.ix[mdf['POD'] == e])
+
+mdf2 = mdf2.set_index(pd.to_datetime(mdf2['Giorno']))
+senel = mdf2[mdf2.columns[2:]].resample('D').sum()/1000
+
+
+sa2a.plot()
+senel.plot()
+
+espod = agg[agg.columns[2:]].ix[agg['POD'] == 'IT012E00502501']
+espod2 = agg[agg.columns[2:]].ix[agg['POD'] == 'IT012E00314756']
+
+
+ts_a2a = convertToTS(sa2a)
+ts_enel = convertToTS(senel)
+ts_pod = convertToTS()
+
+ts_a2a.plot()
+ts_enel.plot()
