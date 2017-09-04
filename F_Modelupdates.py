@@ -377,7 +377,7 @@ def UpdatePDO():
                 print("neither PDO, nor RFO")
         Mis = Mis.append(pdo, ignore_index = True)
         
-    Mis["date"] = pd.to_datetime(Mis["date"]).to_pydatetime().date()
+    Mis["date"] = pd.to_datetime(Mis["date"])#.dt.date()
         
 #    Mis.to_hdf("C:/Users/d_floriello/Documents/PDO_RFO_estratti.h5", "PDO_RFO")
 #    Mis.to_csv("PDO_RFO_estratti.csv")
