@@ -403,7 +403,9 @@ def UpdatePDO():
     PDO = pd.read_hdf("C:/Users/d_floriello/Documents/DB_misure.h5")
     PDO = PDO.append(DF, ignore_index = True)
     
-    PDO.to_hdf('C:/Users/d_floriello/Documents/DB_misure.h5', 'pdo')
+    today = datetime.datetime.now().date()
+
+    PDO.to_hdf('C:/Users/d_floriello/Documents/DB_misure' + str(today) + '.h5', 'pdo')
     
     lf = os.listdir('H:/Energy Management/02. EDM/01. MISURE/All_PDO_RFO')
     with open('H:/Energy Management/02. EDM/01. MISURE/PDO_fatti.txt', 'wb') as fp:
