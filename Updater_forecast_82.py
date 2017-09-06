@@ -301,6 +301,29 @@ def PDOExtraction():
     if Mis.columns[0] == 'index':
         Mis = Mis.drop('index', 1)
     
+    today = datetime.datetime.now().date()
+    tm = today.month
+    strm = str(tm) if len(str(tm)) > 1 else "0" + str(tm)
+    crpp = pd.read_excel('H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/' + strm + '-2017/_All_CRPP_' + strm + '_2017.xlsx')
+    podcrpp = list(set(crpp['POD']))    
+    
+    Mis2 = Mis
+### trim all the possible rows:
+    PODS = list(set(Mis['POD']))
+    for p in PODS:
+        pp = Mis.ix[Mis['POD'] == p]
+        if not p in podcrpp:
+            Mis = Mis.drop(Mis.ix[Mis['POD'] == p].index)
+        else:
+            if pp.shape[0] > 365:
+                pp = pp.sort_values(by = 'date')
+                #ppdates = list(set(pp['date']))
+                Mis.drop(pp.index[:365])
+            elif pp.shape[0] < 365 and pp['date'].all() < 2016:
+                Mis.drop(pp.index)
+            else:
+                next
+    
     DF, diffs = PDOReducer(Mis)
 
     if DF.columns[0] == 'index':        
@@ -309,7 +332,6 @@ def PDOExtraction():
     DF.columns = [['POD', 'Giorno', 'zona', 'flusso', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
                     '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']]
 
-    today = datetime.datetime.now().date()
 
     DF.to_hdf('C:/Users/d_floriello/Documents/DB_misure' + str(today) + '.h5', 'pdo')
 
