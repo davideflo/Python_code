@@ -311,11 +311,11 @@ def PDOExtraction():
 ### trim all the possible rows:
     PODS = list(set(Mis['POD']))
     for p in PODS:
-        pp = Mis.ix[Mis['POD'] == p]
         if not p in podcrpp:
             Mis = Mis.drop(Mis.ix[Mis['POD'] == p].index)
         else:
-            if pp.shape[0] > 365:
+            pp = Mis.ix[Mis['POD'] == p]
+            if pp.shape[0] > 366:
                 pp = pp.sort_values(by = 'date')
                 #ppdates = list(set(pp['date']))
                 Mis.drop(pp.index[:365])
@@ -323,7 +323,10 @@ def PDOExtraction():
                 Mis.drop(pp.index)
             else:
                 next
+
+    Mis.to_csv('H:Energy Management/Mis.csv', sep = ';')
     
+    Mis = Mis.reset_index(drop = True)
     DF, diffs = PDOReducer(Mis)
 
     if DF.columns[0] == 'index':        
