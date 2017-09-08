@@ -71,7 +71,7 @@ def SbilPriceGetter():
     for y in years:    
         for m in mon:
             print(m)
-            if y == 2017 and m in ['06', '07', '08', '09', '10', '11', '12']:
+            if y == 2017 and m in ['08', '09', '10', '11', '12']:
                 break
             else:
                 #pp = path+str(y)+'/TERNA_'+str(y)+'/01_TERNA_'+str(y)+'_SETTLEMENT/TERNA_'+str(y)+'.'+m+'/FA/'
