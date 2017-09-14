@@ -234,9 +234,12 @@ def D_Monthly_Aggregator(month):
     count = 0
     strm = str(m) if len(str(m)) > 1 else "0" + str(m)        
     if month >= 3:
-        crppm = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm + "-2017/_All_CRPP_" + strm + "_2017.xlsx")
+        try:
+            crppm = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm + "-2017/_All_CRPP_" + strm + "_2017.xlsx", sheetname = 'CRPP')
+        except:
+            crppm = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/" + strm + "-2017/_All_CRPP_" + strm + "_2017.xlsm", sheetname = 'CRPP')            
     else:
-        crppm = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/03-2017/_All_CRPP_03_2017.xlsx")
+        crppm = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/03-2017/_All_CRPP_03_2017.xlsx", sheetname = 'CRPP')
     pathm = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/2017-" + strm + "/Giornalieri/CSV"
     csvfiles = os.listdir(pathm)
     csvfiles = [cf for cf in csvfiles if 'T1' in cf and '.txt' not in cf]
@@ -383,6 +386,51 @@ def T2Extractor():
     #shutil.rmtree("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP")
     return 1    
 ####################################################################################################
+def T1Extractor():    
+    mesi = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    for m in mesi[3]:
+        strm = str(mesi.index(m)+1) if len(str(mesi.index(m)+1)) > 1 else "0" + str(mesi.index(m)+1)
+        directory = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/" + str(2017) + "-" + strm + "/Giornalieri"
+        os.makedirs(directory + "/T1_" + strm + "-2017")        
+        tbe = os.listdir(directory)
+        tbe = [x for x in tbe if ".zip" in x]
+        for t in tbe:
+            #print(t)
+            path = directory + "/" + t
+            zf = zipfile.ZipFile(path)
+            lzf = [x for x in zf.namelist() if ".zip" in x]
+            zf.extractall(path = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP")
+            for z in lzf:
+                    #print(z)
+                path2 = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP/" + str(z)
+                with zipfile.ZipFile(path2) as zf2:
+                    right = [str(rf) for rf in zf2.namelist() if 'T1' in str(rf)]
+                    if len(right) > 0:
+                        zf2.extract(right[0], path = directory + "/T1_" + strm + "-2017")
+    #shutil.rmtree("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP")
+    return 1    
+####################################################################################################
+def T1_monthly_Extractor(m):    
+    strm = str(m) if len(str(m)) > 1 else "0" + str(m)
+    directory = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/" + str(2017) + "-" + strm + "/Giornalieri"
+    os.makedirs(directory + "/T1_" + strm + "-2017")        
+    tbe = os.listdir(directory)
+    tbe = [x for x in tbe if ".zip" in x]
+    for t in tbe:
+        #print(t)
+        path = directory + "/" + t
+        zf = zipfile.ZipFile(path)
+        lzf = [x for x in zf.namelist() if ".zip" in x]
+        zf.extractall(path = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP")
+        for z in lzf:
+            #print(z)
+            path2 = "H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP/" + str(z)
+            with zipfile.ZipFile(path2) as zf2:
+                right = [str(rf) for rf in zf2.namelist() if 'T1' in str(rf)]
+                if len(right) > 0:
+                    zf2.extract(right[0], path = directory + "/T1_" + strm + "-2017")
+    #shutil.rmtree("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/TEMP")
+    return 1    
 ####################################################################################################
 def AddHolidaysDate(vd):
     
