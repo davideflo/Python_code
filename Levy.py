@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pandas.tools import plotting
 from sklearn.linear_model import LinearRegression
+import statsmodels.api
 
 ####################################################################################################
 def hurst(ts):
@@ -37,6 +38,11 @@ plt.figure()
 ger2015['CAL'].plot()
 plt.figure()
 ger2015['CAL'].plot(kind = 'hist', bins = 20)
+plt.figure()
+ger2016['CAL'].plot(color = 'violet')
+plt.figure()
+ger2016['CAL'].plot(kind = 'hist', bins = 20, color = 'violet')
+
 
 sim15 = scipy.stats.levy.rvs(levy_ger15[0], levy_ger15[1], size = 5*ger2015.shape[0])
 
@@ -50,6 +56,72 @@ plt.plot(sim15, color = 'teal')
 print hurst(ger2015['CAL'].values.ravel())
 print hurst(ger2016['CAL'].values.ravel())
 
+adfuller2015 = statsmodels.api.tsa.adfuller(ger2015['CAL'].values.ravel())
+adfuller2016 = statsmodels.api.tsa.adfuller(ger2016['CAL'].values.ravel())
+
+print 'Augmented Dickey Fuller test statistic =',adfuller2015[0]
+print 'Augmented Dickey Fuller p-value =',adfuller2015[1]
+print 'Augmented Dickey Fuller 1%, 5% and 10% test statistics =',adfuller2015[4]
+print 'Augmented Dickey Fuller test statistic =',adfuller2016[0]
+print 'Augmented Dickey Fuller p-value =',adfuller2016[1]
+print 'Augmented Dickey Fuller 1%, 5% and 10% test statistics =',adfuller2016[4]
+
+y = ger2015['CAL'].values.ravel()
+X = np.arange(y.size)
+lm = LinearRegression(fit_intercept = True)
+lm.fit(X.reshape(-1,1), y)
+a = lm.coef_[0]
+b = lm.intercept_
+print a
+print b
+plt.figure()
+plt.plot(y - (b + a*X), color = 'black')
+print hurst(y - (b + a*X))
+adfuller_y = statsmodels.api.tsa.adfuller(y - (b + a*X))
+print 'Augmented Dickey Fuller test statistic =',adfuller_y[0]
+print 'Augmented Dickey Fuller p-value =',adfuller_y[1]
+print 'Augmented Dickey Fuller 1%, 5% and 10% test statistics =',adfuller_y[4]
+
+
+y = ger2016['CAL'].values.ravel()
+X = np.arange(y.size)
+lm = LinearRegression(fit_intercept = True)
+lm.fit(X.reshape(-1,1), y)
+a = lm.coef_[0]
+b = lm.intercept_
+print a
+print b
+plt.figure()
+plt.plot(y - (b + a*X), color = 'black')
+print hurst(y - (b + a*X))
+adfuller_y = statsmodels.api.tsa.adfuller(y - (b + a*X))
+print 'Augmented Dickey Fuller test statistic =',adfuller_y[0]
+print 'Augmented Dickey Fuller p-value =',adfuller_y[1]
+print 'Augmented Dickey Fuller 1%, 5% and 10% test statistics =',adfuller_y[4]
+
+plt.figure()
+plotting.autocorrelation_plot(y)
+
+rm = []
+for i in range(1, y.size):
+    rm.append(np.mean(y[:i]))
+    
+plt.figure()
+plt.plot(y)
+plt.plot(np.array(rm))
+plt.plot(b + a*X)
+
+rsigma = []
+for i in range(1, y.size):
+    xt = y[i-1]
+    sigmatsx = np.std(y[:i])
+    if y[i] != xt:
+        rsigma.append((y[i] - xt)/sigmatsx)
+    else:
+        rsigma.append(0)
+
+plt.figure()
+plt.plot(np.array(rsigma), color = 'orange')    
 #### Try fitting an Ornstein–Uhlenbeck process
 
 plt.figure()
