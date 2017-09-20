@@ -22,8 +22,75 @@ def hurst(ts):
     poly = np.polyfit(np.log(lags), np.log(tau), 1)
     return poly[0]*2.0
 ####################################################################################################
-
-
+def GetStatistics(path):
+    df = pd.read_excel(path)
+    y = df['Last'].values.ravel()
+    X = np.arange(y.size)
+    lm = LinearRegression(fit_intercept = True)
+    lm.fit(X.reshape(-1,1), y)
+    a = lm.coef_[0]
+    b = lm.intercept_
+    print a
+    print b
+    plt.figure()
+    plt.plot(y - (b + a*X), color = 'black')
+    print hurst(y - (b + a*X))
+    adfuller_y = statsmodels.api.tsa.adfuller(y - (b + a*X))
+    print 'Augmented Dickey Fuller test statistic =',adfuller_y[0]
+    print 'Augmented Dickey Fuller p-value =',adfuller_y[1]
+    print 'Augmented Dickey Fuller 1%, 5% and 10% test statistics =',adfuller_y[4]
+    
+    plt.figure()
+    plotting.autocorrelation_plot(y)
+    plt.title('autocorrelation of LAST values')
+    
+    rm = []
+    for i in range(1, y.size):
+        rm.append(np.mean(y[:i]))
+        
+    plt.figure()
+    plt.plot(y)
+    plt.title('LAST')
+    plt.plot(np.array(rm))
+    plt.plot(b + a*X)
+    plt.title('detrended LAST')
+    
+    rsigma = []
+    rstx = []
+    for i in range(1, y.size):
+        xt = y[i-1]
+        sigmatsx = np.std(y[:i])
+        rstx.append(sigmatsx)
+        if y[i] != xt:
+            rsigma.append((y[i] - xt)/sigmatsx)
+        else:
+            rsigma.append(0)
+    
+    plt.figure()
+    plt.plot(np.array(rsigma), color = 'orange')    
+    plt.title('how many std dev the price has moved')
+    plt.figure()
+    plt.plot(np.array(rstx))
+    plt.title('rolling std dev')
+    plt.figure()
+    plotting.autocorrelation_plot(np.array(rstx), color = 'green')
+    plt.title('rolling std dev autocorrelation')    
+    plt.figure()
+    plotting.autocorrelation_plot(np.array(rsigma[1:]), color = 'palevioletred')
+    plt.title('autocorrelation "skewing std dev"')
+    
+    ratio = []
+    for i in range(1, len(rsigma)):
+        ratio.append(float(np.where(np.array(rsigma[:i]) <= 0)[0].size)/float(np.array(rsigma[:i]).size))
+    plt.figure()
+    plt.plot(np.array(ratio))
+    plt.title('ratio of std dev downward or upward movements')
+    
+    print 'percentage downward movements: {}'.format(float(np.where(np.array(rsigma[1:]) <= 0)[0].size)/float(np.array(rsigma[1:]).size))
+    print 'skewing std dev mean: {}'.format(np.mean(rsigma[1:]))
+    print 'skewing std dev max: {}'.format(np.max(rsigma[1:]))
+    print 'skewing std dev min: {}'.format(np.min(rsigma[1:]))
+####################################################################################################
 
 ger = pd.read_excel('C:/Users/utente/Documents/Trading/Chiusura GER_15_16.xlsx')
 ger.columns = [['Data', 'CAL', 'YEAR']]
@@ -112,9 +179,11 @@ plt.plot(np.array(rm))
 plt.plot(b + a*X)
 
 rsigma = []
+rstx = []
 for i in range(1, y.size):
     xt = y[i-1]
     sigmatsx = np.std(y[:i])
+    rstx.append(sigmatsx)
     if y[i] != xt:
         rsigma.append((y[i] - xt)/sigmatsx)
     else:
@@ -122,6 +191,20 @@ for i in range(1, y.size):
 
 plt.figure()
 plt.plot(np.array(rsigma), color = 'orange')    
+plt.figure()
+plt.plot(np.array(rstx))
+plt.figure()
+plotting.autocorrelation_plot(y, color = 'coral')
+plt.figure()
+plotting.autocorrelation_plot(np.array(rstx), color = 'green')
+plt.figure()
+plotting.autocorrelation_plot(np.array(rsigma[1:]), color = 'palevioletred')
+
+ratio = []
+for i in range(1, len(rsigma)):
+    ratio.append(float(np.where(np.array(rsigma[:i]) <= 0)[0].size)/float(np.array(rsigma[:i]).size))
+plt.figure()
+plt.plot(np.array(ratio))
 #### Try fitting an Ornstein–Uhlenbeck process
 
 plt.figure()
