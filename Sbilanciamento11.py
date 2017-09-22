@@ -19,10 +19,12 @@ import datetime
 ####################################################################################################
 def ToTS(df):
     ts = []
-    dmin = min(df['Giorno'].date()) #### always errors here 
-    dmax = max(df['Giorno'].date())
+    dmin = df['Giorno'].min() #### always errors here 
+    dmax = df['Giorno'].max()
     for i in df.index:
-        ts.extend(df[-24:].ix[i].values.ravel().tolist())
+        print i
+        y = df[df.columns[-24:]].ix[i].values.ravel().tolist()
+        ts.extend(y)
     DF = pd.DataFrame({'X': ts}).set_index(pd.date_range(dmin, dmax + datetime.timedelta(days = 1), freq = 'H')[:len(ts)])                            
     return DF
 ####################################################################################################
@@ -36,9 +38,9 @@ def PODManualRemoduler(Pred, PREDW, pod, sos, rical, pdo, db, zona, d):
     where = False    
     
     if pod in Pred['POD'].values.ravel().tolist():
-        candidate = Pred[Pred.columns[2:]].ix[Pred['POD'] == pod]
+        candidate = Pred[Pred.columns[2:]].ix[Pred['POD'] == pod].values.ravel()
     elif pod in PREDW['POD'].values.ravel().tolist():
-        candidate = PREDW[Pred.columns[2:]].ix[PREDW['POD'] == pod]
+        candidate = PREDW[Pred.columns[2:]].ix[PREDW['POD'] == pod].values.ravel()
         where = True
     else:
         print 'This pod is not in this zone'
@@ -55,11 +57,12 @@ def PODManualRemoduler(Pred, PREDW, pod, sos, rical, pdo, db, zona, d):
         insert2 = raw_input("Type your choice here: ")
         
         if int(insert2) == 1:
-            print 'How many days backwards do you want to go?'
+            print 'How many days do you want to go backwards?'
             num_days = int(raw_input(' '))
             if where:
                 db2 = db.ix[db['POD'] == pod]
-                dbp = db2.ix[db2['Giorno'] > (d - datetime.timedelta(days = num_days + 1))]
+                db2['Giorno'] = map(lambda date: date.date(), db2['Giorno'].dt.to_pydatetime())
+                dbp = db2.ix[db2['Giorno'].values > (d - datetime.timedelta(days = num_days + 1))]
                 dbpts = ToTS(dbp)
             else:
                 dbpts = pd.DataFrame()
@@ -77,7 +80,7 @@ def PODManualRemoduler(Pred, PREDW, pod, sos, rical, pdo, db, zona, d):
             while YN:
                 for h in range(24):
                     print 'By how much do you want to increase or decrease the forecast in the {}th hour?'.format(h)
-                    percentage_h = raw_input("Type here the percentage (written as a rational number): ")
+                    percentage_h = float(raw_input("Type here the percentage (written as a rational number): "))
                     candidate[h] = (1 + percentage_h) * candidate[h]
                 plt.figure()
                 plt.plot(candidate, color = sorted_names[counter])
