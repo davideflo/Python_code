@@ -433,6 +433,13 @@ GetStatistics('H:/Energy Management/13. TRADING/GER_1718.xlsx')
 
 path = 'H:/Energy Management/13. TRADING/GER_1718.xlsx'
 df = pd.read_excel(path)
+
+df = df[df.columns[:5]]
+df = df.set_index(df['Date GMT'])
+df = df.drop('Date GMT', axis=1)
+df.hist()
+
+
 X = df['Last'].values.ravel()
 
 plt.figure()
@@ -513,3 +520,17 @@ print scipy.stats.kurtosis(final)
 
 plt.figure()
 plt.hist(final, bins = 20, color = 'deepskyblue')
+
+df.ix[range(0,424,2)].hist(color = 'orange')
+df.ix[range(0,424,3)].hist(color = 'darkolivegreen')
+dfstd = df.std(axis = 1)
+plt.figure();dfstd.plot(color = 'goldenrod')
+plt.figure();plotting.autocorrelation_plot(df['Last'].ix[range(0,424,2)], color = 'orange')
+plt.figure();plotting.autocorrelation_plot(df['Last'].ix[range(0,424,3)],color = 'darkolivegreen')
+plt.figure();plotting.autocorrelation_plot(dfstd, color = 'goldenrod')
+plt.figure();df.ix[range(0,424,2)].std(axis = 1).plot(color = 'darkolivegreen')
+
+
+dec = statsmodels.api.tsa.seasonal_decompose(errorA, freq = 24)
+plt.figure();dec.plot()
+plt.figure();plotting.autocorrelation_plot(dec.resid[~np.isnan(dec.resid)], color = 'violet')
