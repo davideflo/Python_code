@@ -529,7 +529,7 @@ plt.figure();plotting.autocorrelation_plot(df['Last'].ix[range(0,424,2)], color 
 plt.figure();plotting.autocorrelation_plot(df['Last'].ix[range(0,424,3)],color = 'darkolivegreen')
 plt.figure();plotting.autocorrelation_plot(dfstd, color = 'goldenrod')
 plt.figure();df.ix[range(0,424,2)].std(axis = 1).plot(color = 'darkolivegreen')
-
+### http://www.math.ku.dk/~susanne/StatDiff/Overheads1b
 
 dec = statsmodels.api.tsa.seasonal_decompose(errorA, freq = 24)
 plt.figure();dec.plot()
