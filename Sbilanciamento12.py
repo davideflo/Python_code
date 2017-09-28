@@ -13,6 +13,41 @@ import matplotlib.pyplot as plt
 import Sbilanciamento10 as FF
 import datetime
 import statsmodels.api
+from collections import OrderedDict
+
+
+####################################################################################################
+def SampleAtDay(db, dtd, zona):
+    db = db.ix[db["Area"] == zona]
+    return list(set(db["POD"].ix[db["Giorno"] == dtd].tolist()))
+####################################################################################################
+#def GetTrueSample(db, zona, rical, pdo, sos):
+#    db = db.ix[db["Area"] == zona]
+#    sam = pd.read_excel('C:/Users/utente/Documents/Sbilanciamento/forecast_campione_' + zona + '.xlsx')
+#    Sample = FF.Get_SampleAsTS(db, zona)
+#    tsam = []
+#    for d in db['Giorno']:
+#        sad = SampleAtDay(db, d, zona)
+#        sadb = SampleAtDay(db, d - datetime.timedelta(days = 1), zona)
+#        to_remove = list(set(sad).symmetric_difference(set(sadb)))
+#        PRED = OrderedDict()     
+#        counter = 0
+#        if len(to_remove) == 0:
+#            v = sam.ix[sam.index.date == d].values.ravel()
+#        else:
+#            if p in sad:
+#                for p in to_remove:
+#                    pred = FF.Taker(rical, pdo, sos, p, d)
+#                    PRED[counter] = pred
+#                    counter += 1
+#                PRED = pd.DataFrame.from_dict(PRED, orient = 'index')
+#                PRED.columns = ['POD', 'Giorno', '1','2','3', '4', '5', '6', '7', '8', '9', '10',
+#                                '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24']    
+#                PRED = PRED.fillna(0)
+#                TR = PRED[PRED.columns[2:]].sum().values.ravel()/1000
+#                v = Sample.ix[Sample.index.date == d].values.ravel() - TR
+            
+        
 
 db = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/Aggregatore_orari-2017.xlsx")
 db.columns = [str(i) for i in db.columns]
