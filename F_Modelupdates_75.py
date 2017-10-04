@@ -164,10 +164,10 @@ def singlePDOReducer(x):
 ###############################################################################
 def PDOReducer(df):
     DF = OrderedDict()
-    diffs = OrderedDict()
+    #diffs = OrderedDict()
     for i in range(df.shape[0]):
         if i % 100 == 0:
-            print('avanzamento: {}'.format(i/df.shape[0]))        
+            print('avanzamento: {}'.format(float(i)/float(df.shape[0])))        
         pod = df['POD'].ix[i]
         dt = df['date'].ix[i]
         #flux = df['flusso'].ix[i]
@@ -186,7 +186,7 @@ def PDOReducer(df):
                 Xrfo = Xrfo.drop_duplicates(subset = ['POD', 'date', 'zona', 'flusso'], keep = 'last')
                 ll.append(Xrfo['flusso'].values[0])
                 DF[i] = singlePDOReducer(Xrfo.values.ravel().tolist())
-                diffs[i] = ll
+                #diffs[i] = ll
             elif Xrfo.shape[0] == 0 and Xpdo.shape[0] > 0:
                 ll = [pod, dt]
                 SHAPE = Xrfo.shape[0]
@@ -195,14 +195,14 @@ def PDOReducer(df):
                 Xpdo = Xpdo.drop_duplicates(subset = ['POD', 'date', 'zona', 'flusso'],keep = 'last')
                 ll.append(Xrfo['flusso'].values[0])
                 DF[i] = singlePDOReducer(Xpdo.values.ravel().tolist())
-                diffs[i] = ll
+                #diffs[i] = ll
             else:
                 pass
         else:
             pass
     DF = pd.DataFrame.from_dict(DF, orient = 'index').reset_index()            
-    diffs = pd.DataFrame.from_dict(diffs, orient = 'index').reset_index()            
-    return DF, diffs
+    #diffs = pd.DataFrame.from_dict(diffs, orient = 'index').reset_index()            
+    return DF#, diffs
 ###############################################################################
 def SOSExtraction():
 #### @BRIEF: function to extract all the SOS in the folders    
@@ -289,7 +289,7 @@ def PDOExtraction():
                 print("neither PDO, nor RFO")
         Mis = Mis.append(pdo, ignore_index = True)
 
-    Mis["date"] = pd.to_datetime(Mis["date"]).to_pydatetime().date()
+    Mis["date"] = pd.to_datetime(Mis["date"])
         
 #    Mis.to_hdf("C:/Users/d_floriello/Documents/PDO_RFO_estratti.h5", "PDO_RFO")
 #    Mis.to_csv("PDO_RFO_estratti.csv")
@@ -304,7 +304,7 @@ def PDOExtraction():
     if Mis.columns[0] == 'index':
         Mis = Mis.drop('index', 1)
     
-    DF, diffs = PDOReducer(Mis)
+    DF = PDOReducer(Mis)
 
     if DF.columns[0] == 'index':        
         DF = DF.drop('index', 1)
