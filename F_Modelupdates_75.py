@@ -394,7 +394,7 @@ def UpdatePDO():
     if Mis.columns[0] == 'index':
         Mis = Mis.drop('index', 1)
     
-    DF, diffs = PDOReducer(Mis)
+    DF = PDOReducer(Mis)
 
     if DF.columns[0] == 'index':        
         DF = DF.drop('index', 1)
