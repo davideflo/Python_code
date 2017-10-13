@@ -16,7 +16,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 import scipy
 from sklearn.externals import joblib
 
-
+### https://math.stackexchange.com/questions/1248077/examples-of-wiener-martingales
+### http://www.cims.nyu.edu/~eve2/chap4.pdf
 
 ####################################################################################################
 def AddHolidaysDate(vd):
@@ -168,11 +169,14 @@ def GetPastSample2(db, rical, sos, pdo, som, year, zona):
         return RIC, missing
 ####################################################################################################
 def GetWeatherModelAuto():
-    zone = ['NORD', 'CNOR', 'CSUD', 'SUD', 'SICI', 'SARD']
-    cities = ['Milano', 'Firenze', 'Fiumicino', 'Bari', 'Palermo', 'Cagliari']
+    zone = ['NORD','CNOR', 'CSUD', 'SUD', 'SICI', 'SARD']
+    cities = ['Milano','Firenze', 'Fiumicino', 'Bari', 'Palermo', 'Cagliari']
     som = range(1,13)
     sos = pd.read_excel("C:/Users/utente/Documents/Sbilanciamento/sos_elaborati_finiti.xlsx")
     pdo = pd.read_hdf("C:/Users/utente/Documents/DB_misure.h5")
+    
+    sos['Giorno'] = pd.to_datetime(sos['Giorno'].values.ravel().tolist()).date   
+    pdo['Giorno'] = pd.to_datetime(pdo['Giorno'].values.ravel().tolist()).date    
     
     db = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL Distribuzione S.p.A/2017/Aggregatore_orari-2017.xlsx")
     db.columns = [str(i) for i in db.columns]
@@ -201,10 +205,15 @@ def GetWeatherModelAuto():
         
         ret = GetPastSample2(db, rical, sos, pdo, som, 2017, zona)
         
-        df = ret[2]
+        if len(ret) == 3:
+            df = ret[2]
+        else:
+            df = ret[0]
+            
+        df = df[df.columns[2:]].sum(axis = 1)
         df = pd.DataFrame({'S': df.values.ravel()/1000}).set_index(pd.date_range('2017-01-01', '2018-01-02', freq = 'H')[:df.values.ravel().size])
 
-        DWT = Get_MeanDependencyWithTemperature(df, mi)
+        DWT = Get_MeanDependencyWithTemperature(df, me)
 
         DWTt = DWT.sample(frac = 1)
 
@@ -239,7 +248,9 @@ def GetWeatherModelAuto():
         plt.scatter(DWTte['y'].values.ravel(), rf2.predict(DWTte[DWTte.columns[:27]]))
         
         print 'media residui: {}'.format(np.mean(resid))
-        print 'mediana residui: {}'.format(np.mean(resid))
+        print 'mediana residui: {}'.format(np.median(resid))
+        print 'massimo residui: {}'.format(np.max(resid))
+        print 'minimo residui: {}'.format(np.min(resid))
         print 'deviazione standard residui: {}'.format(np.std(resid))
         print 'skewness residui: {} (sk < 0 => coda destra pesante)'.format(scipy.stats.skew(resid))
         
@@ -253,11 +264,11 @@ def GetWeatherModelAuto():
         first = dq[dq < 0.2][0]        
         last = dq[dq < 0.2][-1]
 
-        first_index = dq.tolist().tolist().index(first)
-        last_index = dq.tolist().tolist().index(last)        
+        first_index = dq.tolist().index(first)
+        last_index = dq.tolist().index(last)        
         
         print '''percentuale di errori 'accettabile': {}
-        '''.format(float(np.sum((resid[first_index + 1] <= resid) * (resid <= resid[last_index + 1])))/float(resid.size))
+        '''.format(float(np.sum((q[first_index + 1] <= resid) * (resid <= q[last_index + 1])))/float(resid.size))
         
         joblib.dump(rf2, 'C:/Users/utente/Documents/Sbilanciamento/model_weather_S_' + zona + '.pkl')
         
@@ -340,3 +351,7 @@ plt.figure()
 plt.plot(np.diff(scipy.stats.mstats.mquantiles(resid, prob = np.linspace(0.05,1,100))), color = 'violet', marker = 'o')
 
 print float(np.sum((-2.74753128 <= resid) * (resid <= 1.64590391)))/float(resid.size)
+
+
+plt.figure()
+plt.scatter(resid, rf2.predict(DWTte[DWTte.columns[:27]]))
