@@ -29,7 +29,7 @@ db = pd.read_excel("H:/Energy Management/02. EDM/01. MISURE/3. DISTRIBUTORI/ENEL
 db.columns = [str(i) for i in db.columns]
 db = db[["POD", "Area", "Giorno", "1","2","3","4","5","6","7","8","9","10","11","12","13","14","15",
          "16","17","18","19","20","21","22","23","24"]]
-db = db.drop_duplicates(subset = ['POD', 'Area', 'Giorno'], keep = 'last'
+db = db.drop_duplicates(subset = ['POD', 'Area', 'Giorno'], keep = 'last')
 
 dbz = db.ix[db['Area'] == zona]
 dbz = dbz.set_index(dbz.Giorno)
@@ -69,6 +69,8 @@ plt.figure()
 plt.scatter(diz.dow.values.ravel(), diz.M.values.ravel(), color = 'black')
 plt.figure()
 plt.scatter(diz.M.values.ravel(), diz.H.values.ravel(), color = 'red')
+
+RIC = rical
 
 dates = []
 for i in range(RIC.shape[0]):
@@ -128,7 +130,7 @@ for i in range(7):
 for m in range(1,13):
     for i in range(7):
         dizm = diz.ix[diz.month == m]
-        print 'month, day, mean, std, skew: {}, {}, {}, {}, {}'.format(m, i, dizm.M.ix[dizm.dow == i].std(), dizm.M.ix[dizm.dow == i].mean(), scipy.stats.skew(dizm.M.ix[dizm.dow == i].values.ravel()))
+        print 'month, day, std, mean, skew: {}, {}, {}, {}, {}'.format(m, i, dizm.M.ix[dizm.dow == i].std(), dizm.M.ix[dizm.dow == i].mean(), scipy.stats.skew(dizm.M.ix[dizm.dow == i].values.ravel()))
 #        print 'skewtest: {}'.format(scipy.stats.skewtest(dizm.M.ix[dizm.dow == i].values.ravel()))
     
 for m in range(1,13):
@@ -140,12 +142,15 @@ for m in range(1,13):
 PK = range(8,20)
              
 ott = dbz.resample('D').sum()/1000
-ott = ott.ix[ott.index.month == 10]
+ott = ott.ix[ott.index.month == 9]
+ott['DOW'] = np.array(map(lambda date: date.weekday(), ott.index))
 
 fer_ott = ott.ix[ott.index.date != datetime.date(2017,10,1)]
 fer_ott = fer_ott.ix[fer_ott.index.date != datetime.date(2017,10,7)]
 fer_ott = fer_ott.ix[fer_ott.index.date != datetime.date(2017,10,8)]
 
+fer_ott = ott.ix[ott.DOW == 1]
+fer_ott = fer_ott[fer_ott.columns[:-1]]
 
 ottm = fer_ott.mean()
 ottsig = fer_ott.std()
@@ -153,8 +158,8 @@ ottsig = fer_ott.std()
 ##### abs error
 PKer = np.array([0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0])
 for i in fer_ott.index:
-    print 'absolute error: {}'.format(PKer*(fer_ott.ix[i].values.ravel() - (ottm + ottsig).values.ravel()))
-    print 'MAE: {}'.format(PKer*(fer_ott.ix[i].values.ravel() - (ottm + ottsig).values.ravel())/(ottm + ottsig).values.ravel())
+    print 'absolute error: {}'.format(PKer*(fer_ott.ix[i].values.ravel() - (ottm - ottsig).values.ravel()))
+    print 'MAE: {}'.format(PKer*(fer_ott.ix[i].values.ravel() - (ottm - ottsig).values.ravel())/(ottm - ottsig).values.ravel())
     
     
 pk_counter = 0
