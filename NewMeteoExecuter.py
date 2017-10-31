@@ -43,7 +43,13 @@ if __name__ == '__main__':
                 break
             
     print 'Extraction Forward Meteo Done'
-        
+    
+    if today.day == 28:
+        print '                                    '
+        print '####################################'
+        print 'Update perdite and CRPP ARTIGIANALE'
+        print '####################################'
+        print '                                    '
         
     if today.day == 1:
         print '#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@#@'
