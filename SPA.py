@@ -62,3 +62,13 @@ def PortfolioDifference(month1, month2, zona):
     print 'NET new zonal consumpion: {} MW p/a'.format((Tot2 - Tot1)/1000)
     
     return Tot1/1000, Exit/1000, Tot2/1000, Enter/1000
+####################################################################################################
+#def GetBasalConsumption(zona):
+#    
+#    dm = datetime.datetime.now().month
+#    strm = str(dm) if len(str(dm)) > 1 else "0" + str(dm)
+#    crpp = pd.read_excel('H:/Energy Management/02. EDM/01. MISURE/4. CRPP/2017/' + strm + '-2017/_All_CRPP_' + strm + '_2017.xlsx')
+#    crpp_h = crpp.ix[crpp['Trattamento_' + strm] == 'O']    
+#    crpp_h = crpp_h.ix[crpp_h.ZONA == zona]    
+#    
+#    podcrpp = set(crpp['POD'].ix[crpp['ZONA'] == zona])
