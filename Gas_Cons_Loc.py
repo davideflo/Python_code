@@ -45,7 +45,7 @@ def cleanDF(df):
 def RCleaner(df):
     df1 = df.ix[df['SHIPPER'] == '0001808491-AXOPOWER SRL']
     df2 = df1.ix[df['DESCRIZIONE_PRODOTTO'] != 'Solo Superi e Quota Fissa']
-    df3 = df2.ix[df2['D_VALIDO_AL'] >= datetime.datetime(2016, 10, 1)]
+    df3 = df2.ix[df2['D_VALIDO_AL'] >= datetime.datetime(2017, 10, 1)]
     return df3.reset_index(drop = True)
 ####################################################################################################
 def ActiveAtMonth(start, end):
@@ -145,15 +145,15 @@ def DaConferire(l, prof, setmonth, pp):
         return l[0]
 ####################################################################################################
 
-doc1 = "Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2017-2018/20171003 Report Fatturato Gas_Agosto.xlsx"
+doc1 = "Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2017-2018/20171102 Report Fatturato Gas_Settembre.xlsx"
 #doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
 doc2 = "Z:/AREA ENERGY MANAGEMENT GAS/ESITI TRASPORTATORI/17-18 Anagrafica Clienti.xlsx"
-doc3 = "Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1710/Anagrafica TIS EVOLUTION.xlsm"
+doc3 = "Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1711/Anagrafica TIS EVOLUTION.xlsm"
 
 
-df181 = pd.read_excel(doc1, sheetname = 'Fatturato Gas', skiprows = [0], converters={'PDR': str,'REMI': str,
+df181 = pd.read_excel(doc1, sheetname = 'Fatturato Gas', skiprows = [0,1], converters={'PDR': str,'REMI': str,
                       'COD_CLIENTE': str})
-df218 = pd.read_excel(doc2, sheetname = 'Simil Template_Globale', skiprows = [0,1], converters={'FORNITURA_POD': str, 
+df218 = pd.read_excel(doc2, sheetname = 'Anagrafica EE+GAS_Globale', skiprows = [0,1], converters={'FORNITURA_POD': str, 
                       'CLIENTE_CODICE': str, 'COD_REMI': str})
 dfA = pd.read_excel(doc3, sheetname = 'Importazione', converters={'COD_PDR': str, 'COD_REMI': str})
 
@@ -221,7 +221,8 @@ for c in cod:
             sii = 0
             if len(dfA['PRELIEVO_ANNUO_PREV'].ix[dfA['COD_PDR'] == p].values.tolist()) > 0:
                 sii = float(dfA['PRELIEVO_ANNUO_PREV'].ix[dfA['COD_PDR'] == p].values.tolist()[0])
-                pp = dfA['COD_PROF_PREL_STD'].ix[dfA['COD_PDR'] == p].values.tolist()[0]
+                if str(dfA['COD_PROF_PREL_STD'].ix[dfA['COD_PDR'] == p].values.tolist()[0]) != 'nan':
+                    pp = dfA['COD_PROF_PREL_STD'].ix[dfA['COD_PDR'] == p].values.tolist()[0]
             VAF = 0
             if mcount == 12:
                 VAF = vaf
