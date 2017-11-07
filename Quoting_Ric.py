@@ -20,6 +20,14 @@ from collections import OrderedDict
 import scipy
 
 ####################################################################################################
+def AssociateDaylightSavings(vd, year):
+    leg = [datetime.date(2015,3,29),datetime.date(2016,3,27),datetime.date(2017,3,26),
+           datetime.date(2018,3,25),datetime.date(2019,3,31)]
+           
+    sol = [datetime.date(2015,10,25),datetime.date(2016,10,30),datetime.date(2017,10,29),
+           datetime.date(2018,10,28),datetime.date(2019,10,27)]
+    
+####################################################################################################
 def AddHolidaysDate(vd):
     
   ##### codifica numerica delle vacanze
@@ -86,16 +94,18 @@ def GetRicDateGeneral(dtf):
             return monthrangey1[dow_countery1]
         else:
             try: 
-                cand = monthrangey1[dow_countery11.index(dow_countery1)+1]
+                cand = monthrangey1[dow_countery11[dow_countery11.index(dow_countery1)-1]]
             except:
-                cand = monthrangey1[dow_countery11.index(dow_countery1)-1]
+                cand = monthrangey1[dow_countery11[dow_countery11.index(dow_countery1)+1]]
             return cand    
     else:
         return GetRicHoliday(dtf)
 ####################################################################################################
 def GetRicHoliday(vd):
-    pasquetta = [datetime.date(2015,4,6), datetime.date(2016,3,28), datetime.date(2017,4,17),datetime.date(2018,4,1)]
-    pasqua = [datetime.date(2015,4,5), datetime.date(2016,3,27), datetime.date(2017,4,16),datetime.date(2018,4,2)]
+    pasquetta = [datetime.date(2015,4,6), datetime.date(2016,3,28), datetime.date(2017,4,17),datetime.date(2018,4,1),
+                 datetime.date(2019,4,21)]
+    pasqua = [datetime.date(2015,4,5), datetime.date(2016,3,27), datetime.date(2017,4,16),datetime.date(2018,4,2),
+              datetime.date(2018,4,22)]
 
     if vd.month == 1 and vd.day == 1:
         return datetime.date(vd.year - 1, 1,1)
@@ -126,20 +136,26 @@ def GetRicHoliday(vd):
 ####################################################################################################
 def GetPUNRic(year):
     
-    pun = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2017/06. MI/DB_Borse_Elettriche_PER MI_17_conMacro_072017.xlsm', sheetname = 'DB_Dati')
-    pun2 = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx', sheetname = 'DB_Dati')
-    pun3 = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2015/06. MI/DB_Borse_Elettriche.xlsx', sheetname = 'DB_Dati')
+    pun = pd.read_excel('C:/Users/utente/Documents/shinyapp/pun_forward_2018.xlsx')
+    pun2 = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2017/06. MI/DB_Borse_Elettriche_PER MI_17_conMacro_072017.xlsm', sheetname = 'DB_Dati')
+    pun3 = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx', sheetname = 'DB_Dati')
+    #pun4 = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2015/06. MI/DB_Borse_Elettriche.xlsx', sheetname = 'DB_Dati')
     
     pun = pun[pun.columns[:13]]    
     pun2 = pun2[pun2.columns[:13]]    
     pun3 = pun3[pun3.columns[:13]]    
     
-    pun.columns = [[u'Date', u'Year', u'Quarter', u'Month', u'Week', u'Week Day', u'Day',
+    pun = pun.set_index(pun.date.dt.to_pydatetime())    
+    pun2 = pun2.set_index(pun2.Date.dt.to_pydatetime())    
+    pun3 = pun3.set_index(pun3.Date.dt.to_pydatetime())    
+    
+    pun.columns = [[u'date', u'Month', u'Day', u'Hour', u'Week.Day', u'Quarter', u'PK.OP',
+       u'AEEG.181.06', u'PUN', u'real']]
+    pun2.columns = [[u'Date', u'Year', u'Quarter', u'Month', u'Week', u'Week Day', u'Day',
        u'Hour', u'Lavorativo/Festivo', u'Weekend', u'PEAK-OFF PEAK',
        u'AEEG 181/06', u'PUN']]
        
-    pun2.columns = pun.columns  
-    pun3.columns = pun.columns
+    pun3.columns = pun2.columns
     
     rowmax = 8784 if year % 4 == 0 else 8760
     diz = OrderedDict()
@@ -150,10 +166,29 @@ def GetPUNRic(year):
         ricd = GetRicDateGeneral(d.date())
         ricd2 = GetRicDateGeneral(ricd)
         ricd3 = GetRicDateGeneral(ricd2)
+        ricd = ricd.to_pydatetime().date() if isinstance(ricd, pd.Timestamp) else ricd
+        ricd2 = ricd2.to_pydatetime().date() if isinstance(ricd2, pd.Timestamp) else ricd2
+        ricd3 = ricd3.to_pydatetime().date() if isinstance(ricd3, pd.Timestamp) else ricd3
         if ricd <= datetime.datetime.now().date():
-            ricpun = 0.9 * pun.PUN.ix[pun.Date == ricd].values.ravel() + 0.1 * pun2.PUN.ix[pun2.Date == ricd2].values.ravel()
+            x = pun.PUN.ix[pun.index.date == ricd].values.ravel()
+            y = pun2.PUN.ix[pun2.index.date == ricd2].values.ravel()
+            if x.size == y.size:
+                ricpun = 0.9 * x + 0.1 * y
+            elif x.size == 24 and y.size == 23:
+                y = np.concatenate((y[:3], np.array([0]), y[3:]))
+            else:
+                x = np.concatenate((x[:3], np.array([0]), x[3:]))            
+            ricpun = 0.9 * x + 0.1 * y
         else:
-            ricpun = 0.9 * pun2.PUN.ix[pun2.Date == ricd2].values.ravel() + 0.1 * pun3.PUN.ix[pun3.Date == ricd3].values.ravel()
+            x = pun2.PUN.ix[pun2.index.date == ricd2].values.ravel()
+            y = pun3.PUN.ix[pun3.index.date == ricd3].values.ravel()
+            if x.size == y.size:
+                ricpun = 0.9 * x + 0.1 * y
+            elif x.size == 24 and y.size == 23:
+                y = np.concatenate((y[:3], np.array([0]), y[3:]))
+            else:
+                x = np.concatenate((x[:3], np.array([0]), x[3:]))            
+            ricpun = 0.9 * x + 0.1 * y
         RP.extend(ricpun.tolist())
     
     diz['pun'] = RP
