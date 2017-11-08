@@ -18,15 +18,16 @@ from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from sklearn.model_selection import train_test_split
 from collections import OrderedDict
 import scipy
+import matplotlib.pyplot as plt
 
 ####################################################################################################
-def AssociateDaylightSavings(vd, year):
-    leg = [datetime.date(2015,3,29),datetime.date(2016,3,27),datetime.date(2017,3,26),
-           datetime.date(2018,3,25),datetime.date(2019,3,31)]
-           
-    sol = [datetime.date(2015,10,25),datetime.date(2016,10,30),datetime.date(2017,10,29),
-           datetime.date(2018,10,28),datetime.date(2019,10,27)]
-    
+#def AssociateDaylightSavings(vd, year):
+#    leg = [datetime.date(2015,3,29),datetime.date(2016,3,27),datetime.date(2017,3,26),
+#           datetime.date(2018,3,25),datetime.date(2019,3,31)]
+#           
+#    sol = [datetime.date(2015,10,25),datetime.date(2016,10,30),datetime.date(2017,10,29),
+#           datetime.date(2018,10,28),datetime.date(2019,10,27)]
+#    
 ####################################################################################################
 def AddHolidaysDate(vd):
     
@@ -136,6 +137,12 @@ def GetRicHoliday(vd):
 ####################################################################################################
 def GetPUNRic(year):
     
+    leg = [datetime.date(2015,3,29),datetime.date(2016,3,27),datetime.date(2017,3,26),
+           datetime.date(2018,3,25),datetime.date(2019,3,31)]
+           
+    sol = [datetime.date(2015,10,25),datetime.date(2016,10,30),datetime.date(2017,10,29),
+           datetime.date(2018,10,28),datetime.date(2019,10,27)]
+           
     pun = pd.read_excel('C:/Users/utente/Documents/shinyapp/pun_forward_2018.xlsx')
     pun2 = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2017/06. MI/DB_Borse_Elettriche_PER MI_17_conMacro_072017.xlsm', sheetname = 'DB_Dati')
     pun3 = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2016/06. MI/DB_Borse_Elettriche_PER MI.xlsx', sheetname = 'DB_Dati')
@@ -161,6 +168,9 @@ def GetPUNRic(year):
     diz = OrderedDict()
     dr = pd.to_datetime(pd.date_range(datetime.date(year, 1,1), datetime.date(year, 12, 31), freq = 'D'))
     
+    l = 0.5
+    l2 = 0.5    
+    
     RP = []
     for d in dr:
         ricd = GetRicDateGeneral(d.date())
@@ -169,26 +179,30 @@ def GetPUNRic(year):
         ricd = ricd.to_pydatetime().date() if isinstance(ricd, pd.Timestamp) else ricd
         ricd2 = ricd2.to_pydatetime().date() if isinstance(ricd2, pd.Timestamp) else ricd2
         ricd3 = ricd3.to_pydatetime().date() if isinstance(ricd3, pd.Timestamp) else ricd3
-        if ricd <= datetime.datetime.now().date():
-            x = pun.PUN.ix[pun.index.date == ricd].values.ravel()
-            y = pun2.PUN.ix[pun2.index.date == ricd2].values.ravel()
-            if x.size == y.size:
-                ricpun = 0.9 * x + 0.1 * y
-            elif x.size == 24 and y.size == 23:
-                y = np.concatenate((y[:3], np.array([0]), y[3:]))
+        if ricd2 <= datetime.datetime.now().date():
+            if ((not ricd in leg) or (not ricd in sol)) and ((not ricd2 in leg) or (not ricd2 in sol)):
+                x = pun.PUN.ix[pun.index.date == ricd].values.ravel()[:24]
+                y = pun2.PUN.ix[pun2.index.date == ricd2].values.ravel()[:24]
             else:
-                x = np.concatenate((x[:3], np.array([0]), x[3:]))            
-            ricpun = 0.9 * x + 0.1 * y
+                if x.size == y.size:
+                    ricpun = l * x + l2 * y
+                elif x.size == 24 and y.size == 23:
+                    y = np.concatenate((y[:3], np.array([0]), y[3:]))
+                else:
+                    x = np.concatenate((x[:3], np.array([0]), x[3:]))            
+            ricpun = l * x + l2 * y
         else:
-            x = pun2.PUN.ix[pun2.index.date == ricd2].values.ravel()
-            y = pun3.PUN.ix[pun3.index.date == ricd3].values.ravel()
-            if x.size == y.size:
-                ricpun = 0.9 * x + 0.1 * y
-            elif x.size == 24 and y.size == 23:
-                y = np.concatenate((y[:3], np.array([0]), y[3:]))
+            if ((not ricd in leg) or (not ricd in sol)) and ((not ricd3 in leg) or (not ricd3 in sol)):
+                x = pun.PUN.ix[pun.index.date == ricd].values.ravel()[:24]
+                y = pun3.PUN.ix[pun3.index.date == ricd3].values.ravel()[:24]
             else:
-                x = np.concatenate((x[:3], np.array([0]), x[3:]))            
-            ricpun = 0.9 * x + 0.1 * y
+                if x.size == y.size:
+                    ricpun = l * x + l2 * y
+                elif x.size == 24 and y.size == 23:
+                    y = np.concatenate((y[:3], np.array([0]), y[3:]))
+                else:
+                    x = np.concatenate((x[:3], np.array([0]), x[3:]))            
+            ricpun = l * x + l2 * y
         RP.extend(ricpun.tolist())
     
     diz['pun'] = RP
