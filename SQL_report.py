@@ -25,6 +25,254 @@ cursor = connection.cursor()
 
 txt = open('C:/Users/utente/Documents/SQL/Argon_File_1.txt','r').read()
 
+sql = '''
+select extract (year from dp.d_periodo) anno_competenza,
+         d.ds_intestatario cliente,
+         d.cd_intestatario cod_cliente,
+         d.s_cf_int codice_fiscale,
+         d.s_p_iva_int partita_iva,
+         i.s_indirizzo indirizzo,
+         i.s_cap cap,
+         lf.ds_localita comune,
+         prf.s_sigla prov,
+         dp.s_pod_pdr pod,
+         pe.s_presa presa,
+         distr.ds_distributore distributore,
+         d.s_fattura_def num,
+         case when max (d.n_importo) >= 0 then 'FAT' else 'NCR' end tipo,
+         max (rb.n_imp_doc) fattura_totale_impo,
+         max (d.n_da_pagare) fattura_totale,
+         max (d.n_importo) - max (rb.n_imp_doc) iva_totale,
+         sum (case when rb.cd_componente like 'IVA_%' then 0 else rb.n_imp end) sito_imponibile,
+         round (sum (case when rb.cd_componente like 'IVA_%'  then 0 else rb.n_imp end * rb.n_aliquota_iva / 100), 2)
+            sito_iva,
+         sum (case when rb.cd_componente like 'IVA_%'  then 0 else rb.n_imp end)
+         + round (sum (case when rb.cd_componente like 'IVA_%'  then 0 else rb.n_imp end * rb.n_aliquota_iva / 100), 2)
+            sito_totale,
+         nvl(max(case when  rb.cd_componente != 'BOLLO' then rb.s_codice_iva else null end),'')  iva,
+         d.d_emissione data_fattura,
+         dp.n_pot_disp potenza_disp,
+         extract (month from d.d_emissione) mese_emiss,
+         extract (month from dp.d_periodo) mese_comp,
+         nvl(sum (case when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%F0'  and c.cd_componente not like ('SC%') then rb.n_qta else null end),0) kwh_f0,
+         nvl(sum (case when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%F1'  and c.cd_componente not like ('SC%') then rb.n_qta else null end),0) kwh_f1,
+         nvl(sum (case when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%F2'  and c.cd_componente not like ('SC%') then rb.n_qta else null end),0) kwh_f2,
+         nvl(sum (case when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%F3'  and c.cd_componente not like ('SC%') then rb.n_qta else null end),0) kwh_f3,
+         nvl (cast (null as number),0) kwh_f4,
+         nvl(sum (case when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%FP' and c.cd_componente not like ('SC%') then rb.n_qta else null end),0) kwh_opi,
+         nvl(sum (case when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%FOP' and c.cd_componente not like ('SC%') then rb.n_qta else null end),0) kwh_ofp,
+         nvl(sum (case when c.cd_tp_riga = 'PERDITE_EE' and c.cd_componente like '%F0'  then rb.n_qta else null end),0) perdite_f0,
+         nvl(sum (case when c.cd_tp_riga = 'PERDITE_EE' and c.cd_componente like '%F1'  then rb.n_qta else null end),0) perdite_f1,
+         nvl(sum (case when c.cd_tp_riga = 'PERDITE_EE' and c.cd_componente like '%F2' then rb.n_qta else null end),0) perdite_f2,
+         nvl(sum (case when c.cd_tp_riga = 'PERDITE_EE' and c.cd_componente like '%F3'  then rb.n_qta else null end),0) perdite_f3,
+         nvl (cast (null as number),0) perdite_f4,
+         nvl(sum (case when c.cd_tp_riga = 'PERDITE_EE' and c.cd_componente like '%FP'  then rb.n_qta else null end),0)  perdite_opi,
+         nvl(sum (case when c.cd_tp_riga = 'PERDITE_EE' and c.cd_componente like '%FOP'  then rb.n_qta else null end),0) perdite_ofp,
+        nvl( max (
+            case
+               when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%F0'  and rb.fl_acconto = 'N' then rb.n_prz
+               else null
+            end),0)
+            prezzo_f0,
+         nvl(max (
+            case
+               when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%F1'  and rb.fl_acconto = 'N' then rb.n_prz
+               else null
+            end),0)
+            prezzo_f1,
+         nvl(max (
+            case
+               when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%F2'  and rb.fl_acconto = 'N' then rb.n_prz
+               else null
+            end),0)
+            prezzo_f2,
+         nvl(max (
+            case
+               when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%F3'  and rb.fl_acconto = 'N' then rb.n_prz
+               else null
+            end),0)
+            prezzo_f3,
+         nvl(cast (null as number),0) prezzo_f4,
+         nvl(max (
+            case
+               when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%FP'  and rb.fl_acconto = 'N' then rb.n_prz
+               else null
+            end),0)
+            prezzo_opi,
+nvl(max (
+            case
+               when c.cd_tp_riga = 'PREZZO_EE' and c.cd_componente like '%OP'  and rb.fl_acconto = 'N' then rb.n_prz
+               else null
+            end),0)
+            prezzo_ofp,         
+nvl(sum (case when c.cd_tp_riga in ('PREZZO_EE', 'PERDITE_EE')  then rb.n_imp else null end),0) approvvigionamento_energia,
+         nvl(sum (case when c.cd_tp_riga in ('VARIE_EE','SCONTO_EE')  and rb.n_prz < 0 then rb.n_imp else null end),0) sconti_magg,
+         nvl(sum (case when c.cd_tp_riga in ('VARIE_EE')  and rb.n_prz >= 0 then rb.n_imp else null end),0) spred,
+         nvl(sum (case when rrg.cd_grp_righe in ('EE_MAGGIORAZ')  then rb.n_imp else null end),0) oneri_e_maggiorazioni,
+         nvl(sum (case when c.cd_tp_riga in ('DISTRIB_EE', 'MISURA_EE', 'TRAS_EE')  then rb.n_imp else null end),0) trasporto,
+         nvl (sum (case when c.cd_tp_riga = 'REATTIVA_EE'  and rb.n_imp <> 0 then rb.n_qta else null end), 0) kvarh,
+         nvl(sum (case when c.cd_tp_riga = 'REATTIVA_EE'  then rb.n_imp else null end),0) imp_kvarh,
+         nvl(sum (case when c.cd_componente = 'DISP_COPERT_COSTI'  then rb.n_imp else null end),0) imp_od,
+         nvl(sum (case when c.cd_componente = 'DISP_FUNZ_TERNA'  then rb.n_imp else null end),0) imp_dis,
+         nvl(sum (case when c.cd_componente = 'DISPACC_CD'  then rb.n_imp else null end),0) imp_cd,
+         nvl(sum (case when c.cd_componente = 'DISPACC_INT'  then rb.n_imp else null end),0) imp_int,
+         nvl(sum (case when c.cd_componente = 'DISPACCIAMENTO_QF' then rb.n_imp else null end),0) imp_aggmis,
+         nvl(sum (case when c.cd_componente = 'DISPACC_ART_25' then rb.n_imp else null end),0) art_25_bis,
+         nvl(sum (case when c.cd_componente = 'DISPACC_ART_44_BIS' then rb.n_imp else null end),0) art_44_bis,
+         nvl(sum (case when c.cd_componente = 'CORR_SQUIL_PEREQ' then rb.n_imp else null end),0) corrispettivo_squil_pereq,
+         nvl(sum (case when c.cd_tp_riga in ('DISPACCIAM_EE', 'DISP_BT_EE')  then rb.n_imp else null end),0) tot_dispacciamento,
+         nvl(sum (
+            case
+               when rrg.cd_grp_righe in ('EE_IMPOSTE') and rb.cd_componente not like '%ADDIZ%' then rb.n_qta
+               else null
+            end),0)
+            consumi_erario,
+         nvl(max (
+            case
+               when rrg.cd_grp_righe in ('EE_IMPOSTE') and rb.cd_componente not like '%ADDIZ%' then rb.n_prz
+               else null
+            end),0)
+            corrispettivo_erario,
+         nvl(sum (
+            case
+               when rrg.cd_grp_righe in ('EE_IMPOSTE') and rb.cd_componente not like '%ADDIZ%' then rb.n_imp
+               else null
+            end),0)
+            imponibile_erario,
+         nvl(sum (case when rb.cd_componente = 'BOLLO' then rb.n_imp else null end),0) bolli,
+         nvl(sum (case when c.cd_componente = 'COFER'   then rb.n_imp else null end),0) qual_serv,
+         nvl(sum (case when c.cd_componente = 'ADJ_FATT_PASSIVA' then rb.n_imp else null end),0) gest_conn,
+         dp.cd_tp_misuratore,
+         dp.CD_PRODOTTO,
+         max(cfr.n_valore) n_prz_cofer,
+         agenzie.s_denominazione AGENZIA,
+          nvl(sum (
+            case
+               when rrg.cd_grp_righe in ('FATT_PASS') and rb.cd_componente  = 'ADJ_FATT_PASSIVA_247' then rb.n_imp
+               else null
+            end),0)
+            ADJ_FATT_PASSIVA_247,
+                      nvl(sum (
+            case
+               when rrg.cd_grp_righe in ('FATT_PASS') and rb.cd_componente  = 'CORR_CMOR' then rb.n_imp
+               else null
+            end),0)
+            CORR_CMOR,
+         nvl(max (case when mis_ff.n_ener_attiva_f1 is null then misure.n_ener_attiva else null end), 0) f0_misura, 
+         nvl(max (mis_ff.n_ener_attiva_f1), 0) f1_misura, 
+         nvl(max (mis_ff.n_ener_attiva_f2), 0) f2_misura,  
+         nvl(max (mis_ff.n_ener_attiva_f3), 0) f3_misura, 
+         nvl(max (case when mis_ff_cng.n_ener_attiva_f1 is null then mis_cng.n_ener_attiva else null end), 0) f0_misura_cng, 
+         nvl(max (mis_ff_cng.n_ener_attiva_f1), 0) f1_misura_cng, 
+         nvl(max (mis_ff_cng.n_ener_attiva_f2), 0) f2_misura_cng,  
+         nvl(max (mis_ff_cng.n_ener_attiva_f3), 0) f3_misura_cng,
+         nvl(SEZ.S_CAUSALE_REG, '') protocollo,
+         dp.d_iniz_forn data_inizio,
+         dp.d_fine_forn data_fine,
+         nvl(sum (case when c.cd_componente = 'BONUS_EE_DISTR' then rb.n_imp else null end),0) bonus_ee
+         from mnh_billing.t_documenti d
+         join mnh_billing.r_doc_periodi dp
+            on dp.id_documento = d.id_documento
+         left JOIN mnh_billing.poker_sezionali sez
+          ON sez.id_fornitore = d.id_fornitore
+          and sez.cd_sezionale = d.cd_sezionale
+          and fl_segno = CASE
+                         WHEN d.n_importo < 0
+                         THEN '-'
+                         ELSE '+'
+                         END
+         join mnh_common.t_punti_el_st pe
+            on pe.cd_punto = dp.cd_punto and dp.d_periodo between pe.d_valido_dal and nvl (pe.d_valido_al, dp.d_periodo)
+         JOIN mnh_common.t_agenti agenti
+            ON d.cd_Agente = agenti.cd_Agente    
+         JOIN mnh_common.t_agenzie agenzie 
+            ON   agenzie.cd_agenzia = agenti.cd_agenzia 
+         left join mnh_common.t_indirizzi i
+            on i.id_indirizzo = pe.id_indirizzo_forn
+         left join mnh_common.t_geo_localita lf
+            on lf.id_localita = i.id_localita
+         left join mnh_common.t_geo_province prf
+            on prf.id_provincia = lf.id_provincia
+         left join mnh_common.t_distributori distr
+            on distr.cd_distributore = dp.cd_distributore
+         left join mnh_billing.v_aut_rg_billing rb
+            on     rb.id_documento = dp.id_documento
+               and rb.id_fornitura = dp.id_fornitura
+               and rb.d_periodo = dp.d_periodo
+               and rb.fl_contabilizza = 'S'
+         left join mnh_billing.t_componenti c
+            on c.cd_componente = rb.cd_componente
+         left join mnh_billing.r_righe_gruppi rrg
+            on rrg.cd_tp_riga = c.cd_tp_riga
+               and rrg.cd_grp_righe in
+                      ('EE_TRASP',
+                       'EE_DISPACC',
+                       'EE_VARIE',
+                       'EE_IMPOSTE',
+                       'EE_MAGGIORAZ',
+                       'EE_APPROV',
+                       'FATT_PASS',
+                       'INT_MORA',
+                       'BOLLO')
+                       left join mnh_common.v_sys_cst_prop_punti cfr
+                       on cfr.cd_punto = dp.cd_punto
+                       and cfr.cd_cst_prop = 'COFER'
+                       and dp.d_periodo between cfr.d_valido_dal and nvl(cfr.d_valido_al, dp.d_periodo)
+       left join mnh_billing.t_misure_ee misure 
+            on misure.id_misura = dp.id_misura  
+       left join
+                (select *
+                   from (select id_misura, cd_fascia, n_ener_attiva
+                           from mnh_billing.t_mis_ee_ff) 
+                             pivot (sum (n_ener_attiva)
+                                    for cd_fascia in ('F1' as n_ener_attiva_f1,
+                                                      'F2' as n_ener_attiva_f2,
+                                                      'F3' as n_ener_attiva_f3))) mis_ff
+             on (mis_ff.id_misura = misure.id_misura)  
+       left join mnh_billing.r_doc_periodi dpcng
+            on (dpcng.id_documento = dp.id_doc_cng 
+                and dpcng.d_periodo = dp.d_periodo 
+                and dpcng.id_fornitura = dp.id_fornitura) 
+       left join mnh_billing.t_misure_ee mis_cng 
+            on mis_cng.id_misura = dpcng.id_misura  
+       left join
+                (select *
+                   from (select id_misura, cd_fascia, n_ener_attiva
+                           from mnh_billing.t_mis_ee_ff) 
+                             pivot (sum (n_ener_attiva)
+                                    for cd_fascia in ('F1' as n_ener_attiva_f1,
+                                                      'F2' as n_ener_attiva_f2,
+                                                      'F3' as n_ener_attiva_f3))) mis_ff_cng
+             on (mis_ff_cng.id_misura = mis_cng.id_misura)                           
+where d.d_emissione between [inizio_emissione:D:01/01/2013] and [fine_emissione:D:01/03/2013]  
+and d.id_stato < 1000 and dp.fl_virtuale = 'N'
+group by d.id_documento,
+         dp.d_periodo,
+         SEZ.S_CAUSALE_REG,
+         dp.s_pod_pdr,
+         dp.d_iniz_forn,
+         dp.d_fine_forn,
+         d.s_p_iva_int,
+         d.cd_intestatario,
+         d.ds_intestatario,
+         i.s_indirizzo,
+         lf.ds_localita,
+         distr.ds_distributore,
+         dp.n_pot_disp,
+         d.s_fattura_def,
+         d.d_emissione,
+         d.s_cf_int,
+         i.s_cap,
+         prf.s_sigla,
+         pe.s_presa,
+         dp.cd_tp_misuratore,
+         dp.cd_prodotto,
+         agenzie.s_denominazione
+order by cliente, pod;
+'''
+cursor.execute(sql)
+
+
 sql = u''
 with open('C:/Users/utente/Documents/SQL/Argon_File_1.txt','r') as inserts:
     for statement in inserts:
