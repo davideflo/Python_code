@@ -39,6 +39,8 @@ dbzre = dbz.resample('D').sum()/1000
 maxS = dbz.resample('D').sum().max(axis = 1)/1000
 plt.figure()
 plotting.autocorrelation_plot(maxS, color = 'red')
+plt.figure()
+plt.hist(maxS, bins = 20, color = 'yellow')
 
 diz = OrderedDict()
 maxS = []
@@ -56,7 +58,10 @@ diz['H'] = hours
 diz = pd.DataFrame.from_dict(diz, orient = 'columns')
 
 plt.figure()
-diz.H.hist(bins = 20)
+diz.M.ix[diz.dow <= 4].hist(bins = 20, color = 'yellow')
+plt.figure()
+diz.M.ix[diz.dow <= 4].plot(color = 'red', marker = 'o')
+
 
 c = ['red', 'navy', 'green', 'magenta', 'grey', 'black', 'violet']
 for i in range(7):
