@@ -137,11 +137,11 @@ def GetRicHoliday(vd):
 ####################################################################################################
 def GetPUNRic(year):
     
-    leg = [datetime.date(2015,3,29),datetime.date(2016,3,27),datetime.date(2017,3,26),
-           datetime.date(2018,3,25),datetime.date(2019,3,31)]
-           
-    sol = [datetime.date(2015,10,25),datetime.date(2016,10,30),datetime.date(2017,10,29),
-           datetime.date(2018,10,28),datetime.date(2019,10,27)]
+#    leg = [datetime.date(2015,3,29),datetime.date(2016,3,27),datetime.date(2017,3,26),
+#           datetime.date(2018,3,25),datetime.date(2019,3,31)]
+#           
+#    sol = [datetime.date(2015,10,25),datetime.date(2016,10,30),datetime.date(2017,10,29),
+#           datetime.date(2018,10,28),datetime.date(2019,10,27)]
            
     pun = pd.read_excel('C:/Users/utente/Documents/shinyapp/pun_forward_2018.xlsx')
     pun2 = pd.read_excel('H:/Energy Management/04. WHOLESALE/02. REPORT PORTAFOGLIO/2017/06. MI/DB_Borse_Elettriche_PER MI_17_conMacro_072017.xlsm', sheetname = 'DB_Dati')
@@ -165,11 +165,11 @@ def GetPUNRic(year):
     pun3.columns = pun2.columns
     
     rowmax = 8784 if year % 4 == 0 else 8760
-    diz = OrderedDict()
+    #diz = OrderedDict()
     dr = pd.to_datetime(pd.date_range(datetime.date(year, 1,1), datetime.date(year, 12, 31), freq = 'D'))
     
-    l = 0.5
-    l2 = 0.5    
+    l = 0.9
+    l2 = 1 - l    
     
     RP = []
     for d in dr:
@@ -180,32 +180,51 @@ def GetPUNRic(year):
         ricd2 = ricd2.to_pydatetime().date() if isinstance(ricd2, pd.Timestamp) else ricd2
         ricd3 = ricd3.to_pydatetime().date() if isinstance(ricd3, pd.Timestamp) else ricd3
         if ricd2 <= datetime.datetime.now().date():
-            if ((not ricd in leg) or (not ricd in sol)) and ((not ricd2 in leg) or (not ricd2 in sol)):
-                x = pun.PUN.ix[pun.index.date == ricd].values.ravel()[:24]
-                y = pun2.PUN.ix[pun2.index.date == ricd2].values.ravel()[:24]
+            x = pun.PUN.ix[pun.index.date == ricd].values.ravel()[:24]
+            y = pun2.PUN.ix[pun2.index.date == ricd2].values.ravel()[:24]
+            if x.size == y.size and x.size == 23:
+                y = np.concatenate((y[:3], np.array([0]), y[3:]))
+                x = np.concatenate((x[:3], np.array([0]), x[3:]))                    
+            elif x.size == 24 and y.size == 23:
+                y = np.concatenate((y[:3], np.array([0]), y[3:]))
+            elif x.size == 23 and y.size == 24:
+                x = np.concatenate((x[:3], np.array([0]), x[3:]))            
+            elif x.size == 24 and y.size == 25:
+                y = np.concatenate((y[:2], np.array(y[2] + y[3]), y[4:]))
+            elif x.size == 25 and y.size == 24:
+                x = np.concatenate((x[:2], np.array(x[2] + x[3]), x[4:]))
+            elif x.size == y.size and y.size == 25:
+                y = np.concatenate((y[:2], np.array(y[2] + y[3]), y[4:]))
+                x = np.concatenate((x[:2], np.array(x[2] + x[3]), x[4:]))
             else:
-                if x.size == y.size:
-                    ricpun = l * x + l2 * y
-                elif x.size == 24 and y.size == 23:
-                    y = np.concatenate((y[:3], np.array([0]), y[3:]))
-                else:
-                    x = np.concatenate((x[:3], np.array([0]), x[3:]))            
+                x = x
+                y = y
             ricpun = l * x + l2 * y
+            RP.extend(ricpun.tolist())
         else:
-            if ((not ricd in leg) or (not ricd in sol)) and ((not ricd3 in leg) or (not ricd3 in sol)):
-                x = pun.PUN.ix[pun.index.date == ricd].values.ravel()[:24]
-                y = pun3.PUN.ix[pun3.index.date == ricd3].values.ravel()[:24]
+            x = pun.PUN.ix[pun.index.date == ricd].values.ravel()[:24]
+            y = pun3.PUN.ix[pun3.index.date == ricd3].values.ravel()[:24]
+            if x.size == y.size and x.size == 23:
+                y = np.concatenate((y[:3], np.array([0]), y[3:]))
+                x = np.concatenate((x[:3], np.array([0]), x[3:]))                    
+            elif x.size == 24 and y.size == 23:
+                y = np.concatenate((y[:3], np.array([0]), y[3:]))
+            elif x.size == 23 and y.size == 24:
+                x = np.concatenate((x[:3], np.array([0]), x[3:]))            
+            elif x.size == 24 and y.size == 25:
+                y = np.concatenate((y[:2], np.array(y[2] + y[3]), y[4:]))
+            elif x.size == 25 and y.size == 24:
+                x = np.concatenate((x[:2], np.array(x[2] + x[3]), x[4:]))
+            elif x.size == y.size and y.size == 25:
+                y = np.concatenate((y[:2], np.array(y[2] + y[3]), y[4:]))
+                x = np.concatenate((x[:2], np.array(x[2] + x[3]), x[4:]))
             else:
-                if x.size == y.size:
-                    ricpun = l * x + l2 * y
-                elif x.size == 24 and y.size == 23:
-                    y = np.concatenate((y[:3], np.array([0]), y[3:]))
-                else:
-                    x = np.concatenate((x[:3], np.array([0]), x[3:]))            
+                x = x
+                y = y
             ricpun = l * x + l2 * y
-        RP.extend(ricpun.tolist())
+            RP.extend(ricpun.tolist())
     
-    diz['pun'] = RP
+    diz = {'pun':  RP}
     diz = pd.DataFrame.from_dict(diz, orient = 'columns').set_index(pd.date_range(datetime.date(year, 1,1), datetime.date(year + 1, 12, 31), freq = 'H')[:rowmax])
     
     return diz
