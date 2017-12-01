@@ -16,7 +16,7 @@ from os import listdir
 from os.path import isfile, join
 import unidecode
 import datetime
-import time
+#import time
 
 ####################################################################################################
 ####################################################################################################
@@ -411,10 +411,10 @@ num_nuovi_remi_snam = len(list(set(cgsnam['REMI'].values.tolist()).difference(se
 #    newremi = pd.DataFrame.from_dict(newremi, orient = 'index')
 #    newremi = newremi.reset_index(drop = True)
 #    newremi.columns = [['REMI', 'AREA', '10', '11', '12', '1', '2', '3', '4', '5', '6', '7', '8', '9']]
-time.sleep(2)
-print('#############################################################################################')
-print('ci sono {} nuovi REMI da SNAM!'.format(num_nuovi_remi_snam))
-print('#############################################################################################')
+#time.sleep(2)
+#print('#############################################################################################')
+#print('ci sono {} nuovi REMI da SNAM!'.format(num_nuovi_remi_snam))
+#print('#############################################################################################')
 
 
 #cgsnam = cgsnam.append(cleanDF(NRemi).dropna(), ignore_index = True)    
@@ -501,11 +501,11 @@ if newremi.shape[0] > 0:
     
 Rg2 = Rg.groupby('REMI')
 Rg2 = Rg2.agg(sum)
-
-time.sleep(2)
-print('#############################################################################################')
-print('ci sono {} nuovi REMI da RETRAGAS!'.format(num_nuovi_remi_retragas))
-print('#############################################################################################')
+#
+#time.sleep(2)
+#print('#############################################################################################')
+#print('ci sono {} nuovi REMI da RETRAGAS!'.format(num_nuovi_remi_retragas))
+#print('#############################################################################################')
 
 
 #Rg = Rg.append(NRemi, ignore_index = True)
@@ -587,11 +587,11 @@ sg = sg.append(newremi, ignore_index = True)
 
 sg2 = sg.groupby('REMI')
 sg2 = sg2.agg(sum)
-
-time.sleep(2)
-print('#############################################################################################')
-print('ci sono {} nuovi REMI da SGI!'.format(num_nuovi_remi_sgi))
-print('#############################################################################################')
+#
+#time.sleep(2)
+#print('#############################################################################################')
+#print('ci sono {} nuovi REMI da SGI!'.format(num_nuovi_remi_sgi))
+#print('#############################################################################################')
 
 #print '#############################################################################################'
 #print '#############################################################################################'
