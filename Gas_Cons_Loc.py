@@ -144,17 +144,57 @@ def DaConferire(l, prof, setmonth, pp):
     else:
         return l[0]
 ####################################################################################################
+def GetYears():
+    A = datetime.datetime.now().year
+    current_month = datetime.datetime.now().month
+    if 2 > current_month:
+        return list(range(A-2, A))
+    elif current_month == 2:
+        return [A-1]
+    else:
+        return list(range(A-1, A+1))
+####################################################################################################
+def GetMonths():
+    current_month = datetime.datetime.now().month - 2
+    if current_month == -1: ### Gennaio
+        return [12], list(range(1,12))
+    elif current_month == 0: ### Febbraio
+        return [],list(range(1,13))
+    elif current_month == 1: ### Marzo
+        return list(range(2,13)),[1]
+    elif current_month == 2: ### Aprile
+        return list(range(3,13)),[1,2]
+    elif current_month == 3: ### Maggio
+        return list(range(4,13)),list(range(1, 4))
+    elif current_month == 4: ### Giugno
+        return list(range(5,13)),list(range(1, 5))
+    elif current_month == 5: ### Luglio
+        return list(range(6,13)),list(range(1, 6))
+    elif current_month == 6: ### Agosto
+        return list(range(7,13)),list(range(1, 7))
+    elif current_month == 7: ### Settembre
+        return list(range(8,13)),list(range(1, 8))
+    elif current_month == 8: ### Ottobre
+        return list(range(9,13)),list(range(1, 9))
+    elif current_month == 9: ### Novembre
+        return list(range(10,13)),list(range(1, 10))
+    else: ### Dicembre
+        return list(range(11,13)),list(range(1, 11))
+####################################################################################################        
 
-doc1 = "Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2017-2018/20171102 Report Fatturato Gas_Settembre.xlsx"
+doc1 = "Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2017-2018/20171201 Report Fatturato Gas_Ottobre.xlsx"
 #doc2 = 'C:/Users/d_floriello/Downloads/170206-101449-218.xls'
-doc2 = "Z:/AREA ENERGY MANAGEMENT GAS/ESITI TRASPORTATORI/17-18 Anagrafica Clienti.xlsx"
-doc3 = "Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1711/Anagrafica TIS EVOLUTION.xlsm"
+#doc2 = "Z:/AREA ENERGY MANAGEMENT GAS/ESITI TRASPORTATORI/17-18 Anagrafica Clienti.xlsx"
+doc2 = "Z:/AREA ENERGY MANAGEMENT GAS/Transizione shipper/AT 2017-2018/20171201 Trasferimenti Gennaio 2018.xlsx"
+doc3 = "Z:/AREA ENERGY MANAGEMENT GAS/Aggiornamento Anagrafico Gas/1712/Anagrafica TIS EVOLUTION.xlsm"
 
 
-df181 = pd.read_excel(doc1, sheetname = 'Fatturato Gas', skiprows = [0,1], converters={'PDR': str,'REMI': str,
+df181 = pd.read_excel(doc1, sheetname = 'Report fatturato GAS', skiprows = [0,1], converters={'PDR': str,'REMI': str,
                       'COD_CLIENTE': str})
-df218 = pd.read_excel(doc2, sheetname = 'Anagrafica EE+GAS_Globale', skiprows = [0,1], converters={'FORNITURA_POD': str, 
-                      'CLIENTE_CODICE': str, 'COD_REMI': str})
+#df218 = pd.read_excel(doc2, sheetname = 'Anagrafica EE+GAS_Globale', skiprows = [0,1], converters={'FORNITURA_POD': str, 
+#                      'CLIENTE_CODICE': str, 'COD_REMI': str})
+df218 = pd.read_excel(doc2, sheetname = 'Anagrafica', skiprows = [0], converters={'PDR': str, 'REMi': str})
+
 dfA = pd.read_excel(doc3, sheetname = 'Importazione', converters={'COD_PDR': str, 'COD_REMI': str})
 
 
@@ -163,32 +203,36 @@ prof = pd.read_excel('C:/Users/d_floriello/Documents/Profili standard di preliev
 
 prof = prof.set_index(pd.date_range(start = '2017-10-01', end = '2018-09-30', freq = 'D'))
 
+df218 = df218[df218.columns[:13]]
+df218 = df218.ix[df218['FINE FORNITURA'] > datetime.datetime.now()]
 
-years = [2016, 2017]
+years = GetYears()
 months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
-current_month = datetime.datetime.now().month - 2
-tym = list(set(months).intersection(set(np.arange(1,current_month + 1,1).tolist())))
-lym = list(set(months).difference(set(np.arange(1,current_month + 1,1).tolist())))
+#current_month = datetime.datetime.now().month - 2
+#tym = list(set(months).intersection(set(np.arange(1,current_month + 1,1).tolist())))
+#lym = list(set(months).difference(set(np.arange(1,current_month + 1,1).tolist())))    
 
-df218 = RCleaner(df218)
+lym, tym = GetMonths()
 
-cod = list(set(df218['CLIENTE_CODICE']))
+#df218 = RCleaner(df218)
+
+cod = list(set(df218['RAGIONE SOCIALE']))
 
 res = OrderedDict()
 for c in cod:
-    cdf218 = df218.ix[df218['CLIENTE_CODICE'] == c]
-    pdrs = list(set(cdf218['FORNITURA_POD'].values.tolist()))
-    remi = cdf218['COD_REMI'].values.tolist()[-1]
+    cdf218 = df218.ix[df218['RAGIONE SOCIALE'] == c]
+    pdrs = list(set(cdf218['PDR'].values.tolist()))
+    remi = cdf218['REMi'].values.tolist()[-1]
     if len(pdrs) > 0 and str(pdrs[0]) != 'nan':
         for p in pdrs:
             setm = []
             mcount = 0
             vaf = 0
-            cons_contr = cdf218['CONSUMO_CONTR_ANNUO'].ix[cdf218['FORNITURA_POD'] == p].values.tolist()[-1]
-            cons_distr = cdf218['CONSUMO_DISTRIBUTORE'].ix[cdf218['FORNITURA_POD'] == p].values.tolist()[-1]            
+            cons_contr = cdf218['CONSUMO CONTRATTUALE'].ix[cdf218['PDR'] == p].values.tolist()[-1]
+            cons_distr = cdf218['CONSUMO DISTRIBUTORE'].ix[cdf218['PDR'] == p].values.tolist()[-1]            
             pdf181 = df181.ix[df181['PDR'] == p]
-            PDR = cdf218['PROFILO_PRELIEVO'].ix[cdf218['FORNITURA_POD'] == p].values.tolist()
+            PDR = cdf218['PROFILO PRELIEVO'].ix[cdf218['PDR'] == p].values.tolist()
             if not isinstance(PDR, list):
                 PDR = [PDR]
             if len(PDR) == 0:
@@ -231,9 +275,9 @@ for c in cod:
         setm = []
         mcount = 0
         vaf = 0
-        cons_contr = cdf218['CONSUMO_CONTR_ANNUO'].ix[cdf218['COD_REMI'] == remi].values.tolist()[-1]
-        cons_distr = cdf218['CONSUMO_DISTRIBUTORE'].ix[cdf218['COD_REMI'] == remi].values.tolist()[-1]            
-        PDR = cdf218['PROFILO_PRELIEVO'].ix[cdf218['COD_REMI'] == remi].values.tolist()[-1]
+        cons_contr = cdf218['CONSUMO CONTRATTUALE'].ix[cdf218['REMi'] == remi].values.tolist()[-1]
+        cons_distr = cdf218['CONSUMO DISTRIBUTORE'].ix[cdf218['REMi'] == remi].values.tolist()[-1]            
+        PDR = cdf218['PROFILO PRELIEVO'].ix[cdf218['REMi'] == remi].values.tolist()[-1]
         if not isinstance(PDR, list):
             PDR = [PDR]
         if len(PDR) == 0:
